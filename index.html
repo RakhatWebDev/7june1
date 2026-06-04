@@ -75,7 +75,7 @@ html,body{width:100%;min-height:100%;overflow-x:hidden;background:#000;font-fami
 .cl{font-size:34px;animation:bigBounce var(--d,1s) ease infinite alternate}
 
 /* ===== POSTER ===== */
-.poster{background:linear-gradient(160deg,#1e1b4b,#312e81 50%,#1e3a5f);border:2px solid #a78bfa;border-radius:22px;padding:26px 20px;width:92%;max-width:400px;text-align:center;animation:posterReveal 1.1s cubic-bezier(0.175,.885,.32,1.275) both}
+.poster{background:linear-gradient(160deg,#1e1b4b,#312e81 50%,#1e3a5f);border:2px solid #a78bfa;border-radius:22px;padding:24px 20px;width:92%;max-width:400px;text-align:center;animation:posterReveal 1.1s cubic-bezier(0.175,.885,.32,1.275) both}
 @keyframes posterReveal{from{transform:scale(.35) rotate(-10deg);opacity:0}to{transform:scale(1) rotate(0);opacity:1}}
 .poster-orch{font-size:10px;letter-spacing:3px;text-transform:uppercase;color:#a78bfa;margin-bottom:5px}
 .poster-name{font-size:40px;font-weight:900;line-height:1;background:linear-gradient(135deg,#fde68a,#f9a8d4,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:4px}
@@ -95,25 +95,25 @@ html,body{width:100%;min-height:100%;overflow-x:hidden;background:#000;font-fami
 <canvas id="cc"></canvas>
 <canvas id="pc"></canvas>
 
+<!-- ██ S0 INTRO ██ -->
 <div class="scene on bg-space" id="s0">
   <div style="text-align:center;padding:48px 20px 28px">
-    <div style="font-size:11px;letter-spacing:4px;text-transform:uppercase;color:rgba(255,255,255,.3);margin-bottom:22px;animation:fadeUp .7s .2s both;opacity:0">Секретное послание</div>
+    <div style="font-size:11px;letter-spacing:4px;text-transform:uppercase;color:rgba(255,255,255,.3);margin-bottom:22px;animation:fadeUp .7s .2s both;opacity:0">My, Ками💕</div>
     <div style="font-size:82px;animation:mbigBounce 2s ease infinite alternate;display:block;margin-bottom:16px">📦</div>
-    <div class="title-glow" style="animation:fadeUp .7s .4s both;opacity:0">Для тебя пришёл</div>
+    <div class="title-glow" style="animation:fadeUp .7s .4s both;opacity:0">Жаным, для тебя пришёл</div>
     <div class="title-glow" style="animation:fadeUp .7s .5s both;opacity:0">особый пакет…</div>
     <p class="subtitle" style="margin-top:14px;animation:fadeUp .7s .7s both;opacity:0">Я задумал кое-что особенное.<br>Чтобы узнать — пройди квест<br>вспоминаем что мы смотрели 💕</p>
-    <button class="btn btn-gold" style="max-width:300px;margin:0 auto;animation:fadeUp .7s .9s both;opacity:0" onclick="go('s1')">🚀 Открыть посылку</button>
-    <p class="muted" style="animation:fadeUp .7s 1.1s both;opacity:0">6 вопросов · Шрек · Шрек 2 · Тачки · 1 большой сюрприз</p>
-    <div class="swipe-hint">прокрутка не нужна — просто нажимай ↑</div>
+    <button class="btn btn-gold" style="max-width:300px;margin:0 auto;animation:fadeUp .7s .9s both;opacity:0" onclick="go('s1')"> Открыть посылку</button>
   </div>
 </div>
 
+<!-- ██ S1 ШРЕК Q1 ██ -->
 <div class="scene bg-swamp" id="s1">
   <div class="step-lbl">🟢 АКТ I — ШРЕК · ВОПРОС 1 ИЗ 6</div>
   <div class="prog-bar"><div class="prog-fill" style="width:0%"></div></div>
 
   <div class="gif-wrap">
-    <img src="https://i.postimg.cc/Qdp4gW3N/1.jpg" alt="Шрек болото">
+    <img src="shrek1.jpg" alt="Шрек болото">
     <div class="gif-label">🟢 Шрек · В своём болоте</div>
   </div>
 
@@ -133,10 +133,11 @@ html,body{width:100%;min-height:100%;overflow-x:hidden;background:#000;font-fami
   </div>
 </div>
 
+<!-- ██ S1B РЕАКЦИЯ ██ -->
 <div class="scene bg-swamp" id="s1b">
   <div class="rwrap">
     <div class="circle-frame" style="border-color:#34d399">
-      <img src="https://i.postimg.cc/Qdp4gW3N/1.jpg" alt="Шрек">
+      <img src="shrek1.jpg" alt="Шрек">
     </div>
     <div class="stars-row" id="stars1"></div>
     <div class="bubble" style="max-width:370px;margin:0 auto 10px">
@@ -151,12 +152,13 @@ html,body{width:100%;min-height:100%;overflow-x:hidden;background:#000;font-fami
   </div>
 </div>
 
+<!-- ██ S2 ШРЕК Q2 ██ -->
 <div class="scene bg-swamp" id="s2">
   <div class="step-lbl">🟢 АКТ I — ШРЕК · ВОПРОС 2 ИЗ 6</div>
   <div class="prog-bar"><div class="prog-fill" style="width:17%"></div></div>
 
   <div class="gif-wrap">
-    <img src="https://i.postimg.cc/D0mRzB2Y/2.jpg" alt="Шрек и Фиона">
+    <img src="shrek2.jpg" alt="Шрек и Фиона">
     <div class="gif-label">💚 Шрек и Фиона · Счастливый конец</div>
   </div>
 
@@ -176,13 +178,15 @@ html,body{width:100%;min-height:100%;overflow-x:hidden;background:#000;font-fami
   </div>
 </div>
 
+<!-- ██ S2B РЕАКЦИЯ ██ -->
 <div class="scene bg-swamp" id="s2b">
   <div class="rwrap">
     <div class="circle-frame" style="border-color:#f472b6">
-      <img src="https://i.postimg.cc/D0mRzB2Y/2.jpg" alt="Фиона">
+      <img src="shrek2.jpg" alt="Фиона">
     </div>
     <div class="stars-row" id="stars2"></div>
     <div class="bubble" style="max-width:370px;margin:0 auto 12px">
+      <div class="circle-badge"></div>
       <div class="bubble-char">🟢 Шрек</div>
       <div class="bubble-text">"Поцелуй истинной любви всё меняет навсегда. Это самое важное в жизни."</div>
     </div>
@@ -190,12 +194,13 @@ html,body{width:100%;min-height:100%;overflow-x:hidden;background:#000;font-fami
   </div>
 </div>
 
+<!-- ██ S3 ШРЕК 2 Q3 ██ -->
 <div class="scene bg-castle" id="s3">
   <div class="step-lbl">🏰 АКТ II — ШРЕК 2 · ВОПРОС 3 ИЗ 6</div>
   <div class="prog-bar"><div class="prog-fill" style="width:33%"></div></div>
 
   <div class="gif-wrap">
-    <img src="https://i.postimg.cc/9FmKzX8m/3.jpg" alt="Кот в Сапогах">
+    <img src="shrek3.jpg" alt="Кот в Сапогах">
     <div class="gif-label">👢 Кот в Сапогах · Фирменный стиль</div>
   </div>
 
@@ -215,10 +220,11 @@ html,body{width:100%;min-height:100%;overflow-x:hidden;background:#000;font-fami
   </div>
 </div>
 
+<!-- ██ S3B РЕАКЦИЯ ██ -->
 <div class="scene bg-castle" id="s3b">
   <div class="rwrap">
     <div class="circle-frame" style="border-color:#f9d423">
-      <img src="https://i.postimg.cc/9FmKzX8m/3.jpg" alt="Кот">
+      <img src="shrek3.jpg" alt="Кот">
     </div>
     <div class="stars-row" id="stars3"></div>
     <div class="bubble" style="max-width:370px;margin:0 auto 12px">
@@ -229,12 +235,13 @@ html,body{width:100%;min-height:100%;overflow-x:hidden;background:#000;font-fami
   </div>
 </div>
 
+<!-- ██ S4 ШРЕК 2 Q4 ██ -->
 <div class="scene bg-castle" id="s4">
   <div class="step-lbl">🏰 АКТ II — ШРЕК 2 · ВОПРОС 4 ИЗ 6</div>
   <div class="prog-bar"><div class="prog-fill" style="width:50%"></div></div>
 
   <div class="gif-wrap">
-    <img src="https://i.postimg.cc/4xm6pY9S/4.jpg" alt="Дракониха и Ослик">
+    <img src="shrek4.jpg" alt="Дракониха и Ослик">
     <div class="gif-label">🏰 Шрек 2 · Спасательная операция</div>
   </div>
 
@@ -244,7 +251,7 @@ html,body{width:100%;min-height:100%;overflow-x:hidden;background:#000;font-fami
   </div>
   <div class="card">
     <div class="mbadge">❤️ Мы смотрели Шрек 2 вместе</div>
-    <h2 style="color:#a78bfa;font-size:17px;margin-bottom:10px">Кто помогал Шреку спасти Фиону в финале Шрека 2?</h2>
+    <h2 style="color:#a78bfa;font-size:17px;margin-bottom:12px">Кто помогал Шреку спасти Фиону в финале Шрека 2?</h2>
     <div class="opts" id="q4opts">
       <div class="opt" onclick="quiz(this,false,'s4',4)">🧙 Волшебник из замка</div>
       <div class="opt" onclick="quiz(this,false,'s4',4)">🐉 Только Дракониха</div>
@@ -254,10 +261,11 @@ html,body{width:100%;min-height:100%;overflow-x:hidden;background:#000;font-fami
   </div>
 </div>
 
+<!-- ██ S4B РЕАКЦИЯ ██ -->
 <div class="scene bg-castle" id="s4b">
   <div class="rwrap">
     <div class="circle-frame" style="border-color:#60a5fa">
-      <img src="https://i.postimg.cc/4xm6pY9S/4.jpg" alt="Команда">
+      <img src="shrek4.jpg" alt="Команда">
     </div>
     <div class="stars-row" id="stars4"></div>
     <div class="bubble" style="max-width:370px;margin:0 auto 12px">
@@ -268,12 +276,13 @@ html,body{width:100%;min-height:100%;overflow-x:hidden;background:#000;font-fami
   </div>
 </div>
 
+<!-- ██ S5 ТАЧКИ Q5 ██ -->
 <div class="scene bg-race" id="s5">
   <div class="step-lbl">⚡ АКТ III — ТАЧКИ · ВОПРОС 5 ИЗ 6</div>
   <div class="prog-bar"><div class="prog-fill" style="width:67%"></div></div>
 
   <div class="gif-wrap">
-    <img src="https://i.postimg.cc/xT4bX19X/1.jpg" alt="Молния Маккуин">
+    <img src="cars1.jpg" alt="Молния Маккуин">
     <div class="gif-label">🏎️ Lightning McQueen · На трассе</div>
   </div>
 
@@ -293,10 +302,11 @@ html,body{width:100%;min-height:100%;overflow-x:hidden;background:#000;font-fami
   </div>
 </div>
 
+<!-- ██ S5B РЕАКЦИЯ ██ -->
 <div class="scene bg-race" id="s5b">
   <div class="rwrap">
     <div class="circle-frame" style="border-color:#ef4444; border-radius:24px; width:180px;">
-      <img src="https://i.postimg.cc/xT4bX19X/1.jpg" alt="Маккуин">
+      <img src="cars1.jpg" alt="Маккуин">
     </div>
     <div class="stars-row" id="stars5"></div>
     <div class="bubble" style="max-width:370px;margin:0 auto 12px">
@@ -307,12 +317,13 @@ html,body{width:100%;min-height:100%;overflow-x:hidden;background:#000;font-fami
   </div>
 </div>
 
+<!-- ██ S6 ФИНАЛЬНЫЙ ВОПРОС ██ -->
 <div class="scene bg-race" id="s6">
   <div class="step-lbl">🏁 ФИНАЛ · ВОПРОС 6 ИЗ 6</div>
   <div class="prog-bar"><div class="prog-fill" style="width:83%"></div></div>
 
   <div class="gif-wrap">
-    <img src="https://i.postimg.cc/xT4bX19X/1.jpg" alt="Финал">
+    <img src="cars1.jpg" alt="Финал">
     <div class="gif-label">💕 Главный финиш квеста</div>
   </div>
 
@@ -329,6 +340,7 @@ html,body{width:100%;min-height:100%;overflow-x:hidden;background:#000;font-fami
   </div>
 </div>
 
+<!-- ██ S7 LOADING ██ -->
 <div class="scene bg-space" id="s7">
   <div style="text-align:center;padding:48px 20px">
     <div id="lem" style="font-size:80px;margin-bottom:20px;animation:mbigBounce 1s ease infinite alternate">🔮</div>
@@ -346,12 +358,12 @@ html,body{width:100%;min-height:100%;overflow-x:hidden;background:#000;font-fami
   </div>
 </div>
 
+<!-- ██ S8 REVEAL ██ -->
 <div class="scene bg-concert" id="s8">
   <div style="text-align:center;padding:20px 14px 44px;width:100%">
     <div style="font-size:10px;letter-spacing:3px;color:rgba(255,255,255,.3);text-transform:uppercase;margin-bottom:14px;animation:fadeUp .6s ease both">Твой сюрприз</div>
 
     <div class="poster">
-      <div class="poster-orch">NE PROSTO ORCHESTRA представляет</div>
       <div class="poster-name">NE PROSTO<br>CARTOONS</div>
       <p style="font-size:13px;color:#cbd5e1;margin-bottom:12px">Саундтрек-концерт оркестра и хора 🎼</p>
       <div class="cline">
@@ -360,9 +372,9 @@ html,body{width:100%;min-height:100%;overflow-x:hidden;background:#000;font-fami
         <span class="cl" style="--d:.7s">🐼</span><span class="cl" style="--d:1s">🦁</span>
       </div>
       <div style="background:rgba(255,255,255,.07);border-radius:14px;padding:12px 14px;margin-bottom:12px;text-align:left">
-        <div class="prow"><span style="font-size:20px">📅</span><span>7 июня</span></div>
+        <div class="prow"><span style="font-size:20px">📅</span><span>7 июня 2026</span></div>
         <div class="prow"><span style="font-size:20px">🕖</span><span>19:00</span></div>
-        <div class="prow"><span style="font-size:20px">📍</span><span>Алматы · Дворец Республики</span></div>
+        <div class="prow"><span style="font-size:20px">📍</span><span>Дворец Республики</span></div>
         <div class="prow" style="border:none"><span style="font-size:20px">🎭</span><span>Оркестр + хор + солисты</span></div>
       </div>
       <div style="font-size:12px;color:rgba(255,255,255,.6);line-height:1.85;margin-bottom:12px">
@@ -510,7 +522,7 @@ function celebrate(){
   let fr=0;
   (function draw(){ctx.clearRect(0,0,c.width,c.height);pcs.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.r+=p.vr;if(p.y>c.height+20)p.y=-20;ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.r);if(p.isE){ctx.font='18px serif';ctx.fillText(p.em,-8,-8);}else{ctx.fillStyle=p.color;ctx.fillRect(-p.w/2,-p.h/2,p.w,p.h);}ctx.restore();});fr++;if(fr<300)requestAnimationFrame(draw);else ctx.clearRect(0,0,c.width,c.height);})();
   const btn=document.getElementById('cbtn');
-  btn.textContent='💖 Жду не дождусь! 7 июня!';
+  btn.textContent='💖 Жду не дождусь нашей встречи!';
   btn.style.background='linear-gradient(135deg,#f472b6,#7c3aed)';
   btn.disabled=true;
   document.getElementById('fchars').style.display='block';
