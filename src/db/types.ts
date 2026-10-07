@@ -451,6 +451,22 @@ export interface WeeklyReview {
   createdAt: ISODateTime
 }
 
+/* ------------------------------------ Coach / AI ------------------------------------ */
+
+export interface ChatMessage {
+  id: string
+  /** Conversation id; 'coach' for the main trainer chat */
+  threadId: string
+  role: 'user' | 'assistant' | 'tool'
+  /** Plain text (markdown allowed) */
+  text: string
+  /** Provider that produced an assistant message */
+  provider?: 'gemini' | 'claude' | 'rules'
+  /** Tool calls made while producing this message, for transparency */
+  toolCalls?: { name: string; input: unknown; output: unknown }[]
+  createdAt: ISODateTime
+}
+
 export interface Setting {
   key: string
   value: unknown

@@ -12,6 +12,8 @@ import { growthRoutes } from '../features/growth/routes'
 import { financeRoutes } from '../features/finance/routes'
 import { mindRoutes } from '../features/mind/routes'
 import { goalsRoutes } from '../features/goals/routes'
+import { coachRoutes } from '../features/coach/routes'
+import { assistantRoutes } from '../features/assistant/routes'
 
 /**
  * Route map (hash router, so it works on GitHub Pages without a 404 fallback):
@@ -42,6 +44,8 @@ import { goalsRoutes } from '../features/goals/routes'
  *   /mind/checkin, /mind/journal, /mind/journal/:id, /mind/meditate, /mind/breathe, /mind/review
  *   /goals                    Цели по сферам жизни с ключевыми результатами
  *   /goals/new, /goals/:id, /goals/review (еженедельный обзор), /goals/review/:weekStart
+ *   /coach                    Тренер: инсайты по правилам (бриф дня, прогрессия, питание, сон, неделя)
+ *   /assistant                ИИ-чат с тренером (подключаемый провайдер: Gemini / Claude), /assistant/settings
  *   /calendar                 Календарь: занятия из OneFit (импорт .ics / подписка), ближайшие
  *   /settings                 Профиль и настройки, экспорт/импорт
  *
@@ -63,6 +67,8 @@ export const router = createHashRouter([
       ...financeRoutes,
       ...mindRoutes,
       ...goalsRoutes,
+      ...coachRoutes,
+      ...assistantRoutes,
       { path: 'settings', element: <SettingsPage /> },
       { path: '*', element: <Navigate to="/" replace /> },
     ],
