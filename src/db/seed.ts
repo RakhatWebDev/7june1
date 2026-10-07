@@ -2,6 +2,8 @@ import { db } from './index'
 import { builtInPrograms } from '../data/programs'
 import type { Profile } from './types'
 import { ensureFinanceSeeded } from '../features/finance/seed'
+import { ensureHabitsSeeded } from '../features/growth/habits/seed'
+import { ensureGoalsSeeded } from '../features/goals/seed'
 
 export const DEFAULT_PROFILE: Profile = {
   id: 1,
@@ -30,4 +32,6 @@ export async function ensureSeeded(database = db): Promise<void> {
     for (const p of builtInPrograms) await database.programs.put(p)
   })
   await ensureFinanceSeeded(database)
+  await ensureHabitsSeeded(database)
+  await ensureGoalsSeeded(database)
 }

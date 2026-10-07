@@ -413,6 +413,8 @@ export type LifeArea =
 export interface KeyResult {
   id: string
   title: string
+  /** Starting value, needed to measure progress towards a decreasing target (e.g. weight 88 → 82) */
+  start?: number
   /** Numeric progress: current / target (unit free text) */
   current: number
   target: number

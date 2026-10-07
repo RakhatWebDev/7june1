@@ -11,6 +11,9 @@ import { Button, Card, Field, Input, PageHeader, Progress, Sheet } from '../../c
 import { computeTargets } from '../nutrition/calc'
 import { UpcomingCard } from '../calendar/UpcomingCard'
 import { HabitsTodayCard, ReadingTodayCard } from '../growth/cards'
+import { MoodCheckinCard, MindTodayCard } from '../mind/cards'
+import { FinanceTodayCard } from '../finance/cards'
+import { GoalsFocusCard, WeeklyReviewCard } from '../goals/cards'
 import {
   ACTIVITY_ICON,
   ACTIVITY_LABEL_RU,
@@ -77,16 +80,21 @@ export function TodayPage() {
       />
       {data && (
         <div className="space-y-3">
+          <MoodCheckinCard />
           <WorkoutCard data={data} />
           <UpcomingCard />
+          <HabitsTodayCard />
           <NutritionCard data={data} />
           <div className="grid gap-3 sm:grid-cols-2">
             <SleepCard data={data} />
             <WeightCard data={data} />
           </div>
           <ActivitiesCard data={data} />
-          <HabitsTodayCard />
+          <GoalsFocusCard />
+          <WeeklyReviewCard />
           <ReadingTodayCard />
+          <MindTodayCard />
+          <FinanceTodayCard />
         </div>
       )}
     </>
