@@ -49,8 +49,6 @@ function parseMinutes(v: string | null): number {
   return Number.isFinite(n) && n >= 1 && n <= 180 ? n : 10
 }
 
-type Result = { saved: true; durationMin: number } | { saved: false }
-
 /**
  * Meditation / prayer / spiritual reading timer: presets 5–20 min or custom, big ring,
  * gong at zero; finishing early saves the time actually spent.
@@ -62,7 +60,7 @@ export function MeditatePage() {
   const [custom, setCustom] = useState(() => !TIMER_PRESETS.includes(minutes))
   const timer = useCountdown(minutes * 60_000)
   const { state } = timer
-  const [result, setResult] = useState<Result | null>(null)
+  const [savedMin, setSavedMin] = useState<number | null>(null)
   const handled = useRef(false)
   const text = KIND_TEXT[kind]
 
@@ -74,10 +72,7 @@ export function MeditatePage() {
       playGong()
       vibrate([200, 100, 200])
     }
-    if (!shouldSave(state.elapsedMs)) {
-      setResult({ saved: false })
-      return
-    }
+    if (!shouldSave(state.elapsedMs)) return
     const durationMin = sessionMinutes(state.elapsedMs)
     const isPreset = TIMER_PRESETS.includes(Math.round(state.totalMs / 60_000))
     void db.mindSessions
@@ -89,7 +84,7 @@ export function MeditatePage() {
         durationMin,
         createdAt: new Date().toISOString(),
       })
-      .then(() => setResult({ saved: true, durationMin }))
+      .then(() => setSavedMin(durationMin))
   }, [state, kind])
 
   function choose(min: number, isCustom: boolean) {
@@ -106,7 +101,7 @@ export function MeditatePage() {
 
   function again() {
     handled.current = false
-    setResult(null)
+    setSavedMin(null)
     timer.reset(minutes * 60_000)
   }
 
@@ -120,11 +115,11 @@ export function MeditatePage() {
           </div>
           <h2 className="mt-3 text-xl font-semibold">{text.done}</h2>
           <p className="mt-1 text-sm text-muted" role="status">
-            {result == null
-              ? 'Сохраняем…'
-              : result.saved
-                ? `Сохранено: ${result.durationMin} ${plural(result.durationMin, ['минута', 'минуты', 'минут'])}`
-                : 'Меньше 15 секунд — практика не сохранена'}
+            {!shouldSave(state.elapsedMs)
+              ? 'Меньше 15 секунд — практика не сохранена'
+              : savedMin == null
+                ? 'Сохраняем…'
+                : `Сохранено: ${savedMin} ${plural(savedMin, ['минута', 'минуты', 'минут'])}`}
           </p>
           <div className="mt-5 flex justify-center gap-2">
             <Link to="/mind" className={linkPrimary}>

@@ -27,8 +27,6 @@ function unitForms(p: BreathPattern): [string, string, string] {
   return p.unit === 'round' ? ['раунд', 'раунда', 'раундов'] : ['цикл', 'цикла', 'циклов']
 }
 
-type Result = { saved: true; durationMin: number } | { saved: false }
-
 /** Guided breathing: a CSS-animated circle follows the phases of the chosen pattern. */
 export function BreathePage() {
   const [params] = useSearchParams()
@@ -38,7 +36,7 @@ export function BreathePage() {
   const timer = useCountdown(sequenceMs(steps), 200)
   const { state } = timer
   const pos = phaseAt(steps, state.elapsedMs)
-  const [result, setResult] = useState<Result | null>(null)
+  const [savedMin, setSavedMin] = useState<number | null>(null)
   const handled = useRef(false)
 
   // Gentle buzz on each phase change (except the rapid Wim Hof breaths).
@@ -57,10 +55,7 @@ export function BreathePage() {
       playGong(528, 3)
       vibrate([200, 100, 200])
     }
-    if (!shouldSave(state.elapsedMs)) {
-      setResult({ saved: false })
-      return
-    }
+    if (!shouldSave(state.elapsedMs)) return
     const durationMin = sessionMinutes(state.elapsedMs)
     void db.mindSessions
       .add({
@@ -72,7 +67,7 @@ export function BreathePage() {
         note: `${pattern.name}, ${cycles} ${plural(cycles, unitForms(pattern))}`,
         createdAt: new Date().toISOString(),
       })
-      .then(() => setResult({ saved: true, durationMin }))
+      .then(() => setSavedMin(durationMin))
   }, [state, pattern, cycles])
 
   function choosePattern(p: BreathPattern) {
@@ -95,7 +90,7 @@ export function BreathePage() {
   function again() {
     handled.current = false
     lastIndex.current = -1
-    setResult(null)
+    setSavedMin(null)
     timer.reset(sequenceMs(steps))
   }
 
@@ -109,11 +104,11 @@ export function BreathePage() {
           </div>
           <h2 className="mt-3 text-xl font-semibold">Практика завершена</h2>
           <p className="mt-1 text-sm text-muted" role="status">
-            {result == null
-              ? 'Сохраняем…'
-              : result.saved
-                ? `${pattern.name} · сохранено ${result.durationMin} ${plural(result.durationMin, ['минута', 'минуты', 'минут'])}`
-                : 'Меньше 15 секунд — практика не сохранена'}
+            {!shouldSave(state.elapsedMs)
+              ? 'Меньше 15 секунд — практика не сохранена'
+              : savedMin == null
+                ? 'Сохраняем…'
+                : `${pattern.name} · сохранено ${savedMin} ${plural(savedMin, ['минута', 'минуты', 'минут'])}`}
           </p>
           <div className="mt-5 flex justify-center gap-2">
             <Link to="/mind" className={linkPrimary}>

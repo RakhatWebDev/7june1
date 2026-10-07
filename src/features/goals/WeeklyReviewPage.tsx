@@ -9,7 +9,6 @@ import { cleanLines, krProgress, krStep, padLines, reviewTargetWeek, shiftWeek, 
 import { RatingInput, StatGrid, Stars } from './components'
 import { useCurrencySign, useReviews, useWeekStats } from './hooks'
 import { collectWeekStats } from './stats'
-import { LINK_PRIMARY } from './styles'
 
 const STEPS = ['Цифры недели', 'Итоги', 'Ключевые результаты'] as const
 type Rating = 1 | 2 | 3 | 4 | 5
@@ -30,7 +29,7 @@ export function WeeklyReviewPage() {
   )
   const goals = useLiveQuery(() => db.lifeGoals.where('status').equals('active').sortBy('sort'), [])
   const reviews = useReviews()
-  const currentWeek = weekStartOf(new Date())
+  const [currentWeek] = useState(() => weekStartOf(new Date()))
   const goTo = (w: ISODate) => navigate(`/goals/review?week=${w}`)
 
   return (
@@ -235,7 +234,6 @@ function ReviewWizard({ week, existing, goals }: { week: ISODate; existing: Week
       </div>
       {existing && (
         <p className="text-center text-xs text-muted">
-          <Link to={`/goals/review/${week}`} className={`${LINK_PRIMARY} hidden`} />
           Сохранённый обзор:{' '}
           <Link to={`/goals/review/${week}`} className="text-accent">
             открыть
