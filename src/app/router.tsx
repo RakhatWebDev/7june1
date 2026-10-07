@@ -8,6 +8,7 @@ import { sleepRoutes } from '../features/sleep/routes'
 import { progressRoutes } from '../features/progress/routes'
 import { SettingsPage } from '../features/settings/SettingsPage'
 import { calendarRoutes } from '../features/calendar/routes'
+import { growthRoutes } from '../features/growth/routes'
 
 /**
  * Route map (hash router, so it works on GitHub Pages without a 404 fallback):
@@ -27,6 +28,11 @@ import { calendarRoutes } from '../features/calendar/routes'
  *   /nutrition/plan           Расчёт нормы (TDEE, макросы)
  *   /sleep                    Сон
  *   /progress                 Прогресс: вес, замеры, объём, рекорды
+ *   /growth                   Развитие — хаб: привычки, книги, сон
+ *   /habits                   Трекер привычек (сегодня, неделя, статистика)
+ *   /habits/new, /habits/:id  Создание / редактирование привычки
+ *   /books                    Книжная полка: читаю / хочу / прочитано
+ *   /books/new, /books/:id    Добавить книгу / карточка книги с логом чтения и заметками
  *   /calendar                 Календарь: занятия из OneFit (импорт .ics / подписка), ближайшие
  *   /settings                 Профиль и настройки, экспорт/импорт
  *
@@ -44,6 +50,7 @@ export const router = createHashRouter([
       ...sleepRoutes,
       ...progressRoutes,
       ...calendarRoutes,
+      ...growthRoutes,
       { path: 'settings', element: <SettingsPage /> },
       { path: '*', element: <Navigate to="/" replace /> },
     ],

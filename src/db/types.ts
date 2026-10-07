@@ -245,6 +245,66 @@ export interface CalendarFeed {
   lastError?: string
 }
 
+/* ----------------------------- Development: habits & books ----------------------------- */
+
+/** Rule that lets the app auto-complete a habit from other data for a day. */
+export type HabitAutoRule = 'workout' | 'cardio' | 'water' | 'sleep' | 'reading' | 'stretch' | null
+
+export interface Habit {
+  id: string
+  name: string
+  /** Emoji or short glyph */
+  icon: string
+  /** Tailwind-agnostic colour token name: 'accent' | 'info' | 'warn' | 'danger' | 'violet' | 'pink' */
+  color: string
+  frequency: 'daily' | 'weekly'
+  /** For weekly habits: how many days per week count as success */
+  targetPerWeek?: number
+  autoRule: HabitAutoRule
+  /** Order in lists */
+  sort: number
+  archived: boolean
+  createdAt: ISODateTime
+}
+
+export interface HabitLog {
+  id: string
+  habitId: string
+  date: ISODate
+  done: boolean
+  note?: string
+}
+
+export type BookStatus = 'want' | 'reading' | 'done' | 'dropped'
+
+export interface Book {
+  id: string
+  title: string
+  author?: string
+  totalPages?: number
+  status: BookStatus
+  coverUrl?: string
+  tags?: string[]
+  rating?: 1 | 2 | 3 | 4 | 5
+  /** Short review / key takeaways */
+  notes?: string
+  startedAt?: ISODate
+  finishedAt?: ISODate
+  createdAt: ISODateTime
+}
+
+export interface ReadingLog {
+  id: string
+  bookId: string
+  date: ISODate
+  /** Pages read in this session */
+  pages: number
+  minutes?: number
+  /** Quote or thought captured during the session */
+  note?: string
+  createdAt: ISODateTime
+}
+
 export interface Setting {
   key: string
   value: unknown
