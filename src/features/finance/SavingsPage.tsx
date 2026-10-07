@@ -23,7 +23,14 @@ import { db } from '../../db'
 import type { SavingsGoal } from '../../db/types'
 import { today } from '../../lib/dates'
 import { newId } from '../../lib/id'
-import { CURRENCY_SYMBOL, formatMoney, monthlyContribution, parseAmount, savingsProgress, type Currency } from './calc'
+import {
+  CURRENCY_SYMBOL,
+  formatMoney,
+  monthlyContribution,
+  parseAmount,
+  savingsProgress,
+  type Currency,
+} from './calc'
 import { AmountInput, EmojiBadge, FinanceNav, moneyCounter } from './components'
 import { topUpSavings } from './actions'
 import { useCurrency, useFinanceSeed } from './hooks'
@@ -57,7 +64,7 @@ export function SavingsPage() {
         title="Накопления"
         back="/finance"
         action={
-          <Button icon="plus" onClick={() => setSheet({ kind: 'goal' })}>
+          <Button variant="secondary" icon="plus" onClick={() => setSheet({ kind: 'goal' })}>
             Цель
           </Button>
         }
@@ -69,7 +76,9 @@ export function SavingsPage() {
           <Card variant="accent" tone="amber" className="p-5">
             <div className="flex items-center gap-2.5">
               <IconBadge name="target" tone="amber" size="sm" />
-              <h2 className="text-xs font-semibold tracking-wide text-muted uppercase">Накоплено</h2>
+              <h2 className="text-xs font-semibold tracking-wide text-muted uppercase">
+                Накоплено
+              </h2>
             </div>
             <div className="mt-3 flex flex-wrap items-baseline gap-x-2 gap-y-1">
               <span className="text-[34px] leading-none font-bold tracking-tight">
@@ -84,7 +93,7 @@ export function SavingsPage() {
               aria-label="Накоплено по всем целям"
             />
           </Card>
-          <StaggerList className="grid grid-cols-2 gap-3" delay={0.08}>
+          <StaggerList className="grid grid-cols-2 gap-3" itemClassName="*:h-full" delay={0.08}>
             <StatTile
               key="monthly"
               icon="calendar"
@@ -130,8 +139,16 @@ export function SavingsPage() {
               return (
                 <Card as="div" key={g.id} tone={done ? 'accent' : undefined}>
                   <div className="flex items-center gap-3.5">
-                    <Ring value={progress} size={64} stroke={7} tone={tone} aria-label={`Прогресс цели ${g.name}`}>
-                      <span className="text-[13px] font-semibold tabular-nums">{Math.round(progress * 100)}%</span>
+                    <Ring
+                      value={progress}
+                      size={64}
+                      stroke={7}
+                      tone={tone}
+                      aria-label={`Прогресс цели ${g.name}`}
+                    >
+                      <span className="text-[13px] font-semibold tabular-nums">
+                        {Math.round(progress * 100)}%
+                      </span>
                     </Ring>
                     <button
                       type="button"
@@ -152,9 +169,12 @@ export function SavingsPage() {
                   </div>
                   <div className="mt-3 flex justify-between gap-2 text-xs text-muted tabular-nums">
                     <span className="min-w-0 truncate">
-                      <span className="font-semibold text-text">{fmt(g.savedAmount)}</span> из {fmt(g.targetAmount)}
+                      <span className="font-semibold text-text">{fmt(g.savedAmount)}</span> из{' '}
+                      {fmt(g.targetAmount)}
                     </span>
-                    <span className="shrink-0">осталось {fmt(Math.max(0, g.targetAmount - g.savedAmount))}</span>
+                    <span className="shrink-0">
+                      осталось {fmt(Math.max(0, g.targetAmount - g.savedAmount))}
+                    </span>
                   </div>
                   <div className="mt-3 flex items-center justify-between gap-2 border-t border-white/[0.06] pt-3">
                     <span
@@ -189,21 +209,38 @@ export function SavingsPage() {
         open={!!sheet}
         onClose={() => setSheet(null)}
         title={
-          sheet?.kind === 'topup' ? `Пополнить «${sheet.goal.name}»` : sheet?.goal ? 'Цель накоплений' : 'Новая цель'
+          sheet?.kind === 'topup'
+            ? `Пополнить «${sheet.goal.name}»`
+            : sheet?.goal
+              ? 'Цель накоплений'
+              : 'Новая цель'
         }
       >
         {sheet?.kind === 'topup' && (
           <TopUpForm goal={sheet.goal} currency={currency} onDone={() => setSheet(null)} />
         )}
         {sheet?.kind === 'goal' && (
-          <GoalForm key={sheet.goal?.id ?? 'new'} goal={sheet.goal} currency={currency} onDone={() => setSheet(null)} />
+          <GoalForm
+            key={sheet.goal?.id ?? 'new'}
+            goal={sheet.goal}
+            currency={currency}
+            onDone={() => setSheet(null)}
+          />
         )}
       </Sheet>
     </>
   )
 }
 
-function TopUpForm({ goal, currency, onDone }: { goal: SavingsGoal; currency: Currency; onDone: () => void }) {
+function TopUpForm({
+  goal,
+  currency,
+  onDone,
+}: {
+  goal: SavingsGoal
+  currency: Currency
+  onDone: () => void
+}) {
   const [amount, setAmount] = useState('')
   const parsed = parseAmount(amount)
   const suggested = monthlyContribution(goal, today())
@@ -239,7 +276,15 @@ function TopUpForm({ goal, currency, onDone }: { goal: SavingsGoal; currency: Cu
   )
 }
 
-function GoalForm({ goal, currency, onDone }: { goal?: SavingsGoal; currency: Currency; onDone: () => void }) {
+function GoalForm({
+  goal,
+  currency,
+  onDone,
+}: {
+  goal?: SavingsGoal
+  currency: Currency
+  onDone: () => void
+}) {
   const [name, setName] = useState(goal?.name ?? '')
   const [icon, setIcon] = useState(goal?.icon ?? GOAL_ICONS[0])
   const [target, setTarget] = useState(goal ? String(goal.targetAmount) : '')
@@ -273,7 +318,12 @@ function GoalForm({ goal, currency, onDone }: { goal?: SavingsGoal; currency: Cu
   return (
     <form onSubmit={(e) => void submit(e)} className="space-y-3">
       <Field label="Название">
-        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Подушка безопасности" required />
+        <Input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Подушка безопасности"
+          required
+        />
       </Field>
       <div>
         <p className="mb-1.5 text-xs font-medium tracking-wide text-muted uppercase">Иконка</p>
@@ -285,14 +335,29 @@ function GoalForm({ goal, currency, onDone }: { goal?: SavingsGoal; currency: Cu
       </div>
       <div className="grid grid-cols-2 gap-3">
         <Field label={`Цель, ${CURRENCY_SYMBOL[currency]}`}>
-          <Input inputMode="decimal" value={target} onChange={(e) => setTarget(e.target.value)} placeholder="1 000 000" />
+          <Input
+            inputMode="decimal"
+            value={target}
+            onChange={(e) => setTarget(e.target.value)}
+            placeholder="1 000 000"
+          />
         </Field>
         <Field label="Уже накоплено">
-          <Input inputMode="decimal" value={saved} onChange={(e) => setSaved(e.target.value)} placeholder="0" />
+          <Input
+            inputMode="decimal"
+            value={saved}
+            onChange={(e) => setSaved(e.target.value)}
+            placeholder="0"
+          />
         </Field>
       </div>
       <Field label="Дедлайн (необязательно)">
-        <Input type="date" value={deadline} min={today()} onChange={(e) => setDeadline(e.target.value)} />
+        <Input
+          type="date"
+          value={deadline}
+          min={today()}
+          onChange={(e) => setDeadline(e.target.value)}
+        />
       </Field>
       <Button type="submit" size="lg" icon="check" className="w-full" disabled={!valid}>
         Сохранить
@@ -307,7 +372,15 @@ function GoalForm({ goal, currency, onDone }: { goal?: SavingsGoal; currency: Cu
 }
 
 /** Emoji choice tile that presses in with a spring. */
-function IconTile({ emoji, active, onClick }: { emoji: string; active: boolean; onClick: () => void }) {
+function IconTile({
+  emoji,
+  active,
+  onClick,
+}: {
+  emoji: string
+  active: boolean
+  onClick: () => void
+}) {
   const reduce = useReduceMotion()
   return (
     <motion.button
@@ -317,7 +390,9 @@ function IconTile({ emoji, active, onClick }: { emoji: string; active: boolean; 
       whileTap={reduce ? undefined : { scale: 0.92 }}
       transition={{ type: 'spring', stiffness: 500, damping: 26 }}
       className={`grid aspect-square min-h-11 place-items-center rounded-2xl border text-2xl leading-none transition-colors ${
-        active ? 'border-amber/60 bg-amber/12' : 'border-white/[0.05] bg-surface-2 hover:bg-surface-3'
+        active
+          ? 'border-amber/60 bg-amber/12'
+          : 'border-white/[0.05] bg-surface-2 hover:bg-surface-3'
       }`}
     >
       {emoji}

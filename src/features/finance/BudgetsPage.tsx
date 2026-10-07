@@ -115,7 +115,7 @@ export function BudgetsPage() {
       )}
 
       <SectionHeader title="Без лимита" icon="list" tone="muted" />
-      <Card as="div" className="overflow-hidden p-0">
+      <Card as="div" padding="none" className="overflow-hidden">
         <ul className="divide-y divide-white/[0.05]">
           {withoutLimit.map((c) => (
             <li key={c.id}>

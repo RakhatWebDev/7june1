@@ -130,7 +130,7 @@ export function RecurringPage() {
       ) : (
         <>
           <SectionHeader title="Платежи" icon="list" tone="amber" />
-          <Card as="div" className="overflow-hidden p-0">
+          <Card as="div" padding="none" className="overflow-hidden">
             <StaggerList as="ul" className="divide-y divide-white/[0.05]">
               {list.map((r) => {
                 const c = catById.get(r.categoryId)

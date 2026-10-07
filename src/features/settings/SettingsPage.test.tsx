@@ -32,7 +32,7 @@ describe('SettingsPage', () => {
     await user.clear(screen.getByLabelText('Сон, ч/ночь'))
     await user.type(screen.getByLabelText('Сон, ч/ночь'), '7.5')
     await user.click(screen.getByRole('button', { name: 'Сохранить профиль' }))
-    expect(await screen.findByText('Сохранено ✓')).toBeInTheDocument()
+    expect(await screen.findByRole('status')).toHaveTextContent('Сохранено')
     const p = await db.profile.get(1)
     expect(p).toMatchObject({ heightCm: 180, goal: 'maintain', sleepTargetMin: 450 })
   })

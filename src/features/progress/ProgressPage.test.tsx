@@ -54,7 +54,13 @@ describe('ProgressPage', () => {
       startedAt: now,
       finishedAt: now,
       exercises: [
-        { exerciseId: 'Barbell_Squat', name: 'Присед', targetSets: 1, targetReps: '5', sets: [{ weightKg: 100, reps: 5, done: true }] },
+        {
+          exerciseId: 'Barbell_Squat',
+          name: 'Присед',
+          targetSets: 1,
+          targetReps: '5',
+          sets: [{ weightKg: 100, reps: 5, done: true }],
+        },
       ],
     })
     renderAt('/progress/records')
@@ -84,7 +90,16 @@ describe('ProgressPage', () => {
       startedAt: now,
       finishedAt: now,
       exercises: [
-        { exerciseId: 'Bench', name: 'Жим', targetSets: 2, targetReps: '5', sets: [{ weightKg: 80, reps: 5, done: true }, { weightKg: 80, reps: 5, done: true }] },
+        {
+          exerciseId: 'Bench',
+          name: 'Жим',
+          targetSets: 2,
+          targetReps: '5',
+          sets: [
+            { weightKg: 80, reps: 5, done: true },
+            { weightKg: 80, reps: 5, done: true },
+          ],
+        },
       ],
     })
     renderAt('/progress/load')

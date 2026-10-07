@@ -18,7 +18,7 @@ describe('FoodsPage', () => {
     expect(screen.getByText('Гречка варёная')).toBeInTheDocument()
     await user.clear(screen.getByLabelText('Поиск продукта'))
 
-    await user.click(screen.getByRole('button', { name: '+ Новый' }))
+    await user.click(screen.getByRole('button', { name: 'Новый' }))
     let dialog = screen.getByRole('dialog')
     await user.type(within(dialog).getByLabelText('Название'), 'Сырники')
     await user.type(within(dialog).getByLabelText('Ккал'), '220')

@@ -977,6 +977,8 @@ export function StaggerList({
   itemClassName = '',
   stagger = 0.04,
   delay = 0,
+  'aria-label': ariaLabel,
+  role,
 }: {
   children: ReactNode
   as?: 'div' | 'ul' | 'ol'
@@ -984,13 +986,15 @@ export function StaggerList({
   itemClassName?: string
   stagger?: number
   delay?: number
+  'aria-label'?: string
+  role?: string
 }) {
   const reduce = useReduceMotion()
   const items = Children.toArray(children)
   const Tag = as
   const Item = as === 'div' ? motion.div : motion.li
   return (
-    <Tag className={className}>
+    <Tag className={className} aria-label={ariaLabel} role={role}>
       {items.map((child, i) => {
         const key = isValidElement(child) && child.key != null ? child.key : i
         if (reduce) {

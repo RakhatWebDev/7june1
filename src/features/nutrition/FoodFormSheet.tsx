@@ -2,8 +2,8 @@ import { useState, type ChangeEvent } from 'react'
 import { db } from '../../db'
 import type { Food } from '../../db/types'
 import { newId } from '../../lib/id'
-import { Button, Field, Input, Sheet } from '../../components/ui'
-import { macroLine } from './format'
+import { Button, Card, Field, Icon, Input, Sheet, TONE_TEXT } from '../../components/ui'
+import { n0, n1, MACRO_TONE } from './format'
 import { parseNum } from './hooks'
 
 const str = (n: number | undefined) => (n == null ? '' : String(n))
@@ -42,7 +42,10 @@ export function FoodFormSheet({
     const serving = form.servingG.trim() ? parseNum(form.servingG) : undefined
     if (!name) return setError('Введите название')
     if (!form.kcal.trim()) return setError('Укажите калорийность')
-    if (nums.some((v) => Number.isNaN(v) || v < 0) || (serving != null && (Number.isNaN(serving) || serving <= 0)))
+    if (
+      nums.some((v) => Number.isNaN(v) || v < 0) ||
+      (serving != null && (Number.isNaN(serving) || serving <= 0))
+    )
       return setError('Значения должны быть положительными числами')
     const [kcal, proteinG, fatG, carbsG] = nums
     const data: Food = {
@@ -76,16 +79,37 @@ export function FoodFormSheet({
     return (
       <Sheet open onClose={onClose} title={food.name}>
         <p className="text-sm text-muted">Встроенный продукт, на 100 г:</p>
-        <p className="mt-1">{macroLine(food)}</p>
-        {food.servingG && <p className="mt-1 text-sm text-muted">Порция по умолчанию: {food.servingG} г</p>}
-        <p className="mt-3 text-sm text-muted">
+        <Card as="div" tone="warn" className="mt-2 grid grid-cols-4 gap-2 p-3! text-center">
+          {(
+            [
+              ['Ккал', n0(food.kcal), MACRO_TONE.kcal],
+              ['Белки', n1(food.proteinG), MACRO_TONE.proteinG],
+              ['Жиры', n1(food.fatG), MACRO_TONE.fatG],
+              ['Углев.', n1(food.carbsG), MACRO_TONE.carbsG],
+            ] as const
+          ).map(([label, value, tone]) => (
+            <div key={label} className="min-w-0">
+              <div
+                className={`truncate text-xl font-bold tracking-tight tabular-nums ${TONE_TEXT[tone]}`}
+              >
+                {value}
+              </div>
+              <div className="text-[11px] text-muted">{label}</div>
+            </div>
+          ))}
+        </Card>
+        {food.servingG && (
+          <p className="mt-2 text-sm text-muted">Порция по умолчанию: {food.servingG} г</p>
+        )}
+        <p className="mt-3 flex items-start gap-1.5 text-sm text-muted">
+          <Icon name="info" size={16} className="mt-0.5" />
           Встроенные продукты нельзя изменить или удалить — скопируйте, чтобы отредактировать.
         </p>
         <div className="mt-4 flex gap-2">
-          <Button className="flex-1" onClick={copy}>
+          <Button size="lg" icon="plus" className="flex-1" onClick={copy}>
             Скопировать
           </Button>
-          <Button variant="secondary" onClick={onClose}>
+          <Button variant="secondary" size="lg" onClick={onClose}>
             Закрыть
           </Button>
         </div>
@@ -115,18 +139,23 @@ export function FoodFormSheet({
           <Input inputMode="decimal" value={form.servingG} onChange={set('servingG')} />
         </Field>
       </div>
-      {error && <p className="mt-3 text-sm text-danger">{error}</p>}
+      {error && (
+        <p role="alert" className="mt-3 flex items-center gap-1.5 text-sm text-danger">
+          <Icon name="info" size={15} />
+          {error}
+        </p>
+      )}
       <div className="mt-4 flex gap-2">
-        <Button className="flex-1" onClick={save}>
+        <Button size="lg" icon="check" className="flex-1" onClick={save}>
           Сохранить
         </Button>
         {food &&
           (confirmDelete ? (
-            <Button variant="danger" onClick={remove}>
+            <Button variant="danger" size="lg" onClick={remove}>
               Точно удалить?
             </Button>
           ) : (
-            <Button variant="danger" onClick={() => setConfirmDelete(true)}>
+            <Button variant="danger" size="lg" icon="trash" onClick={() => setConfirmDelete(true)}>
               Удалить
             </Button>
           ))}

@@ -1,3 +1,5 @@
+import type { Tone } from '../../components/ui/helpers'
+
 const nf1 = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 1 })
 const nf0 = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 })
 
@@ -12,6 +14,19 @@ export function n0(n: number): string {
 }
 
 /** "113 ккал · Б 23,6 · Ж 1,9 · У 0,4" */
-export function macroLine(m: { kcal: number; proteinG: number; fatG: number; carbsG: number }): string {
+export function macroLine(m: {
+  kcal: number
+  proteinG: number
+  fatG: number
+  carbsG: number
+}): string {
   return `${n0(m.kcal)} ккал · Б ${n1(m.proteinG)} · Ж ${n1(m.fatG)} · У ${n1(m.carbsG)}`
 }
+
+/** Colour tone per macro: kcal = nutrition (warn); Б/Ж/У get their own distinct hues. */
+export const MACRO_TONE = {
+  kcal: 'warn',
+  proteinG: 'pink',
+  fatG: 'violet',
+  carbsG: 'info',
+} as const satisfies Record<string, Tone>

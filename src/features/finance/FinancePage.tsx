@@ -17,6 +17,7 @@ import {
   StaggerList,
   StatTile,
 } from '../../components/ui'
+import { useReduceMotion } from '../../components/ui/helpers'
 import { db } from '../../db'
 import type { Transaction } from '../../db/types'
 import { today } from '../../lib/dates'
@@ -78,6 +79,7 @@ function compact(n: number): string {
 /** Month overview: totals, daily allowance, daily chart, categories, operations. `?month=YYYY-MM`. */
 export function FinancePage() {
   useFinanceSeed()
+  const reduce = useReduceMotion()
   const [params, setParams] = useSearchParams()
   const raw = params.get('month')
   const current = monthOf(today())
@@ -170,7 +172,7 @@ export function FinancePage() {
           </div>
         </Card>
 
-        <StaggerList className="grid grid-cols-2 gap-3" delay={0.08}>
+        <StaggerList className="grid grid-cols-2 gap-3" itemClassName="last:col-span-2 *:h-full" delay={0.08}>
           <StatTile
             key="income"
             icon="plus"
@@ -198,7 +200,6 @@ export function FinancePage() {
             icon="calendar"
             tone={overspent ? 'danger' : 'amber'}
             label="Можно тратить в день"
-            className="col-span-2"
             value={
               <span data-testid="daily-allowance" className={overspent ? 'text-danger' : ''}>
                 {perDay != null ? fmt(Math.max(0, perDay)) : '—'}
@@ -252,7 +253,7 @@ export function FinancePage() {
                   dataKey="amount"
                   radius={[5, 5, 2, 2]}
                   maxBarSize={14}
-                  isAnimationActive
+                  isAnimationActive={!reduce}
                   animationDuration={600}
                   animationEasing="ease-out"
                 >
@@ -314,7 +315,7 @@ export function FinancePage() {
                 <span>{dayLabel(g.date)}</span>
                 <span className={`tabular-nums ${g.net > 0 ? 'text-accent' : ''}`}>{fmt(g.net)}</span>
               </div>
-              <Card as="div" className="overflow-hidden p-0">
+              <Card as="div" padding="none" className="overflow-hidden">
                 <ul className="divide-y divide-white/[0.05]">
                   {g.items.map((t) => {
                     const c = catById.get(t.categoryId)
