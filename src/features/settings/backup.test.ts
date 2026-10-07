@@ -119,7 +119,9 @@ describe('backup', () => {
     await resetData(d)
     expect(await d.weights.count()).toBe(0)
     expect(await d.sessions.count()).toBe(0)
-    expect(await d.settings.count()).toBe(0)
+    // Only the seed-guard flags written by ensureSeeded may remain
+    const settingKeys = (await d.settings.toArray()).map((s) => s.key).sort()
+    expect(settingKeys).toEqual(['goalsSeeded', 'habitsSeeded'])
     expect((await d.profile.get(1))?.name).toBe('Рахат')
     expect(await d.programs.count()).toBe(builtInPrograms.length)
   })
