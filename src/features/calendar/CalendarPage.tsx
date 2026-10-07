@@ -1,9 +1,22 @@
-import { useState, type ChangeEvent } from 'react'
+import { useState, type ChangeEvent, type ReactNode } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Link } from 'react-router'
 import { format, parseISO } from 'date-fns'
 import { ru } from 'date-fns/locale'
-import { Button, Card, Chip, EmptyState, Field, Input, PageHeader } from '../../components/ui'
+import {
+  Button,
+  Card,
+  Chip,
+  EmptyState,
+  Field,
+  IconBadge,
+  Input,
+  LinkButton,
+  PageHeader,
+  SectionHeader,
+  StaggerList,
+} from '../../components/ui'
+import { buttonClasses } from '../../components/ui/helpers'
+import { Icon, type IconName } from '../../components/icons'
 import { db } from '../../db'
 import type { CalendarEvent, CalendarFeed } from '../../db/types'
 import { plural } from '../../lib/format'
@@ -55,13 +68,27 @@ function readFileText(file: File): Promise<string> {
 function NoticeLine({ notice }: { notice: Notice }) {
   if (!notice) return null
   return notice.tone === 'ok' ? (
-    <p role="status" className="mt-3 rounded-xl bg-accent/10 px-3 py-2 text-sm text-accent">
-      {notice.text}
+    <p role="status" className="mt-3 flex items-start gap-2 rounded-2xl bg-accent/10 px-3 py-2 text-sm text-accent">
+      <Icon name="check" size={16} className="mt-0.5 shrink-0" />
+      <span>{notice.text}</span>
     </p>
   ) : (
-    <p role="alert" className="mt-3 rounded-xl bg-danger/10 px-3 py-2 text-sm text-danger">
-      {notice.text}
+    <p role="alert" className="mt-3 flex items-start gap-2 rounded-2xl bg-danger/10 px-3 py-2 text-sm text-danger">
+      <Icon name="info" size={16} className="mt-0.5 shrink-0" />
+      <span>{notice.text}</span>
     </p>
+  )
+}
+
+function CardHead({ icon, title, children }: { icon: IconName; title: string; children?: ReactNode }) {
+  return (
+    <div className="flex items-start gap-3">
+      <IconBadge name={icon} tone="info" />
+      <div className="min-w-0 flex-1">
+        <h2 className="text-[17px] leading-tight font-semibold tracking-tight">{title}</h2>
+        {children && <p className="mt-1 text-sm text-muted">{children}</p>}
+      </div>
+    </div>
   )
 }
 
@@ -148,18 +175,21 @@ export function CalendarPage() {
       <PageHeader title="Календарь" subtitle="Записи OneFit из Google / Apple Calendar" />
       <WorkoutsNav />
 
-      <div className="space-y-4">
-        <Card>
-          <h2 className="font-semibold">Импорт файла</h2>
-          <p className="mt-1 text-sm text-muted">
+      <div className="space-y-3">
+        <Card tone="info">
+          <CardHead icon="arrow-down" title="Импорт файла">
             OneFit добавляет каждую запись в календарь телефона. Загрузите календарь сюда — FORMA
             покажет ближайшие занятия и предложит начать тренировку.
-          </p>
+          </CardHead>
           <label
-            className={`mt-3 inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-bg hover:bg-accent-strong ${
-              busy ? 'pointer-events-none opacity-50' : ''
-            }`}
+            className={buttonClasses({
+              variant: 'primary',
+              className: `mt-4 w-full cursor-pointer focus-within:ring-2 focus-within:ring-accent/50 ${
+                busy ? 'pointer-events-none opacity-50' : ''
+              }`,
+            })}
           >
+            <Icon name="plus" size={18} />
             <input
               type="file"
               accept=".ics,text/calendar"
@@ -174,7 +204,7 @@ export function CalendarPage() {
         </Card>
 
         <Card>
-          <h2 className="font-semibold">Подписка по ссылке</h2>
+          <CardHead icon="history" title="Подписка по ссылке" />
           <form
             className="mt-3 space-y-3"
             onSubmit={(e) => {
@@ -195,7 +225,7 @@ export function CalendarPage() {
                 onChange={(e) => setUrl(e.target.value)}
               />
             </Field>
-            <Button type="submit" variant="secondary" disabled={busy || !url.trim()}>
+            <Button type="submit" variant="secondary" icon="history" disabled={busy || !url.trim()}>
               Синхронизировать
             </Button>
           </form>
@@ -219,8 +249,8 @@ export function CalendarPage() {
 
         {[...sources.entries()].some(([s]) => !feedLabels.has(s)) && (
           <Card>
-            <h2 className="mb-2 font-semibold">Импортированные файлы</h2>
-            <ul className="space-y-2">
+            <CardHead icon="list" title="Импортированные файлы" />
+            <ul className="mt-3 space-y-2">
               {[...sources.entries()]
                 .filter(([s]) => !feedLabels.has(s))
                 .map(([source, count]) => (
@@ -232,22 +262,25 @@ export function CalendarPage() {
 
         {hasAny ? (
           <>
-            <div
-              className="-mx-1 flex flex-wrap gap-2 px-1"
-              role="group"
-              aria-label="Фильтр по типу"
-            >
-              <Chip active={kind === 'all'} onClick={() => setKind('all')}>
+            <div className="flex flex-wrap gap-2 pt-2" role="group" aria-label="Фильтр по типу">
+              <Chip tone="info" active={kind === 'all'} onClick={() => setKind('all')}>
                 Все
               </Chip>
               {KIND_ORDER.map((k) => (
-                <Chip key={k} active={kind === k} onClick={() => setKind(k)}>
-                  {KIND_META[k].icon} {KIND_META[k].label}
+                <Chip
+                  key={k}
+                  tone={KIND_META[k].tone}
+                  icon={KIND_META[k].icon}
+                  active={kind === k}
+                  onClick={() => setKind(k)}
+                >
+                  {KIND_META[k].label}
                 </Chip>
               ))}
             </div>
 
             <EventSection
+              icon="calendar"
               title="Ближайшие"
               subtitle={`${UPCOMING_DAYS} дней`}
               events={upcoming}
@@ -255,6 +288,7 @@ export function CalendarPage() {
               empty="Ближайших занятий нет"
             />
             <EventSection
+              icon="history"
               title="Прошедшие"
               subtitle={`${PAST_DAYS} дней`}
               events={past}
@@ -265,6 +299,8 @@ export function CalendarPage() {
         ) : (
           sourceKeys !== undefined && (
             <EmptyState
+              icon="calendar"
+              tone="info"
               title="Событий пока нет"
               hint="Импортируйте .ics или добавьте ссылку на календарь, куда OneFit пишет записи."
             />
@@ -276,12 +312,14 @@ export function CalendarPage() {
 }
 
 function EventSection({
+  icon,
   title,
   subtitle,
   events,
   now,
   empty,
 }: {
+  icon: IconName
   title: string
   subtitle: string
   events: CalendarEvent[]
@@ -290,25 +328,24 @@ function EventSection({
 }) {
   return (
     <section aria-label={title}>
-      <h2 className="mb-2 flex items-baseline gap-2 text-lg font-semibold">
-        {title} <span className="text-sm font-normal text-muted">{subtitle}</span>
-      </h2>
+      <SectionHeader title={title} subtitle={subtitle} icon={icon} tone="info" className="mt-4" />
       {events.length === 0 ? (
-        <p className="rounded-2xl border border-dashed border-border p-4 text-center text-sm text-muted">
+        <p className="flex items-center justify-center gap-2 rounded-3xl border border-dashed border-border bg-surface/40 p-4 text-center text-sm text-muted">
+          <Icon name={icon} size={16} className="shrink-0 text-info/70" />
           {empty}
         </p>
       ) : (
         <div className="space-y-4">
           {groupByDay(events).map(([day, list]) => (
             <div key={day}>
-              <h3 className="mb-2 text-xs font-medium tracking-wide text-muted uppercase">
+              <h3 className="mb-2 px-0.5 text-xs font-medium tracking-wide text-muted uppercase">
                 {dayHeading(day, now)}
               </h3>
-              <ul className="space-y-2">
+              <StaggerList as="ul" className="space-y-2">
                 {list.map((ev) => (
                   <EventRow key={ev.id} ev={ev} />
                 ))}
-              </ul>
+              </StaggerList>
             </div>
           ))}
         </div>
@@ -321,23 +358,25 @@ function EventRow({ ev }: { ev: CalendarEvent }) {
   const action = actionFor(ev.kind)
   const meta = KIND_META[ev.kind]
   return (
-    <Card as="li" className="flex items-start gap-3">
-      <span aria-label={meta.label} role="img" className="mt-0.5 text-2xl leading-none">
-        {meta.icon}
-      </span>
+    <Card as="div" className="flex items-start gap-3 p-3.5">
+      <IconBadge name={meta.icon} tone={meta.tone} />
+      <span className="sr-only">{meta.label}</span>
       <div className="min-w-0 flex-1">
-        <p className="font-medium break-words">{ev.title}</p>
-        <p className="text-sm text-muted">
-          <span className="text-text">{timeRange(ev)}</span>
+        <p className="leading-snug font-semibold tracking-tight break-words">{ev.title}</p>
+        <p className="mt-0.5 text-sm text-muted">
+          <span className="font-medium text-text tabular-nums">{timeRange(ev)}</span>
           {ev.location && <> · {ev.location}</>}
         </p>
         {action && (
-          <Link
+          <LinkButton
             to={action.to}
-            className="mt-2 inline-flex items-center rounded-xl bg-surface-2 px-3 py-1.5 text-sm text-text hover:bg-border"
+            variant="secondary"
+            size="sm"
+            icon={ev.kind === 'gym' ? 'play' : 'plus'}
+            className="mt-2.5"
           >
             {action.label}
-          </Link>
+          </LinkButton>
         )}
       </div>
     </Card>
@@ -348,7 +387,7 @@ function ConfirmDelete({ label, onConfirm }: { label: string; onConfirm: () => v
   const [asking, setAsking] = useState(false)
   if (!asking) {
     return (
-      <Button variant="ghost" size="sm" onClick={() => setAsking(true)}>
+      <Button variant="ghost" size="sm" icon="trash" onClick={() => setAsking(true)}>
         {label}
       </Button>
     )
@@ -367,7 +406,7 @@ function ConfirmDelete({ label, onConfirm }: { label: string; onConfirm: () => v
 
 function SourceRow({ source, count }: { source: string; count: number }) {
   return (
-    <li className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-surface-2 px-3 py-2">
+    <li className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-surface-2 py-2 pr-1.5 pl-3">
       <div className="min-w-0">
         <p className="truncate text-sm font-medium">{source}</p>
         <p className="text-xs text-muted">
@@ -391,7 +430,7 @@ function FeedRow({
   onSync: () => void
 }) {
   return (
-    <li className="rounded-xl bg-surface-2 px-3 py-2">
+    <li className="rounded-2xl bg-surface-2 px-3 py-2.5">
       <p className="truncate text-sm font-medium">{feed.label}</p>
       <p className="text-xs text-muted">
         {count} {plural(count, ['событие', 'события', 'событий'])}
@@ -400,7 +439,7 @@ function FeedRow({
       </p>
       {feed.lastError && <p className="mt-1 text-xs text-danger">{feed.lastError}</p>}
       <div className="mt-2 flex flex-wrap gap-2">
-        <Button variant="secondary" size="sm" disabled={busy} onClick={onSync}>
+        <Button variant="secondary" size="sm" icon="history" disabled={busy} onClick={onSync}>
           Обновить
         </Button>
         <ConfirmDelete label="Удалить" onConfirm={() => void deleteFeed(feed)} />
@@ -411,13 +450,16 @@ function FeedRow({
 
 function Instructions() {
   return (
-    <details className="group rounded-2xl border border-border bg-surface p-4">
-      <summary className="cursor-pointer list-none font-semibold marker:hidden">
-        <span className="flex items-center justify-between gap-2">
-          Как получить календарь (.ics)
-          <span aria-hidden className="text-muted transition group-open:rotate-180">
-            ▾
-          </span>
+    <details className="group rounded-3xl border border-white/[0.06] bg-surface bg-[image:var(--gradient-surface)] p-4 shadow-[var(--shadow-card)]">
+      <summary className="cursor-pointer list-none marker:hidden [&::-webkit-details-marker]:hidden">
+        <span className="flex items-center gap-3">
+          <IconBadge name="info" tone="info" />
+          <span className="min-w-0 flex-1 text-[17px] font-semibold tracking-tight">Как получить календарь (.ics)</span>
+          <Icon
+            name="chevron-down"
+            size={20}
+            className="shrink-0 text-muted transition-transform duration-200 group-open:rotate-180"
+          />
         </span>
       </summary>
       <div className="mt-3 space-y-4 text-sm text-muted">
@@ -428,7 +470,7 @@ function Instructions() {
         <div>
           <h3 className="mb-1 font-medium text-text">Google Calendar</h3>
           <ol className="list-decimal space-y-1 pl-5">
-            <li>Откройте calendar.google.com на компьютере → ⚙ Настройки.</li>
+            <li>Откройте calendar.google.com на компьютере → Настройки.</li>
             <li>
               Слева в «Настройках моих календарей» выберите календарь, куда приходят записи OneFit.
             </li>

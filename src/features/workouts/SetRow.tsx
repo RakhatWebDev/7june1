@@ -51,7 +51,7 @@ export function SetRow({
   return (
     <li
       ref={scope}
-      className={`relative -mx-1.5 flex flex-wrap items-center gap-2 rounded-2xl px-1.5 py-2 transition-colors duration-300 sm:flex-nowrap sm:gap-3 ${
+      className={`relative -mx-1.5 flex flex-wrap items-center gap-2 rounded-2xl px-1.5 py-2.5 transition-colors duration-300 sm:flex-nowrap sm:gap-3 ${
         local.done ? 'bg-accent/[0.08]' : ''
       }`}
     >
@@ -67,7 +67,7 @@ export function SetRow({
       >
         {n}
       </span>
-      <div className="relative order-1 sm:order-2">
+      <div className="relative order-1 sm:order-2 [&_input]:w-14 sm:[&_input]:w-16">
         <Stepper
           aria-label={`Вес, подход ${n}`}
           value={local.weightKg}
@@ -75,7 +75,7 @@ export function SetRow({
           onChange={(v) => change({ weightKg: v })}
         />
       </div>
-      <div className="relative order-2 sm:order-3">
+      <div className="relative order-2 sm:order-3 [&_input]:w-14 sm:[&_input]:w-16">
         <Stepper aria-label={`Повторы, подход ${n}`} value={local.reps} onChange={(v) => change({ reps: v })} />
       </div>
       <div className="relative order-4 ml-auto flex items-center gap-2">

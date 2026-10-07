@@ -156,10 +156,10 @@ export function SessionExerciseCard({
         className="mt-3 flex gap-2 px-0 text-[11px] font-medium tracking-wide text-muted uppercase sm:gap-3"
       >
         <span className="hidden w-7 text-center sm:block">№</span>
-        <span className="w-[146px]">Вес, кг</span>
-        <span className="w-[146px]">Повторы</span>
+        <span className="w-[138px] sm:w-[146px]">Вес, кг</span>
+        <span className="w-[138px] sm:w-[146px]">Повторы</span>
       </div>
-      <ul className="mt-1 space-y-1">
+      <ul className="mt-1 divide-y divide-white/[0.06]">
         {exercise.sets.map((set, i) => (
           <SetRow
             key={i}

@@ -1,7 +1,21 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react'
-import { Link, useParams } from 'react-router'
+import { useParams } from 'react-router'
+import { motion } from 'motion/react'
 import { ExerciseMedia } from '../../components/ExerciseMedia'
-import { Button, Card, EmptyState, PageHeader, Progress } from '../../components/ui'
+import {
+  Button,
+  Card,
+  Confetti,
+  EmptyState,
+  IconBadge,
+  LinkButton,
+  PageHeader,
+  Progress,
+  Ring,
+  Skeleton,
+} from '../../components/ui'
+import { Icon } from '../../components/icons'
+import { useReduceMotion } from '../../components/ui/helpers'
 import { useExercise } from '../../data/exercises'
 import { db } from '../../db'
 import { today } from '../../lib/dates'
@@ -18,7 +32,16 @@ export function StretchRunPage() {
     return (
       <>
         <PageHeader title="Растяжка" back="/cardio/stretch" />
-        <EmptyState title="Комплекс не найден" action={<Link to="/cardio/stretch" className="text-accent">К списку комплексов</Link>} />
+        <EmptyState
+          icon="stretch"
+          tone="violet"
+          title="Комплекс не найден"
+          action={
+            <LinkButton to="/cardio/stretch" variant="secondary" icon="list">
+              К списку комплексов
+            </LinkButton>
+          }
+        />
       </>
     )
   }
@@ -34,6 +57,7 @@ function StretchRunner({ routine }: { routine: StretchRoutine }) {
   const weightKg = useBodyWeight()
   const [savedMin, setSavedMin] = useState<number | null>(null)
   const savedRef = useRef(false)
+  const reduce = useReduceMotion()
 
   // One-second ticker while running.
   useEffect(() => {
@@ -79,11 +103,17 @@ function StretchRunner({ routine }: { routine: StretchRoutine }) {
     return (
       <>
         <PageHeader title={routine.name} back="/cardio/stretch" />
-        <Card className="text-center">
-          <div className="text-4xl" aria-hidden>
-            🧘
-          </div>
-          <h2 className="mt-2 text-xl font-semibold">Комплекс завершён</h2>
+        <Card variant="elevated" tone="violet" className="relative overflow-hidden py-8 text-center">
+          {!nothingDone && <Confetti />}
+          <motion.div
+            className="mx-auto w-fit"
+            initial={reduce ? false : { scale: 0.6, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 18 }}
+          >
+            <IconBadge name={nothingDone ? 'stretch' : 'check'} tone="violet" size="lg" className="size-16 rounded-3xl" />
+          </motion.div>
+          <h2 className="mt-4 text-xl font-semibold tracking-tight">Комплекс завершён</h2>
           <p className="mt-1 text-sm text-muted">
             {nothingDone
               ? 'Ничего не выполнено — активность не сохранена'
@@ -91,13 +121,13 @@ function StretchRunner({ routine }: { routine: StretchRoutine }) {
                 ? 'Сохраняем…'
                 : `Сохранено в активности: ${savedMin} мин растяжки`}
           </p>
-          <div className="mt-4 flex justify-center gap-2">
-            <Link to="/cardio" className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-bg">
+          <div className="mt-6 grid grid-cols-2 gap-2">
+            <LinkButton to="/cardio" icon="activity">
               К активностям
-            </Link>
-            <Link to="/cardio/stretch" className="rounded-xl bg-surface-2 px-4 py-2 text-sm">
+            </LinkButton>
+            <LinkButton to="/cardio/stretch" variant="secondary">
               Другой комплекс
-            </Link>
+            </LinkButton>
           </div>
         </Card>
       </>
@@ -107,39 +137,79 @@ function StretchRunner({ routine }: { routine: StretchRoutine }) {
   const progressLabel = `${state.index + 1}/${steps.length}`
   const total = step.holdSec
   const toggleLabel = state.running ? 'Пауза' : state.elapsed === 0 ? 'Старт' : 'Продолжить'
+  const phase = state.running ? 'Держите' : state.elapsed === 0 ? 'Готовы?' : 'Пауза'
+  const warning = state.running && state.remaining <= 5
+  const springIn = { type: 'spring', stiffness: 300, damping: 26 } as const
   return (
     <>
       <PageHeader title={routine.name} subtitle={`Упражнение ${progressLabel}`} back="/cardio/stretch" />
-      <Progress value={state.index / steps.length} className="mb-4" />
-      <Card className="space-y-3">
-        <div className="flex items-baseline justify-between gap-2">
-          <h2 className="text-lg font-semibold">{step.nameRu}</h2>
-          <span className="shrink-0 text-sm text-muted" data-testid="stretch-progress">
-            {progressLabel}
-          </span>
-        </div>
-        {exercise ? (
-          <ExerciseMedia exercise={exercise} />
-        ) : (
-          <div className="flex aspect-[4/3] items-center justify-center rounded-2xl bg-surface-2 text-muted">Загрузка…</div>
-        )}
-        {step.perSide && (
-          <p className="text-center text-sm font-medium text-accent">
-            {state.side === 0 ? 'Первая сторона' : 'Вторая сторона'}
-          </p>
-        )}
-        <div
-          className="text-center text-6xl font-bold tabular-nums"
-          role="timer"
-          aria-live="off"
-          aria-label="Осталось"
+      <Progress value={state.index / steps.length} tone="violet" className="mb-4" aria-label="Прогресс комплекса" />
+      <Card className="overflow-hidden">
+        <motion.div
+          key={state.index}
+          className="space-y-3"
+          initial={reduce ? false : { x: 32, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          transition={springIn}
         >
-          {formatClock(state.remaining)}
-        </div>
-        <Progress value={(total - state.remaining) / total} />
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <IconBadge name="stretch" tone="violet" />
+              <h2 className="text-lg leading-snug font-semibold tracking-tight">{step.nameRu}</h2>
+            </div>
+            <span
+              className="mt-1 shrink-0 rounded-full bg-violet/15 px-2.5 py-0.5 text-xs font-semibold text-violet tabular-nums"
+              data-testid="stretch-progress"
+            >
+              {progressLabel}
+            </span>
+          </div>
+          {exercise ? (
+            <div className="mx-auto w-full max-w-[280px]">
+              <ExerciseMedia exercise={exercise} className="max-h-[200px]" />
+            </div>
+          ) : (
+            <Skeleton className="mx-auto aspect-[4/3] w-full max-w-[280px]" rounded="rounded-2xl" />
+          )}
+        </motion.div>
+
+        <motion.div
+          key={`${state.index}-${state.side}`}
+          className="mt-4 flex flex-col items-center"
+          initial={reduce ? false : { scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={springIn}
+        >
+          <div className={warning ? 'animate-pulse-soft' : ''}>
+            <Ring value={total > 0 ? state.remaining / total : 0} size={184} stroke={12} tone="violet">
+              <div className="flex flex-col items-center">
+                <span className="text-xs font-medium tracking-wide text-muted uppercase">{phase}</span>
+                <div
+                  className="text-[52px] leading-none font-bold tracking-tight tabular-nums"
+                  role="timer"
+                  aria-live="off"
+                  aria-label="Осталось"
+                >
+                  {formatClock(state.remaining)}
+                </div>
+                {step.perSide ? (
+                  <span className="mt-1.5 rounded-full bg-violet/15 px-2.5 py-0.5 text-xs font-semibold text-violet">
+                    {state.side === 0 ? 'Первая сторона' : 'Вторая сторона'}
+                  </span>
+                ) : (
+                  <span className="mt-1.5 text-xs text-muted">из {formatClock(total)}</span>
+                )}
+              </div>
+            </Ring>
+          </div>
+        </motion.div>
+
         {exercise && exercise.instructions.length > 0 && (
-          <details className="text-sm text-muted">
-            <summary className="cursor-pointer">Как выполнять (англ.)</summary>
+          <details className="group mt-4 rounded-2xl bg-surface-2 px-3 py-2.5 text-sm text-muted">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 font-medium text-text marker:hidden">
+              Как выполнять (англ.)
+              <Icon name="chevron-down" size={18} className="text-muted transition-transform group-open:rotate-180" />
+            </summary>
             <ol className="mt-2 list-decimal space-y-1 pl-5">
               {exercise.instructions.map((s, i) => (
                 <li key={i}>{s}</li>
@@ -152,16 +222,17 @@ function StretchRunner({ routine }: { routine: StretchRoutine }) {
         <Button
           size="lg"
           variant={state.running ? 'secondary' : 'primary'}
+          icon={state.running ? 'pause' : 'play'}
           aria-label={`Таймер: ${toggleLabel}`}
           onClick={() => dispatch({ type: 'toggle' })}
         >
           {toggleLabel}
         </Button>
-        <Button size="lg" variant="secondary" onClick={() => dispatch({ type: 'next' })}>
+        <Button size="lg" variant="secondary" iconRight="chevron-right" onClick={() => dispatch({ type: 'next' })}>
           Далее
         </Button>
       </div>
-      <Button variant="ghost" className="mt-2 w-full" onClick={() => dispatch({ type: 'finish' })}>
+      <Button variant="ghost" icon="check" className="mt-2 w-full" onClick={() => dispatch({ type: 'finish' })}>
         Завершить сейчас
       </Button>
     </>

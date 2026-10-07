@@ -1,17 +1,20 @@
 import { addDays, differenceInCalendarDays, format, parseISO } from 'date-fns'
 import { ru } from 'date-fns/locale'
+import type { IconName } from '../../components/icons'
+import type { Tone } from '../../components/ui/helpers'
 import type { CalendarEvent } from '../../db/types'
 import { toISODate } from '../../lib/dates'
 
 export type EventKind = CalendarEvent['kind']
 
-export const KIND_META: Record<EventKind, { label: string; icon: string }> = {
-  gym: { label: 'Зал', icon: '🏋' },
-  class: { label: 'Занятия', icon: '🧘' },
-  swim: { label: 'Бассейн', icon: '🏊' },
-  run: { label: 'Бег', icon: '🏃' },
-  bike: { label: 'Вело', icon: '🚴' },
-  other: { label: 'Другое', icon: '📅' },
+/** Label, line icon and domain tone per event kind (gym = lime, cardio-like = info). */
+export const KIND_META: Record<EventKind, { label: string; icon: IconName; tone: Tone }> = {
+  gym: { label: 'Зал', icon: 'dumbbell', tone: 'accent' },
+  class: { label: 'Занятия', icon: 'stretch', tone: 'info' },
+  swim: { label: 'Бассейн', icon: 'swim', tone: 'info' },
+  run: { label: 'Бег', icon: 'run', tone: 'info' },
+  bike: { label: 'Вело', icon: 'bike', tone: 'info' },
+  other: { label: 'Другое', icon: 'calendar', tone: 'info' },
 }
 
 export const KIND_ORDER: EventKind[] = ['gym', 'class', 'swim', 'run', 'bike', 'other']

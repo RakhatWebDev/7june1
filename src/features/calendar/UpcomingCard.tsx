@@ -53,9 +53,7 @@ export function UpcomingCard() {
         <ul className="mt-2 divide-y divide-white/[0.06]">
           {events.map((ev) => (
             <li key={ev.id} className="flex items-center gap-3 py-2">
-              <span aria-hidden className="text-xl leading-none">
-                {KIND_META[ev.kind].icon}
-              </span>
+              <IconBadge name={KIND_META[ev.kind].icon} tone={KIND_META[ev.kind].tone} size="sm" />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{ev.title}</p>
                 <p className="truncate text-xs text-muted">

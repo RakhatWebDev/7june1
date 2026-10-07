@@ -27,7 +27,7 @@ describe('NewActivityPage', () => {
       { id: 'w2', date: '2026-02-01', weightKg: 85 },
     ])
     const router = renderAt('/cardio/new?type=run')
-    expect(screen.getByRole('button', { name: /Бег/ })).toHaveClass('text-accent')
+    expect(screen.getByRole('button', { name: /Бег/ })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByLabelText(/^Дата/)).toHaveValue(today())
 
     fireEvent.change(screen.getByLabelText(/^Длительность/), { target: { value: '30' } })
@@ -105,7 +105,7 @@ describe('CardioPage', () => {
     expect(within(week).getByText(/Бассейн: 1/)).toBeInTheDocument()
 
     for (const label of ['Бег', 'Вело', 'Бассейн', 'Скакалка', 'Ходьба', 'Растяжка'])
-      expect(screen.getByRole('link', { name: new RegExp(`\\+ ${label}`) })).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: `Добавить: ${label}` })).toBeInTheDocument()
 
     vi.spyOn(window, 'confirm').mockReturnValue(true)
     fireEvent.click(screen.getByRole('button', { name: 'Удалить: Бег 01.01.2020' }))

@@ -61,7 +61,6 @@ export function HistoryPage() {
             label="За 7 дней"
             value={week.length}
             unit={plural(week.length, ['тренировка', 'тренировки', 'тренировок'])}
-            sub={`всего ${sessions.length}`}
           />
           <StatTile icon="chart" tone="accent" label="Объём · 7 дн." value={int(weekVolume)} unit="кг" />
         </div>
@@ -90,7 +89,7 @@ export function HistoryPage() {
 function HistoryRow({ session: s, onDelete }: { session: WorkoutSession; onDelete: () => void }) {
   const sets = doneSetCount(s)
   return (
-    <Card as="div" className="flex items-center gap-1 p-0 transition-[border-color] hover:border-accent/40">
+    <Card as="div" padding="none" className="flex items-center gap-1 transition-[border-color] hover:border-accent/40">
       <Link to={`/workouts/session/${s.id}`} className="group flex min-w-0 flex-1 items-center gap-3 p-3.5">
         <IconBadge name={s.finishedAt ? 'dumbbell' : 'play'} tone="accent" />
         <span className="min-w-0 flex-1">

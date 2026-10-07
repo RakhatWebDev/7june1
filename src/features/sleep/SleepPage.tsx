@@ -1,7 +1,18 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { addDays } from 'date-fns'
 import { Link } from 'react-router'
-import { Button, Card, EmptyState, PageHeader, Stat } from '../../components/ui'
+import {
+  Card,
+  EmptyState,
+  IconBadge,
+  LinkButton,
+  PageHeader,
+  Ring,
+  SectionHeader,
+  StaggerList,
+  StatTile,
+} from '../../components/ui'
+import { Icon } from '../../components/icons'
 import { db } from '../../db'
 import type { SleepEntry } from '../../db/types'
 import { formatMinutes, fromISODate, today, toISODate } from '../../lib/dates'
@@ -17,8 +28,6 @@ function ddmm(iso: string): string {
   const [, m, d] = iso.split('-')
   return `${d}.${m}`
 }
-
-const linkBtn = 'rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-bg hover:bg-accent-strong'
 
 export function SleepPage() {
   const ref = today()
@@ -39,50 +48,111 @@ export function SleepPage() {
 
   return (
     <>
-      <PageHeader title="Сон" action={<Link to="/sleep/new" className={linkBtn}>+ Записать</Link>} />
+      <PageHeader
+        title="Сон"
+        back="/growth"
+        action={
+          <LinkButton to="/sleep/new" size="sm" icon="plus">
+            Записать
+          </LinkButton>
+        }
+      />
 
-      <section aria-label="Сводка" className="mb-4 grid grid-cols-3 gap-2">
-        <Stat
-          label="Прошлая ночь"
-          value={last ? formatMinutes(last.durationMin) : '—'}
-          sub={last ? `${ddmm(last.date)} · ${QUALITY_RU[last.quality]}` : undefined}
+      <section aria-label="Сводка" className="grid grid-cols-2 gap-3">
+        <Card variant="elevated" tone="violet" className="col-span-2 flex items-center gap-4">
+          <Ring
+            value={last && targetMin ? last.durationMin / targetMin : 0}
+            size={84}
+            stroke={9}
+            tone="violet"
+          >
+            <Icon name="moon" size={26} className="text-violet" />
+          </Ring>
+          <div className="min-w-0 flex-1">
+            <p className="text-[13px] font-medium text-muted">Прошлая ночь</p>
+            <p className="text-[28px] leading-tight font-bold tracking-tight tabular-nums">
+              {last ? formatMinutes(last.durationMin) : '—'}
+            </p>
+            {last && (
+              <p className="truncate text-xs text-muted tabular-nums">
+                {ddmm(last.date)} · {QUALITY_RU[last.quality]}
+              </p>
+            )}
+          </div>
+        </Card>
+        <StatTile
+          icon="chart"
+          tone="violet"
+          label="Среднее 7 дн."
+          value={avg != null ? formatMinutes(avg) : '—'}
         />
-        <Stat label="Среднее 7 дн." value={avg != null ? formatMinutes(avg) : '—'} />
-        <Stat label="Цель" value={targetMin ? formatMinutes(targetMin) : '—'} sub={<Link to="/settings">изменить</Link>} />
+        <StatTile
+          icon="target"
+          tone="violet"
+          label="Цель"
+          value={targetMin ? formatMinutes(targetMin) : '—'}
+          sub={
+            <Link to="/settings" className="text-violet hover:underline">
+              изменить
+            </Link>
+          }
+        />
       </section>
 
-      <Card className="mb-4">
-        <h2 className="mb-2 text-sm font-medium text-muted">Последние 14 дней</h2>
+      <Card className="mt-3">
+        <h2 className="mb-2 flex items-center gap-2 text-[15px] font-semibold tracking-tight">
+          <Icon name="chart" size={17} className="text-violet" />
+          Последние 14 дней
+        </h2>
         <SleepChart data={chart} targetMin={targetMin ?? null} />
       </Card>
 
-      <h2 className="mb-2 text-sm font-medium text-muted">Записи</h2>
+      <SectionHeader title="Записи" icon="history" tone="violet" />
       {recent && recent.length === 0 ? (
         <EmptyState
+          icon="moon"
+          tone="violet"
           title="Пока нет записей сна"
           hint="Запишите время отбоя и подъёма — посчитаем длительность."
-          action={<Link to="/sleep/new" className={linkBtn}>Записать сон</Link>}
+          action={
+            <LinkButton to="/sleep/new" icon="plus">
+              Записать сон
+            </LinkButton>
+          }
         />
       ) : (
-        <ul className="space-y-2">
+        <StaggerList as="ul" className="space-y-2">
           {(recent ?? []).map((e) => (
-            <li key={e.id} className="flex items-center gap-3 rounded-2xl border border-border bg-surface p-3">
+            <Card key={e.id} as="div" className="flex items-center gap-3 p-3">
+              <IconBadge name="moon" tone="violet" />
               <div className="min-w-0 flex-1">
                 <div className="flex items-baseline justify-between gap-2">
-                  <span className="font-medium">{formatMinutes(e.durationMin)}</span>
-                  <span className="shrink-0 text-xs text-muted">{ddmm(e.date)}</span>
+                  <span className="font-semibold tracking-tight tabular-nums">{formatMinutes(e.durationMin)}</span>
+                  <span className="shrink-0 text-xs text-muted tabular-nums">{ddmm(e.date)}</span>
                 </div>
-                <div className="text-sm text-muted">
-                  {hhmm(e.bedtime)} → {hhmm(e.wakeTime)} · качество {e.quality}/5
+                <div className="flex flex-wrap items-center gap-x-2 text-sm text-muted tabular-nums">
+                  <span>
+                    {hhmm(e.bedtime)} – {hhmm(e.wakeTime)}
+                  </span>
+                  <span className="inline-flex items-center gap-0.5">
+                    <Icon name="star" size={13} className="text-violet" />
+                    <span className="sr-only">качество </span>
+                    {e.quality}/5
+                  </span>
                 </div>
                 {e.notes && <div className="truncate text-xs text-muted">{e.notes}</div>}
               </div>
-              <Button variant="ghost" size="sm" aria-label={`Удалить сон ${ddmm(e.date)}`} onClick={() => void remove(e)}>
-                ✕
-              </Button>
-            </li>
+              <button
+                type="button"
+                aria-label={`Удалить сон ${ddmm(e.date)}`}
+                className="-mr-1 grid size-10 shrink-0 place-items-center rounded-xl text-muted transition-colors hover:bg-danger/15 hover:text-danger"
+                onClick={() => void remove(e)}
+              >
+                <Icon name="trash" size={18} />
+              </button>
+            </Card>
           ))}
-        </ul>
+        </StaggerList>
       )}
     </>
   )

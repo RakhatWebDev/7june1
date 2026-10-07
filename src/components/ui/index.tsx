@@ -146,18 +146,23 @@ function toneGlow(tone: Tone, strong: boolean): string {
   return `radial-gradient(130% 120% at 100% 0%, ${toneTint(tone, strong ? 30 : 12)} 0%, ${toneTint(tone, strong ? 8 : 3)} 45%, transparent 75%), var(--gradient-surface)`
 }
 
+const cardPaddingClass = { none: 'p-0', sm: 'p-3', md: 'p-4' } as const
+
 export function Card({
   children,
   className = '',
   as: Tag = 'section',
   variant = 'default',
   tone,
+  padding = 'md',
   style,
   ...rest
 }: {
   children: ReactNode
   className?: string
   as?: 'section' | 'div' | 'article' | 'li'
+  /** Inner padding: none (list containers), sm, md (default). */
+  padding?: 'none' | 'sm' | 'md'
   /** default — surface + hairline; elevated — lifted surface-2; glass — translucent blur; accent — tone gradient hero. */
   variant?: CardVariant
   /** Domain tone: tints the card with a corner glow (strong for `accent` variant; default lime). */
@@ -168,7 +173,11 @@ export function Card({
     ? { backgroundImage: toneGlow(glowTone, variant === 'accent'), ...style }
     : style
   return (
-    <Tag className={`rounded-3xl border p-4 ${cardVariantClass[variant]} ${className}`} style={bg} {...rest}>
+    <Tag
+      className={`rounded-3xl border ${cardPaddingClass[padding]} ${cardVariantClass[variant]} ${className}`}
+      style={bg}
+      {...rest}
+    >
       {children}
     </Tag>
   )
@@ -925,16 +934,29 @@ export function Ring({
             opacity={v === 0 ? 0 : 1}
           />
         ) : (
-          <motion.circle
-            {...common}
-            stroke={TONE_VAR[tone]}
-            strokeLinecap="round"
-            strokeDasharray={c}
-            initial={{ strokeDashoffset: c }}
-            animate={{ strokeDashoffset: target, opacity: v === 0 ? 0 : 1 }}
-            transition={{ duration: 0.6, delay, ease: EASE_OUT }}
-            style={{ filter: `drop-shadow(0 0 6px ${toneTint(tone, 35)})` }}
-          />
+          <>
+            {/* Soft glow: a wider, translucent twin of the arc. A CSS drop-shadow filter
+                was used before, but Chromium paints its filter region as a faint square. */}
+            <motion.circle
+              {...common}
+              stroke={TONE_VAR[tone]}
+              strokeWidth={stroke + 6}
+              strokeLinecap="round"
+              strokeDasharray={c}
+              initial={{ strokeDashoffset: c }}
+              animate={{ strokeDashoffset: target, opacity: v === 0 ? 0 : 0.22 }}
+              transition={{ duration: 0.6, delay, ease: EASE_OUT }}
+            />
+            <motion.circle
+              {...common}
+              stroke={TONE_VAR[tone]}
+              strokeLinecap="round"
+              strokeDasharray={c}
+              initial={{ strokeDashoffset: c }}
+              animate={{ strokeDashoffset: target, opacity: v === 0 ? 0 : 1 }}
+              transition={{ duration: 0.6, delay, ease: EASE_OUT }}
+            />
+          </>
         )}
       </svg>
       {children != null && <div className="absolute inset-0 grid place-items-center text-center">{children}</div>}

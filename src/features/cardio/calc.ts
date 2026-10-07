@@ -1,3 +1,4 @@
+import type { IconName } from '../../components/icons'
 import type { Activity, ActivityType } from '../../db/types'
 
 /** Metabolic equivalents per activity type (Compendium of Physical Activities, rounded). */
@@ -25,15 +26,16 @@ export const ACTIVITY_RU: Record<ActivityType, string> = {
   other: 'Другое',
 }
 
-export const ACTIVITY_ICON: Record<ActivityType, string> = {
-  run: '🏃',
-  bike: '🚴',
-  swim: '🏊',
-  rope: '🪢',
-  walk: '🚶',
-  stretch: '🧘',
-  hiit: '⚡',
-  other: '•',
+/** Line icon per activity type (rendered via `IconBadge`, cardio tone `info`). */
+export const ACTIVITY_ICON: Record<ActivityType, IconName> = {
+  run: 'run',
+  bike: 'bike',
+  swim: 'swim',
+  rope: 'rope',
+  walk: 'activity',
+  stretch: 'stretch',
+  hiit: 'flame',
+  other: 'sparkles',
 }
 
 /** Types for which a distance makes sense. */
