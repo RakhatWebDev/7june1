@@ -82,11 +82,6 @@ export function formatDiff(format: MetricFormat, diff: number, currency = '₸')
   if (diff === 0) return '0'
   const sign = diff > 0 ? '+' : '−'
   const abs = Math.abs(diff)
-  const body =
-    format === 'duration'
-      ? formatMinutes(abs)
-      : format === 'kg' || format === 'score' || format === 'kcal'
-        ? formatMetric(format, abs, currency)
-        : formatMetric(format, abs, currency)
+  const body = format === 'duration' ? formatMinutes(abs) : formatMetric(format, abs, currency)
   return `${sign}${body}`
 }
