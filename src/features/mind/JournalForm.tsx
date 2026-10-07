@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { Button, Chip, Field, Input } from '../../components/ui'
+import { Button, Card, Field, IconBadge, Input, SegmentedControl } from '../../components/ui'
 import { db } from '../../db'
 import type { ISODate, JournalEntry } from '../../db/types'
 import { today } from '../../lib/dates'
 import { newId } from '../../lib/id'
 import { cleanItems, JOURNAL_KIND_LABEL, parseTags, REVIEW_PROMPTS, type JournalKind } from './calc'
 import { AutoTextarea } from './parts'
+import { REVIEW_BADGES } from './styles'
 
 const MAX_GRATITUDE = 5
 
@@ -83,13 +84,15 @@ export function JournalForm({
       }}
     >
       {!entry && isText && (
-        <div role="group" aria-label="Тип записи" className="flex gap-2">
-          {(['free', 'reflection'] as const).map((k) => (
-            <Chip key={k} active={kind === k} onClick={() => setKind(k)}>
-              {JOURNAL_KIND_LABEL[k]}
-            </Chip>
-          ))}
-        </div>
+        <SegmentedControl
+          aria-label="Тип записи"
+          value={kind}
+          onChange={setKind}
+          options={[
+            { value: 'free', label: JOURNAL_KIND_LABEL.free, icon: 'edit' },
+            { value: 'reflection', label: JOURNAL_KIND_LABEL.reflection, icon: 'brain' },
+          ]}
+        />
       )}
 
       {!fixedDate && (
@@ -99,11 +102,17 @@ export function JournalForm({
       )}
 
       {kind === 'gratitude' && (
+        <Card as="div" tone="pink">
         <fieldset className="space-y-2">
-          <legend className="mb-2 text-sm text-muted">3 вещи, за которые я благодарен сегодня</legend>
+          <legend className="mb-3 flex items-center gap-2 text-[15px] font-semibold tracking-tight">
+            <IconBadge name="heart" tone="pink" size="sm" />
+            3 вещи, за которые я благодарен сегодня
+          </legend>
           {items.map((v, i) => (
             <div key={i} className="flex items-center gap-2">
-              <span className="w-5 shrink-0 text-right text-sm text-muted tabular-nums">{i + 1}.</span>
+              <span className="grid size-6 shrink-0 place-items-center rounded-full bg-pink/15 text-xs font-semibold text-pink tabular-nums">
+                {i + 1}
+              </span>
               <Input
                 aria-label={`Благодарность ${i + 1}`}
                 placeholder={i === 0 ? 'Например: тёплый разговор с другом' : ''}
@@ -114,11 +123,11 @@ export function JournalForm({
                 <Button
                   variant="ghost"
                   size="sm"
+                  icon="x"
+                  className="w-9 shrink-0 px-0"
                   aria-label={`Убрать строку ${i + 1}`}
                   onClick={() => setItems((cur) => cur.filter((_, j) => j !== i))}
-                >
-                  ✕
-                </Button>
+                />
               )}
             </div>
           ))}
@@ -128,13 +137,20 @@ export function JournalForm({
             </Button>
           )}
         </fieldset>
+        </Card>
       )}
 
       {kind === 'evening_review' &&
         REVIEW_PROMPTS.map((label, i) => (
-          <Field key={label} label={label}>
-            <AutoTextarea rows={2} value={items[i] ?? ''} placeholder={REVIEW_PLACEHOLDERS[i]} onChange={(e) => setItem(i, e.target.value)} />
-          </Field>
+          <Card key={label} tone={REVIEW_BADGES[i].tone}>
+            <label className="block">
+              <span className="mb-2.5 flex items-center gap-2.5 text-[15px] font-semibold tracking-tight">
+                <IconBadge name={REVIEW_BADGES[i].icon} tone={REVIEW_BADGES[i].tone} size="sm" />
+                {label}
+              </span>
+              <AutoTextarea rows={2} value={items[i] ?? ''} placeholder={REVIEW_PLACEHOLDERS[i]} onChange={(e) => setItem(i, e.target.value)} />
+            </label>
+          </Card>
         ))}
 
       {isText && (
@@ -154,7 +170,7 @@ export function JournalForm({
       )}
 
       <div className="flex gap-2">
-        <Button type="submit" size="lg" className="flex-1" disabled={!valid || saving}>
+        <Button type="submit" size="lg" icon="check" className="flex-1" disabled={!valid || saving}>
           {submitLabel}
         </Button>
         {onCancel && (

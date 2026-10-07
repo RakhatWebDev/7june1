@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Link } from 'react-router'
-import { Card, StatTile } from '../../components/ui'
+import { Card, LinkButton, StatTile } from '../../components/ui'
 import { Icon } from '../../components/icons'
 import { db } from '../../db'
 import { today, weekDates } from '../../lib/dates'
@@ -15,7 +15,6 @@ import {
   type Slot,
 } from './calc'
 import { MoodPicker } from './parts'
-import { linkPrimary, linkSecondary } from './styles'
 
 /**
  * Dashboard card: quick mood check-in for the current slot (morning / evening) with five
@@ -95,7 +94,8 @@ export function MoodCheckinCard({ variant = 'card' }: { variant?: 'card' | 'stri
   return (
     <Card>
       <div className="mb-3 flex items-baseline justify-between gap-2">
-        <Link to="/mind" className="font-semibold hover:text-accent">
+        <Link to="/mind" className="flex items-center gap-2 font-semibold tracking-tight hover:text-violet">
+          <Icon name="heart" size={18} className="text-violet" />
           Настроение
         </Link>
         <span className="text-xs text-muted">{SLOT_LABEL[slot]}</span>
@@ -171,7 +171,8 @@ export function MindTodayCard({ compact = false }: { compact?: boolean }) {
   return (
     <Card>
       <div className="mb-3 flex items-baseline justify-between gap-2">
-        <Link to="/mind" className="font-semibold hover:text-accent">
+        <Link to="/mind" className="flex items-center gap-2 font-semibold tracking-tight hover:text-violet">
+          <Icon name="brain" size={18} className="text-violet" />
           Практика
         </Link>
         <span className="text-xs text-muted tabular-nums">за неделю {weekMin} мин</span>
@@ -183,12 +184,10 @@ export function MindTodayCard({ compact = false }: { compact?: boolean }) {
         <span className="text-sm text-muted">мин сегодня</span>
       </div>
       <div className="flex gap-2">
-        <Link to="/mind/meditate?min=10" className={`${linkPrimary} flex-1`}>
-          🧘 Медитация 10 мин
-        </Link>
-        <Link to="/mind/breathe" className={linkSecondary} aria-label="Дыхание">
-          🌬️
-        </Link>
+        <LinkButton to="/mind/meditate?min=10" icon="play" className="flex-1">
+          Медитация 10 мин
+        </LinkButton>
+        <LinkButton to="/mind/breathe" variant="secondary" icon="wind" aria-label="Дыхание" className="w-11 px-0" />
       </div>
     </Card>
   )

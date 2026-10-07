@@ -2,14 +2,14 @@ import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
-import { Button, Card, EmptyState, PageHeader } from '../../components/ui'
+import { useNavigate, useParams, useSearchParams } from 'react-router'
+import { Button, Card, EmptyState, IconBadge, LinkButton, PageHeader } from '../../components/ui'
 import { db } from '../../db'
 import type { JournalEntry } from '../../db/types'
 import { fromISODate } from '../../lib/dates'
-import { cleanItems, isJournalKind, JOURNAL_KIND_ICON, JOURNAL_KIND_LABEL, REVIEW_PROMPTS } from './calc'
+import { cleanItems, isJournalKind, JOURNAL_KIND_LABEL, REVIEW_PROMPTS } from './calc'
 import { JournalForm } from './JournalForm'
-import { linkPrimary } from './styles'
+import { JOURNAL_KIND_BADGE, REVIEW_BADGES } from './styles'
 
 /** `/mind/journal/new?kind=…` creates an entry; `/mind/journal/:id` views, edits or deletes one. */
 export function JournalEntryPage() {
@@ -43,11 +43,13 @@ function ExistingEntry({ id }: { id: string }) {
       <>
         <PageHeader title="Запись" back="/mind/journal" />
         <EmptyState
+          icon="search"
+          tone="violet"
           title="Запись не найдена"
           action={
-            <Link to="/mind/journal" className={linkPrimary}>
+            <LinkButton to="/mind/journal" icon="book">
               К дневнику
-            </Link>
+            </LinkButton>
           }
         />
       </>
@@ -71,10 +73,10 @@ function ExistingEntry({ id }: { id: string }) {
         <>
           <EntryView entry={entry} />
           <div className="mt-4 flex gap-2">
-            <Button className="flex-1" onClick={() => setEditing(true)}>
+            <Button className="flex-1" icon="edit" onClick={() => setEditing(true)}>
               Изменить
             </Button>
-            <Button variant="danger" onClick={() => void remove()}>
+            <Button variant="danger" icon="trash" onClick={() => void remove()}>
               Удалить
             </Button>
           </div>
@@ -85,33 +87,40 @@ function ExistingEntry({ id }: { id: string }) {
 }
 
 function EntryView({ entry }: { entry: JournalEntry }) {
+  const badge = JOURNAL_KIND_BADGE[entry.kind]
   return (
-    <Card className="space-y-3">
-      <div className="text-3xl" aria-hidden>
-        {JOURNAL_KIND_ICON[entry.kind]}
-      </div>
+    <Card variant="elevated" tone={badge.tone} className="space-y-4">
+      <IconBadge name={badge.icon} tone={badge.tone} size="lg" />
       {entry.kind === 'gratitude' && (
-        <ol className="list-decimal space-y-1 pl-5">
+        <ol className="space-y-2">
           {cleanItems(entry.items).map((s, i) => (
-            <li key={i}>{s}</li>
+            <li key={i} className="flex gap-3">
+              <span className="grid size-6 shrink-0 place-items-center rounded-full bg-pink/15 text-xs font-semibold text-pink tabular-nums">
+                {i + 1}
+              </span>
+              <span className="pt-0.5">{s}</span>
+            </li>
           ))}
         </ol>
       )}
       {entry.kind === 'evening_review' && (
         <dl className="space-y-3">
           {REVIEW_PROMPTS.map((label, i) => (
-            <div key={label}>
-              <dt className="text-xs font-medium tracking-wide text-muted uppercase">{label}</dt>
-              <dd className="mt-0.5 whitespace-pre-wrap">{entry.items?.[i]?.trim() || '—'}</dd>
+            <div key={label} className="flex gap-3">
+              <IconBadge name={REVIEW_BADGES[i].icon} tone={REVIEW_BADGES[i].tone} size="sm" />
+              <div className="min-w-0">
+                <dt className="text-xs font-medium tracking-wide text-muted uppercase">{label}</dt>
+                <dd className="mt-0.5 whitespace-pre-wrap">{entry.items?.[i]?.trim() || '—'}</dd>
+              </div>
             </div>
           ))}
         </dl>
       )}
-      {entry.text && <p className="whitespace-pre-wrap">{entry.text}</p>}
+      {entry.text && <p className="text-[15px] leading-relaxed whitespace-pre-wrap">{entry.text}</p>}
       {entry.tags && entry.tags.length > 0 && (
         <div className="flex flex-wrap gap-1">
           {entry.tags.map((t) => (
-            <span key={t} className="rounded-full bg-surface-2 px-2 py-0.5 text-xs text-muted">
+            <span key={t} className="rounded-full bg-surface-3/70 px-2 py-0.5 text-xs text-muted">
               #{t}
             </span>
           ))}

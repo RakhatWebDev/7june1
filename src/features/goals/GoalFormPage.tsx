@@ -13,6 +13,9 @@ import {
   Select,
   Sheet,
   Stepper,
+  Icon,
+  TONE_SOFT,
+  TONE_TEXT,
 } from '../../components/ui'
 import { today } from '../../lib/dates'
 import { newId } from '../../lib/id'
@@ -198,25 +201,24 @@ function GoalForm({ goal }: { goal?: LifeGoal }) {
             role="radiogroup"
             aria-label="Сфера"
           >
-            {LIFE_AREAS.map((a) => (
-              <button
-                key={a.id}
-                type="button"
-                role="radio"
-                aria-checked={area === a.id}
-                onClick={() => setArea(a.id)}
-                className={`flex flex-col items-center gap-1 rounded-xl border px-1 py-2 text-[11px] transition ${
-                  area === a.id
-                    ? 'border-accent bg-accent/15 text-accent'
-                    : 'border-border bg-surface-2 text-muted hover:text-text'
-                }`}
-              >
-                <span aria-hidden className="text-xl leading-none">
-                  {a.icon}
-                </span>
-                {a.name}
-              </button>
-            ))}
+            {LIFE_AREAS.map((a) => {
+              const on = area === a.id
+              return (
+                <button
+                  key={a.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  onClick={() => setArea(a.id)}
+                  className={`flex min-w-0 flex-col items-center gap-1.5 rounded-2xl border px-1 py-2.5 text-[11px] font-medium transition-[background-color,border-color,color,transform] duration-150 active:scale-95 motion-reduce:active:scale-100 ${
+                    on ? `border-current ${TONE_SOFT[a.tone]}` : 'border-white/[0.05] bg-surface-2 text-muted hover:text-text'
+                  }`}
+                >
+                  <Icon name={a.iconName} size={22} className={on ? '' : TONE_TEXT[a.tone]} />
+                  <span className="w-full truncate text-center">{a.name}</span>
+                </button>
+              )
+            })}
           </div>
           {isNew && area === 'body' && (
             <div className="mt-3 rounded-xl bg-surface-2 p-3 text-sm">

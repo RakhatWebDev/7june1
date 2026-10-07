@@ -3,7 +3,23 @@ import { Link, useNavigate, useSearchParams } from 'react-router'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../../db'
 import type { ISODate, LifeGoal, WeeklyReview } from '../../db/types'
-import { Button, Card, Field, Input, PageHeader, Stepper } from '../../components/ui'
+import { motion } from 'motion/react'
+import {
+  Button,
+  Card,
+  Field,
+  Icon,
+  IconBadge,
+  Input,
+  PageHeader,
+  Progress,
+  SectionHeader,
+  Skeleton,
+  Stepper,
+  type IconName,
+  type Tone,
+} from '../../components/ui'
+import { useReduceMotion } from '../../components/ui/helpers'
 import { areaMeta } from './areas'
 import {
   cleanLines,
@@ -18,8 +34,11 @@ import {
 import { RatingInput, StatGrid, Stars } from './components'
 import { useCurrencySign, useReviews, useWeekStats } from './hooks'
 import { collectWeekStats } from './stats'
+import { staggerItem } from './styles'
 
 const STEPS = ['Цифры недели', 'Итоги', 'Ключевые результаты'] as const
+const STEP_SHORT = ['Цифры', 'Итоги', 'KR'] as const
+const SPRING = { type: 'spring', stiffness: 300, damping: 26 } as const
 type Rating = 1 | 2 | 3 | 4 | 5
 
 /** Normalised Monday of `?week=` or the default week to review. */
@@ -40,39 +59,47 @@ export function WeeklyReviewPage() {
   const reviews = useReviews()
   const [currentWeek] = useState(() => weekStartOf(new Date()))
   const goTo = (w: ISODate) => navigate(`/goals/review?week=${w}`)
+  const reduce = useReduceMotion()
+  const arrowBtn =
+    'grid size-10 shrink-0 place-items-center rounded-full text-muted transition-[background-color,color,transform] hover:bg-surface-3 hover:text-text active:scale-90 disabled:pointer-events-none disabled:opacity-30 motion-reduce:active:scale-100'
 
   return (
     <>
       <PageHeader title="Обзор недели" subtitle="Подведите итоги и обновите цели" back="/goals" />
 
-      <div className="mb-4 flex items-center justify-between gap-2 rounded-2xl border border-border bg-surface px-2 py-1">
-        <Button
-          variant="ghost"
+      <div className="mb-4 flex items-center justify-between gap-2 rounded-full border border-white/[0.06] bg-surface-2/80 p-1">
+        <button
+          type="button"
+          className={arrowBtn}
           aria-label="Предыдущая неделя"
           onClick={() => goTo(shiftWeek(week, -1))}
         >
-          ←
-        </Button>
-        <div className="text-center">
-          <div className="font-semibold tabular-nums" data-testid="review-week">
+          <Icon name="chevron-left" size={20} />
+        </button>
+        <div className="min-w-0 text-center">
+          <div className="font-semibold tracking-tight tabular-nums" data-testid="review-week">
             {weekLabel(week)}
           </div>
           {existing && (
-            <div className="text-xs text-accent">Обзор сохранён — можно отредактировать</div>
+            <div className="truncate text-[11px] text-accent">Обзор сохранён — можно отредактировать</div>
           )}
         </div>
-        <Button
-          variant="ghost"
+        <button
+          type="button"
+          className={arrowBtn}
           aria-label="Следующая неделя"
           disabled={week >= currentWeek}
           onClick={() => goTo(shiftWeek(week, 1))}
         >
-          →
-        </Button>
+          <Icon name="chevron-right" size={20} />
+        </button>
       </div>
 
       {existing === undefined || goals === undefined ? (
-        <p className="text-sm text-muted">Загрузка…</p>
+        <div className="space-y-3" aria-busy="true">
+          <Skeleton className="h-14" rounded="rounded-2xl" />
+          <Skeleton className="h-64" rounded="rounded-3xl" />
+        </div>
       ) : (
         <ReviewWizard
           key={`${week}:${existing?.id ?? 'new'}`}
@@ -83,22 +110,29 @@ export function WeeklyReviewPage() {
       )}
 
       {reviews && reviews.length > 0 && (
-        <Card className="mt-6">
-          <h2 className="mb-2 font-semibold">Прошлые обзоры</h2>
-          <ul className="divide-y divide-border" aria-label="Прошлые обзоры">
-            {reviews.map((r) => (
-              <li key={r.id}>
+        <section aria-label="Архив обзоров">
+          <SectionHeader title="Прошлые обзоры" icon="history" tone="amber" className="mt-8" />
+          <ul className="space-y-2" aria-label="Прошлые обзоры">
+            {reviews.map((r, i) => (
+              <motion.li key={r.id} {...staggerItem(i, reduce)}>
                 <Link
                   to={`/goals/review/${r.weekStart}`}
-                  className="flex min-h-11 items-center justify-between gap-3 py-2 text-sm hover:text-accent"
+                  className="flex min-h-14 items-center gap-3 rounded-2xl border border-white/[0.06] bg-surface px-3 py-2 text-sm transition-[border-color,transform] duration-150 hover:border-white/15 active:scale-[0.99] motion-reduce:active:scale-100"
                 >
-                  <span className="tabular-nums">{weekLabel(r.weekStart)}</span>
-                  <Stars value={r.rating} />
+                  <IconBadge name="calendar" tone="amber" size="sm" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-medium tabular-nums">{weekLabel(r.weekStart)}</span>
+                    {r.nextFocus.length > 0 && (
+                      <span className="block truncate text-xs text-muted">Фокус: {r.nextFocus.join(' · ')}</span>
+                    )}
+                  </span>
+                  <Stars value={r.rating} size={13} />
+                  <Icon name="chevron-right" size={16} className="text-muted" />
                 </Link>
-              </li>
+              </motion.li>
             ))}
           </ul>
-        </Card>
+        </section>
       )}
     </>
   )
@@ -118,6 +152,7 @@ function ReviewWizard({
   const prevStats = useWeekStats(shiftWeek(week, -1))
   const currency = useCurrencySign()
 
+  const reduce = useReduceMotion()
   const [step, setStep] = useState(0)
   const [wins, setWins] = useState(() => padLines(existing?.wins))
   const [improve, setImprove] = useState(() => padLines(existing?.improve))
@@ -162,28 +197,72 @@ function ReviewWizard({
 
   return (
     <div className="space-y-4">
-      <ol className="grid grid-cols-3 gap-2" aria-label="Шаги обзора">
-        {STEPS.map((s, i) => (
-          <li key={s} aria-current={i === step ? 'step' : undefined}>
-            <div className={`h-1 rounded-full ${i <= step ? 'bg-accent' : 'bg-surface-2'}`} />
-            <div className={`mt-1 text-[11px] ${i === step ? 'text-text' : 'text-muted'}`}>{s}</div>
-          </li>
-        ))}
+      <ol
+        className="flex gap-1 rounded-2xl border border-white/[0.05] bg-surface-2/80 p-1"
+        aria-label="Шаги обзора"
+      >
+        {STEPS.map((label, i) => {
+          const active = i === step
+          const done = i < step
+          return (
+            <li key={label} aria-current={active ? 'step' : undefined} className="relative flex-1">
+              {active &&
+                (reduce ? (
+                  <span aria-hidden className="absolute inset-0 rounded-xl bg-surface-3" />
+                ) : (
+                  <motion.span
+                    aria-hidden
+                    layoutId="review-step-pill"
+                    transition={SPRING}
+                    className="absolute inset-0 rounded-xl bg-surface-3 shadow-[0_2px_8px_-2px_rgb(0_0_0/0.5)]"
+                  />
+                ))}
+              <span
+                className={`relative flex min-h-10 items-center justify-center gap-1.5 px-1 text-xs font-medium ${
+                  active ? 'text-text' : 'text-muted'
+                }`}
+              >
+                <span
+                  aria-hidden
+                  className={`grid size-5 shrink-0 place-items-center rounded-full text-[11px] font-bold tabular-nums transition-colors duration-200 ${
+                    done || active ? 'bg-accent text-bg' : 'bg-surface-3 text-muted'
+                  }`}
+                >
+                  {done ? <Icon name="check" size={12} strokeWidth={3} /> : i + 1}
+                </span>
+                <span className="truncate">{STEP_SHORT[i]}</span>
+              </span>
+            </li>
+          )
+        })}
       </ol>
-      <h2 className="text-lg font-semibold">
+      <h2 className="text-lg font-semibold tracking-tight">
         Шаг {step + 1} из 3 · {STEPS[step]}
       </h2>
 
+      <motion.div
+        key={step}
+        className="space-y-3"
+        initial={reduce ? false : { opacity: 0, x: 16 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.24, ease: 'easeOut' }}
+      >
       {step === 0 &&
         (stats ? (
           <StatGrid current={stats} previous={prevStats} currency={currency} />
         ) : (
-          <p className="text-sm text-muted">Считаем…</p>
+          <div className="grid grid-cols-2 gap-2.5" aria-busy="true">
+            {[0, 1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-24" rounded="rounded-3xl" />
+            ))}
+          </div>
         ))}
 
       {step === 1 && (
-        <div className="space-y-4">
+        <div className="space-y-3">
           <LinesCard
+            icon="trophy"
+            tone="accent"
             title="Победы"
             label="Победа"
             lines={wins}
@@ -191,6 +270,8 @@ function ReviewWizard({
             placeholder="Что получилось"
           />
           <LinesCard
+            icon="activity"
+            tone="warn"
             title="Улучшить"
             label="Улучшить"
             lines={improve}
@@ -198,14 +279,19 @@ function ReviewWizard({
             placeholder="Что можно сделать лучше"
           />
           <LinesCard
+            icon="target"
+            tone="info"
             title="Фокус на следующую неделю"
             label="Фокус"
             lines={focus}
             onChange={setFocus}
             placeholder="Главный приоритет"
           />
-          <Card>
-            <h3 className="mb-2 font-semibold">Оценка недели</h3>
+          <Card tone="amber">
+            <h3 className="mb-2 flex items-center gap-2 font-semibold tracking-tight">
+              <IconBadge name="star" tone="amber" size="sm" />
+              Оценка недели
+            </h3>
             <RatingInput value={rating} onChange={setRating} />
           </Card>
         </div>
@@ -216,56 +302,64 @@ function ReviewWizard({
           <Card>
             <p className="text-sm text-muted">
               Активных целей нет.{' '}
-              <Link to="/goals/new" className="text-accent">
+              <Link to="/goals/new" className="font-medium text-accent">
                 Поставить цель
               </Link>
             </p>
           </Card>
         ) : (
           <div className="space-y-3">
-            {goals.map((g) => (
-              <Card key={g.id}>
-                <h3 className="mb-2 flex items-center gap-2 font-semibold">
-                  <span aria-hidden>{areaMeta(g.area).icon}</span>
-                  {g.title}
-                </h3>
-                {g.keyResults.length === 0 && (
-                  <p className="text-sm text-muted">Нет ключевых результатов.</p>
-                )}
-                <ul className="space-y-3">
-                  {g.keyResults.map((kr) => {
-                    const current = krValue(g.id, kr.id, kr.current)
-                    const pct = Math.round(krProgress({ ...kr, current }))
-                    return (
-                      <li key={kr.id} className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="min-w-0">
-                          <div className="truncate text-sm">{kr.title}</div>
-                          <div className="text-xs text-muted tabular-nums">
-                            цель {kr.target}
-                            {kr.unit ? ` ${kr.unit}` : ''} · {pct}%
+            {goals.map((g) => {
+              const area = areaMeta(g.area)
+              return (
+                <Card key={g.id} tone={area.tone}>
+                  <h3 className="mb-3 flex items-center gap-2.5 font-semibold tracking-tight">
+                    <IconBadge name={area.iconName} tone={area.tone} size="sm" />
+                    <span className="min-w-0 truncate">{g.title}</span>
+                  </h3>
+                  {g.keyResults.length === 0 && (
+                    <p className="text-sm text-muted">Нет ключевых результатов.</p>
+                  )}
+                  <ul className="space-y-4">
+                    {g.keyResults.map((kr) => {
+                      const current = krValue(g.id, kr.id, kr.current)
+                      const pct = Math.round(krProgress({ ...kr, current }))
+                      return (
+                        <li key={kr.id}>
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="min-w-0">
+                              <div className="truncate text-sm font-medium">{kr.title}</div>
+                              <div className="text-xs text-muted tabular-nums">
+                                цель {kr.target}
+                                {kr.unit ? ` ${kr.unit}` : ''} · {pct}%
+                              </div>
+                            </div>
+                            <Stepper
+                              aria-label={`${kr.title}: текущее`}
+                              value={current}
+                              step={krStep(kr)}
+                              suffix={kr.unit}
+                              onChange={(v) => setKrValue(g.id, kr.id, v ?? 0)}
+                            />
                           </div>
-                        </div>
-                        <Stepper
-                          aria-label={`${kr.title}: текущее`}
-                          value={current}
-                          step={krStep(kr)}
-                          suffix={kr.unit}
-                          onChange={(v) => setKrValue(g.id, kr.id, v ?? 0)}
-                        />
-                      </li>
-                    )
-                  })}
-                </ul>
-              </Card>
-            ))}
+                          <Progress value={pct / 100} tone={area.tone} className="mt-2 h-1.5" />
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </Card>
+              )
+            })}
           </div>
         ))}
+      </motion.div>
 
       <div className="flex gap-2">
         {step > 0 && (
           <Button
             variant="secondary"
             size="lg"
+            icon="chevron-left"
             className="flex-1"
             onClick={() => setStep((s) => s - 1)}
           >
@@ -273,11 +367,11 @@ function ReviewWizard({
           </Button>
         )}
         {step < 2 ? (
-          <Button size="lg" className="flex-1" onClick={() => setStep((s) => s + 1)}>
+          <Button size="lg" iconRight="chevron-right" className="flex-1" onClick={() => setStep((s) => s + 1)}>
             Далее
           </Button>
         ) : (
-          <Button size="lg" className="flex-1" disabled={saving} onClick={() => void save()}>
+          <Button size="lg" icon="check" className="flex-1" loading={saving} onClick={() => void save()}>
             Сохранить обзор
           </Button>
         )}
@@ -285,7 +379,7 @@ function ReviewWizard({
       {existing && (
         <p className="text-center text-xs text-muted">
           Сохранённый обзор:{' '}
-          <Link to={`/goals/review/${week}`} className="text-accent">
+          <Link to={`/goals/review/${week}`} className="font-medium text-accent">
             открыть
           </Link>
         </p>
@@ -295,12 +389,16 @@ function ReviewWizard({
 }
 
 function LinesCard({
+  icon,
+  tone,
   title,
   label,
   lines,
   onChange,
   placeholder,
 }: {
+  icon: IconName
+  tone: Tone
   title: string
   label: string
   lines: string[]
@@ -308,8 +406,11 @@ function LinesCard({
   placeholder: string
 }) {
   return (
-    <Card>
-      <h3 className="mb-2 font-semibold">{title}</h3>
+    <Card tone={tone}>
+      <h3 className="mb-3 flex items-center gap-2 font-semibold tracking-tight">
+        <IconBadge name={icon} tone={tone} size="sm" />
+        {title}
+      </h3>
       <div className="space-y-2">
         {lines.map((line, i) => (
           <Field key={i} label={`${label} ${i + 1}`} className="[&>span]:sr-only">

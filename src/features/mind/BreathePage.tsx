@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
-import { Link, useSearchParams } from 'react-router'
-import { Button, Card, PageHeader, Progress, Stepper } from '../../components/ui'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router'
+import { AnimatePresence, motion } from 'motion/react'
+import { Button, Card, Confetti, IconBadge, LinkButton, PageHeader, Progress, Stepper } from '../../components/ui'
+import { useReduceMotion } from '../../components/ui/helpers'
 import { db } from '../../db'
 import { today } from '../../lib/dates'
 import { newId } from '../../lib/id'
@@ -17,11 +19,12 @@ import {
   type BreathPattern,
 } from './breath'
 import { playGong, primeAudio, vibrate } from './device'
-import { linkPrimary } from './styles'
 import { completed, formatClock, sessionMinutes, shouldSave } from './timer'
 import { useCountdown } from './useCountdown'
 
 const REST_SCALE = 0.55
+/** Show one dot per cycle up to this many cycles; above it the counter alone is clearer. */
+const MAX_DOTS = 12
 
 function unitForms(p: BreathPattern): [string, string, string] {
   return p.unit === 'round' ? ['раунд', 'раунда', 'раундов'] : ['цикл', 'цикла', 'циклов']
@@ -38,6 +41,7 @@ export function BreathePage() {
   const pos = phaseAt(steps, state.elapsedMs)
   const [savedMin, setSavedMin] = useState<number | null>(null)
   const handled = useRef(false)
+  const reduce = useReduceMotion()
 
   // Gentle buzz on each phase change (except the rapid Wim Hof breaths).
   const lastIndex = useRef(-1)
@@ -98,11 +102,17 @@ export function BreathePage() {
     return (
       <>
         <PageHeader title="Дыхание" back="/mind" />
-        <Card className="text-center">
-          <div className="text-5xl" aria-hidden>
-            🌬️
-          </div>
-          <h2 className="mt-3 text-xl font-semibold">Практика завершена</h2>
+        <Card variant="accent" tone="info" className="relative overflow-visible py-8 text-center">
+          {completed(state) && <Confetti />}
+          <motion.div
+            className="mx-auto w-fit"
+            initial={reduce ? false : { scale: 0.6, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 16 }}
+          >
+            <IconBadge name="wind" tone="info" size="lg" className="size-16 rounded-3xl" />
+          </motion.div>
+          <h2 className="mt-4 text-xl font-semibold tracking-tight">Практика завершена</h2>
           <p className="mt-1 text-sm text-muted" role="status">
             {!shouldSave(state.elapsedMs)
               ? 'Меньше 15 секунд — практика не сохранена'
@@ -110,11 +120,11 @@ export function BreathePage() {
                 ? 'Сохраняем…'
                 : `${pattern.name} · сохранено ${savedMin} ${plural(savedMin, ['минута', 'минуты', 'минут'])}`}
           </p>
-          <div className="mt-5 flex justify-center gap-2">
-            <Link to="/mind" className={linkPrimary}>
+          <div className="mt-6 flex justify-center gap-2">
+            <LinkButton to="/mind" icon="check">
               Готово
-            </Link>
-            <Button variant="secondary" onClick={again}>
+            </LinkButton>
+            <Button variant="secondary" icon="history" onClick={again}>
               Ещё раз
             </Button>
           </div>
@@ -127,26 +137,32 @@ export function BreathePage() {
   const phaseMs = phase.sec * 1000
   const fromScale = pos.index > 0 ? PHASE_SCALE[steps[pos.index - 1].phase.kind] : REST_SCALE
   const toScale = PHASE_SCALE[phase.kind]
-  let circleStyle: CSSProperties
+  // Where the circle should be now and how long it has to get to the end of the phase.
+  let scale: number
+  let glideMs: number
   if (!timer.started) {
-    circleStyle = { transform: `scale(${REST_SCALE})` }
+    scale = REST_SCALE
+    glideMs = 400
   } else if (timer.running) {
-    // Animate to the end-of-phase size over the time left in the phase (CSS transition).
-    circleStyle = { transform: `scale(${toScale})`, transitionDuration: `${Math.round(pos.remainingMs)}ms` }
+    scale = toScale
+    glideMs = Math.round(pos.remainingMs)
   } else {
     // Paused: freeze at the interpolated size.
     const t = phaseMs > 0 ? 1 - pos.remainingMs / phaseMs : 1
-    circleStyle = { transform: `scale(${fromScale + (toScale - fromScale) * t})`, transitionDuration: '0ms' }
+    scale = fromScale + (toScale - fromScale) * t
+    glideMs = 0
   }
   const forms = unitForms(pattern)
   const totalSec = sequenceMs(steps) / 1000
+  const label = timer.started ? PHASE_LABEL[phase.kind] : 'Готовы?'
+  const expanding = timer.started && (phase.kind === 'inhale' || phase.kind === 'hold')
 
   return (
     <>
       <PageHeader title="Дыхание" subtitle={timer.started ? pattern.name : 'Выберите технику'} back="/mind" />
 
       {!timer.started && (
-        <div role="radiogroup" aria-label="Техника дыхания" className="mb-4 grid grid-cols-2 gap-2">
+        <div role="radiogroup" aria-label="Техника дыхания" className="mb-5 grid grid-cols-2 gap-2">
           {BREATH_PATTERNS.map((p) => {
             const active = p.id === pattern.id
             return (
@@ -156,12 +172,16 @@ export function BreathePage() {
                 role="radio"
                 aria-checked={active}
                 onClick={() => choosePattern(p)}
-                className={`rounded-2xl border p-3 text-left transition ${
-                  active ? 'border-accent bg-accent/10' : 'border-border bg-surface hover:border-accent/50'
+                className={`rounded-2xl border p-3 text-left transition-[background-color,border-color,transform] duration-150 active:scale-[0.98] motion-reduce:active:scale-100 ${
+                  active
+                    ? 'border-info/60 bg-info/10 shadow-[0_8px_22px_-14px_var(--color-info)]'
+                    : 'border-white/[0.06] bg-surface hover:border-white/15'
                 }`}
               >
-                <div className={`text-sm font-semibold ${active ? 'text-accent' : ''}`}>{p.name}</div>
-                <div className="mt-0.5 text-xs text-muted">{p.cycle.length > 8 ? '30 вдохов + задержка' : p.cycle.map((c) => c.sec).join('-')}</div>
+                <div className={`text-sm font-semibold tracking-tight ${active ? 'text-info' : ''}`}>{p.name}</div>
+                <div className="mt-0.5 text-xs text-muted tabular-nums">
+                  {p.cycle.length > 8 ? '30 вдохов + задержка' : p.cycle.map((c) => c.sec).join('-')}
+                </div>
               </button>
             )
           })}
@@ -169,19 +189,63 @@ export function BreathePage() {
       )}
 
       <div className="relative mx-auto flex aspect-square w-full max-w-[18rem] items-center justify-center">
-        <div className="absolute inset-0 rounded-full border border-border" aria-hidden />
-        <div
-          data-testid="breath-circle"
-          aria-hidden
-          style={circleStyle}
-          className="absolute inset-3 rounded-full bg-accent/20 shadow-[0_0_60px_-10px_var(--color-accent)] transition-transform ease-in-out will-change-transform motion-reduce:transition-none"
-        >
-          <div className="absolute inset-[18%] rounded-full bg-accent/25" />
-        </div>
-        <div className="relative text-center">
-          <div aria-live="polite" data-testid="breath-phase" className="text-3xl font-semibold tracking-tight">
-            {timer.started ? PHASE_LABEL[phase.kind] : 'Готовы?'}
+        <div className="absolute inset-0 rounded-full border border-info/20" aria-hidden />
+        <div className="absolute inset-[22%] rounded-full border border-dashed border-info/15" aria-hidden />
+        {reduce ? (
+          <div
+            data-testid="breath-circle"
+            aria-hidden
+            style={{ transform: `scale(${scale})` }}
+            className="absolute inset-3 rounded-full bg-info/20 shadow-[0_0_60px_-10px_var(--color-info)]"
+          >
+            <div className="absolute inset-[18%] rounded-full bg-info/25" />
           </div>
+        ) : (
+          <motion.div
+            data-testid="breath-circle"
+            aria-hidden
+            className="absolute inset-3 rounded-full bg-[radial-gradient(circle_at_35%_30%,color-mix(in_srgb,var(--color-info)_38%,transparent),color-mix(in_srgb,var(--color-info)_14%,transparent)_70%)] shadow-[0_0_70px_-12px_var(--color-info)] will-change-transform"
+            initial={false}
+            animate={{ scale }}
+            transition={
+              glideMs === 0
+                ? { duration: 0 }
+                : timer.running
+                  ? { duration: glideMs / 1000, ease: 'easeInOut' }
+                  : { type: 'spring', stiffness: 300, damping: 26 }
+            }
+          >
+            <motion.div
+              className="absolute inset-[18%] rounded-full bg-info/25"
+              animate={{ opacity: expanding ? 1 : 0.55 }}
+              transition={{ duration: 0.6 }}
+            />
+          </motion.div>
+        )}
+        <div className="relative text-center">
+          <span className="sr-only" aria-live="polite">
+            {label}
+          </span>
+          {reduce ? (
+            <div data-testid="breath-phase" aria-hidden className="text-3xl font-semibold tracking-tight">
+              {label}
+            </div>
+          ) : (
+            <div data-testid="breath-phase" aria-hidden className="grid h-9 place-items-center">
+              <AnimatePresence initial={false}>
+                <motion.span
+                  key={`${pos.index}-${label}`}
+                  className="col-start-1 row-start-1 text-3xl font-semibold tracking-tight"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.28, ease: 'easeOut' }}
+                >
+                  {label}
+                </motion.span>
+              </AnimatePresence>
+            </div>
+          )}
           {timer.started && (
             <>
               <div className="mt-1 text-4xl font-bold tabular-nums" aria-label="Секунд в фазе">
@@ -201,8 +265,33 @@ export function BreathePage() {
             </span>
             <span className="tabular-nums">осталось {formatClock((state.totalMs - state.elapsedMs) / 1000)}</span>
           </div>
-          <Progress value={state.totalMs > 0 ? state.elapsedMs / state.totalMs : 0} />
-          <Button size="lg" variant={timer.running ? 'secondary' : 'primary'} className="w-full" onClick={timer.running ? timer.pause : start}>
+          {cycles <= MAX_DOTS ? (
+            <ol className="flex justify-center gap-1.5" aria-label="Циклы">
+              {Array.from({ length: cycles }, (_, i) => {
+                const done = i < pos.step.cycle
+                const current = i === pos.step.cycle
+                return (
+                  <motion.li
+                    key={i}
+                    aria-label={`${i + 1}: ${done ? 'пройден' : current ? 'сейчас' : 'впереди'}`}
+                    className={`h-2 rounded-full ${done || current ? 'bg-info' : 'bg-surface-3'} ${current ? 'w-6' : 'w-2'}`}
+                    initial={false}
+                    animate={reduce ? undefined : { opacity: current ? [0.6, 1, 0.6] : 1 }}
+                    transition={current ? { duration: 1.6, repeat: Infinity, ease: 'easeInOut' } : { duration: 0.2 }}
+                  />
+                )
+              })}
+            </ol>
+          ) : (
+            <Progress tone="info" value={state.totalMs > 0 ? state.elapsedMs / state.totalMs : 0} aria-label="Прогресс практики" />
+          )}
+          <Button
+            size="lg"
+            variant={timer.running ? 'secondary' : 'primary'}
+            icon={timer.running ? 'pause' : 'play'}
+            className="w-full"
+            onClick={timer.running ? timer.pause : start}
+          >
             {timer.running ? 'Пауза' : 'Продолжить'}
           </Button>
           <Button variant="ghost" className="w-full" onClick={timer.finish}>
@@ -211,11 +300,19 @@ export function BreathePage() {
         </div>
       ) : (
         <div className="mt-6 space-y-4">
-          <p className="text-sm text-muted">{pattern.description}</p>
-          {pattern.caution && <p className="rounded-xl bg-warn/10 px-3 py-2 text-sm text-warn">{pattern.caution}</p>}
+          <Card className="flex gap-3 p-3">
+            <IconBadge name="wind" tone="info" size="sm" />
+            <p className="text-sm text-muted">{pattern.description}</p>
+          </Card>
+          {pattern.caution && (
+            <p className="flex gap-2 rounded-2xl border border-warn/20 bg-warn/10 px-3 py-2.5 text-sm text-warn">
+              <IconBadge name="info" tone="warn" size="sm" className="bg-transparent" />
+              {pattern.caution}
+            </p>
+          )}
           <div className="flex items-center justify-between gap-3">
             <span className="text-sm">
-              {forms[2][0].toUpperCase() + forms[2].slice(1)} <span className="text-muted">· {formatClock(totalSec)}</span>
+              {forms[2][0].toUpperCase() + forms[2].slice(1)} <span className="text-muted tabular-nums">· {formatClock(totalSec)}</span>
             </span>
             <Stepper
               aria-label="Количество циклов"
@@ -225,7 +322,7 @@ export function BreathePage() {
               onChange={(v) => chooseCycles(v ?? 1)}
             />
           </div>
-          <Button size="lg" className="w-full" onClick={start}>
+          <Button size="lg" icon="play" className="w-full" onClick={start}>
             Начать
           </Button>
         </div>

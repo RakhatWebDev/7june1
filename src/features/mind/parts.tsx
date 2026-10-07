@@ -1,8 +1,13 @@
-import { useLayoutEffect, useRef, type ReactNode, type TextareaHTMLAttributes } from 'react'
+import { useLayoutEffect, useRef, type TextareaHTMLAttributes } from 'react'
+import { motion } from 'motion/react'
+import { TONE_BG, TONE_VAR, toneTint, useReduceMotion, type Tone } from '../../components/ui/helpers'
 import { MOOD_EMOJI, MOOD_LABEL, MOOD_VALUES, type MoodValue } from './calc'
 import { textareaClass } from './styles'
 
-/** Five large emoji buttons (😞…😄); tapping the selected one keeps it selected. */
+/**
+ * Five emoji buttons (😞…😄); the chosen one springs up inside a violet ring, the others dim.
+ * Tapping the selected one keeps it selected. `sm` is the compact strip used on «Сегодня».
+ */
 export function MoodPicker({
   value,
   onChange,
@@ -12,57 +17,78 @@ export function MoodPicker({
   onChange: (v: MoodValue) => void
   size?: 'sm' | 'md' | 'lg'
 }) {
-  const box = size === 'lg' ? 'h-14 text-3xl' : size === 'md' ? 'h-11 text-2xl' : 'size-9 text-lg sm:size-10 sm:text-xl'
+  const reduce = useReduceMotion()
+  const box =
+    size === 'lg'
+      ? 'h-16 rounded-2xl text-[34px]'
+      : size === 'md'
+        ? 'h-11 rounded-2xl text-2xl'
+        : 'size-9 rounded-xl text-lg sm:size-10 sm:text-xl'
   return (
     <div role="group" aria-label="Настроение" className={size === 'sm' ? 'flex shrink-0 gap-1' : 'grid grid-cols-5 gap-2'}>
       {MOOD_VALUES.map((v) => {
         const active = value === v
         return (
-          <button
+          <motion.button
             key={v}
             type="button"
             aria-label={`Настроение: ${MOOD_LABEL[v - 1]}`}
             aria-pressed={active}
             onClick={() => onChange(v)}
-            className={`flex items-center justify-center rounded-2xl border transition motion-reduce:transition-none ${box} ${
+            whileTap={reduce ? undefined : { scale: 0.86 }}
+            whileHover={reduce || active ? undefined : { y: -2 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 18 }}
+            className={`relative flex items-center justify-center border transition-[background-color,border-color,opacity] duration-200 ${box} ${
               active
-                ? 'scale-105 border-accent bg-accent/15'
+                ? 'border-violet/70 bg-violet/15 shadow-[0_8px_22px_-12px_var(--color-violet)]'
                 : value == null
-                  ? 'border-border bg-surface-2 hover:border-accent/60'
-                  : 'border-border bg-surface-2 opacity-50 hover:opacity-100'
+                  ? 'border-white/[0.06] bg-surface-2 hover:border-violet/40'
+                  : 'border-white/[0.06] bg-surface-2 opacity-45 hover:opacity-100'
             }`}
           >
-            <span aria-hidden>{MOOD_EMOJI[v - 1]}</span>
-          </button>
+            <motion.span
+              aria-hidden
+              className="leading-none"
+              initial={false}
+              animate={reduce ? undefined : { scale: active ? 1.16 : 1, rotate: active ? [0, -8, 6, 0] : 0 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 12 }}
+            >
+              {MOOD_EMOJI[v - 1]}
+            </motion.span>
+          </motion.button>
         )
       })}
     </div>
   )
 }
 
-/** 1–5 scale of circles; tapping the current value clears it. */
+/** 1–5 scale of dots that fill up to the chosen value (staggered pop); tapping the current value clears it. */
 export function DotScale({
   label,
   value,
   onChange,
   low,
   high,
+  tone = 'violet',
 }: {
   label: string
   value: number | null
   onChange: (v: number | null) => void
   low: string
   high: string
+  tone?: Tone
 }) {
+  const reduce = useReduceMotion()
   return (
     <div>
-      <div className="mb-1 flex items-baseline justify-between">
+      <div className="mb-1.5 flex items-baseline justify-between">
         <span className="text-xs font-medium tracking-wide text-muted uppercase">{label}</span>
-        <span className="text-xs text-muted tabular-nums">{value ? `${value}/5` : '—'}</span>
+        <span className="text-xs font-semibold tabular-nums" style={{ color: value ? TONE_VAR[tone] : undefined }}>
+          {value ? `${value}/5` : '—'}
+        </span>
       </div>
-      <div role="group" aria-label={label} className="flex items-center justify-between gap-2">
-        <span className="w-14 text-[11px] text-muted">{low}</span>
-        <div className="flex flex-1 justify-center gap-3">
+      <div role="group" aria-label={label}>
+        <div className="flex justify-between gap-1">
           {[1, 2, 3, 4, 5].map((v) => {
             const filled = value != null && v <= value
             return (
@@ -72,18 +98,32 @@ export function DotScale({
                 aria-label={`${label}: ${v} из 5`}
                 aria-pressed={value === v}
                 onClick={() => onChange(value === v ? null : v)}
-                className="flex h-9 w-9 items-center justify-center rounded-full"
+                className="grid size-11 place-items-center rounded-full transition-transform active:scale-90 motion-reduce:active:scale-100"
               >
                 <span
-                  className={`block h-6 w-6 rounded-full border-2 transition motion-reduce:transition-none ${
-                    filled ? 'scale-110 border-accent bg-accent' : 'border-border bg-surface-2'
-                  }`}
-                />
+                  aria-hidden
+                  className="relative grid size-8 place-items-center rounded-full border-2 transition-[border-color] duration-200"
+                  style={{ borderColor: filled ? TONE_VAR[tone] : toneTint(tone, 22) }}
+                >
+                  <motion.span
+                    className={`absolute inset-[3px] rounded-full ${TONE_BG[tone]}`}
+                    initial={false}
+                    animate={{ scale: filled ? 1 : 0, opacity: filled ? 1 : 0 }}
+                    transition={
+                      reduce
+                        ? { duration: 0 }
+                        : { type: 'spring', stiffness: 420, damping: 20, delay: filled ? (v - 1) * 0.035 : 0 }
+                    }
+                  />
+                </span>
               </button>
             )
           })}
         </div>
-        <span className="w-14 text-right text-[11px] text-muted">{high}</span>
+        <div className="mt-0.5 flex justify-between px-1 text-[11px] text-muted">
+          <span>{low}</span>
+          <span>{high}</span>
+        </div>
       </div>
     </div>
   )
@@ -99,38 +139,4 @@ export function AutoTextarea({ className = '', value, ...rest }: TextareaHTMLAtt
     el.style.height = `${el.scrollHeight}px`
   }, [value])
   return <textarea ref={ref} rows={3} value={value} className={`${textareaClass} ${className}`} {...rest} />
-}
-
-/** Large circular progress ring (SVG stroke-dashoffset) with content in the middle. */
-export function TimerRing({
-  progress,
-  children,
-}: {
-  /** 0..1 elapsed */
-  progress: number
-  children: ReactNode
-}) {
-  const r = 46
-  const c = 2 * Math.PI * r
-  const p = Math.max(0, Math.min(1, progress))
-  return (
-    <div className="relative mx-auto aspect-square w-full max-w-[18rem]">
-      <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90" aria-hidden>
-        <circle cx="50" cy="50" r={r} fill="none" stroke="var(--color-surface-2)" strokeWidth="4" />
-        <circle
-          cx="50"
-          cy="50"
-          r={r}
-          fill="none"
-          stroke="var(--color-accent)"
-          strokeWidth="4"
-          strokeLinecap="round"
-          strokeDasharray={c}
-          strokeDashoffset={c * (1 - p)}
-          className="transition-[stroke-dashoffset] duration-300 ease-linear motion-reduce:transition-none"
-        />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center text-center">{children}</div>
-    </div>
-  )
 }

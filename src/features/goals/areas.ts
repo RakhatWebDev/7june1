@@ -1,3 +1,5 @@
+import type { IconName } from '../../components/icons'
+import { TONE_VAR, type Tone } from '../../components/ui/helpers'
 import type { LifeArea } from '../../db/types'
 
 export interface AreaMeta {
@@ -6,26 +8,35 @@ export interface AreaMeta {
   name: string
   /** Short label for the balance wheel axis */
   short: string
+  /** Emoji (legacy, kept for data/back-compat; the UI uses `iconName`) */
   icon: string
-  /** CSS colour (design token with a literal fallback for tokens that may not exist yet) */
+  /** Line icon of the area in the UI */
+  iconName: IconName
+  /** Domain tone (icon badge, progress, tiles) */
+  tone: Tone
+  /** CSS colour of `tone` */
   color: string
 }
 
+const area = (id: LifeArea, name: string, icon: string, iconName: IconName, tone: Tone): AreaMeta => ({
+  id,
+  name,
+  short: name,
+  icon,
+  iconName,
+  tone,
+  color: TONE_VAR[tone],
+})
+
 /** Life areas in the order they appear on the balance wheel and in lists. */
 export const LIFE_AREAS: AreaMeta[] = [
-  { id: 'body', name: 'Тело', short: 'Тело', icon: '💪', color: 'var(--color-accent)' },
-  { id: 'mind', name: 'Разум', short: 'Разум', icon: '🧠', color: 'var(--color-info)' },
-  { id: 'finance', name: 'Финансы', short: 'Финансы', icon: '💰', color: 'var(--color-warn)' },
-  { id: 'career', name: 'Карьера', short: 'Карьера', icon: '💼', color: 'var(--color-info)' },
-  {
-    id: 'relationships',
-    name: 'Отношения',
-    short: 'Отношения',
-    icon: '❤️',
-    color: 'var(--color-pink, #f472b6)',
-  },
-  { id: 'spirit', name: 'Дух', short: 'Дух', icon: '🕊', color: 'var(--color-violet, #a78bfa)' },
-  { id: 'learning', name: 'Обучение', short: 'Обучение', icon: '📚', color: 'var(--color-warn)' },
+  area('body', 'Тело', '💪', 'dumbbell', 'accent'),
+  area('mind', 'Разум', '🧠', 'brain', 'violet'),
+  area('finance', 'Финансы', '💰', 'wallet', 'amber'),
+  area('career', 'Карьера', '💼', 'target', 'info'),
+  area('relationships', 'Отношения', '❤️', 'heart', 'pink'),
+  area('spirit', 'Дух', '🕊', 'sparkles', 'warn'),
+  area('learning', 'Обучение', '📚', 'book', 'info'),
 ]
 
 export const AREA_BY_ID: Record<LifeArea, AreaMeta> = Object.fromEntries(

@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Link, useNavigate, useSearchParams } from 'react-router'
-import { Card, PageHeader } from '../../components/ui'
+import { useNavigate, useSearchParams } from 'react-router'
+import { LinkButton, PageHeader, SectionHeader, Skeleton, StatTile, type IconName, type Tone } from '../../components/ui'
 import { db } from '../../db'
 import type { ISODate } from '../../db/types'
 import { today } from '../../lib/dates'
@@ -41,7 +41,12 @@ export function EveningReviewPage() {
   return (
     <>
       <PageHeader title="Вечерний обзор" subtitle={date === today() ? 'Сегодня' : date} back="/mind" />
-      {ready && <SummaryCard summary={data.summary} moods={data.moods.map((m) => ({ slot: m.slot, mood: m.mood }))} />}
+      {ready ? (
+        <SummaryCard summary={data.summary} moods={data.moods.map((m) => ({ slot: m.slot, mood: m.mood }))} />
+      ) : (
+        <Skeleton className="mb-4 h-48" rounded="rounded-3xl" />
+      )}
+      {ready && <SectionHeader title="Осмыслить день" icon="moon" tone="violet" />}
       {ready && (
         <JournalForm
           key={`${date}-${data.review?.id ?? 'new'}`}
@@ -59,46 +64,53 @@ export function EveningReviewPage() {
 function SummaryCard({ summary, moods }: { summary: DaySummary; moods: { slot: string; mood: number }[] }) {
   const morning = moods.find((m) => m.slot === 'morning')
   const evening = moods.find((m) => m.slot === 'evening')
-  const items: { label: string; value: string; ok?: boolean }[] = [
+  const items: { key: string; label: string; icon: IconName; tone: Tone; value: string; ok?: boolean }[] = [
+    { key: 'Тренировка', label: 'Тренировка', icon: 'dumbbell', tone: 'accent', value: summary.workout ? '✓' : '✗', ok: summary.workout },
+    { key: 'Кардио', label: 'Кардио', icon: 'run', tone: 'info', value: summary.cardioMin > 0 ? `${int(summary.cardioMin)} мин` : '—' },
+    { key: 'Ккал', label: 'Ккал', icon: 'flame', tone: 'warn', value: summary.kcal > 0 ? int(summary.kcal) : '—' },
+    { key: 'Вода', label: 'Вода', icon: 'droplet', tone: 'info', value: summary.waterMl > 0 ? `${int(summary.waterMl)} мл` : '—' },
     {
-      label: 'Тренировка',
-      value: summary.workout ? '✓' : '✗',
-      ok: summary.workout,
-    },
-    { label: 'Кардио', value: summary.cardioMin > 0 ? `${int(summary.cardioMin)} мин` : '—' },
-    { label: 'Ккал', value: summary.kcal > 0 ? int(summary.kcal) : '—' },
-    { label: 'Вода', value: summary.waterMl > 0 ? `${int(summary.waterMl)} мл` : '—' },
-    {
+      key: 'Привычки',
       label: 'Привычки',
+      icon: 'check',
+      tone: 'pink',
       value: summary.habitsTotal > 0 ? `${summary.habitsDone}/${summary.habitsTotal}` : '—',
       ok: summary.habitsTotal > 0 && summary.habitsDone === summary.habitsTotal,
     },
     {
+      key: 'Настроение',
       label: 'Настроение',
+      icon: 'heart',
+      tone: 'violet',
       value: [morning, evening].map((m) => (m ? MOOD_EMOJI[m.mood - 1] : '·')).join(' '),
     },
   ]
   return (
-    <Card className="mb-4">
-      <h2 className="mb-2 text-sm font-medium text-muted">Итоги дня</h2>
-      <dl className="grid grid-cols-3 gap-2" aria-label="Итоги дня">
+    <section aria-label="Итоги дня" className="mb-2">
+      <SectionHeader title="Итоги дня" icon="chart" tone="violet" className="mt-0" />
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
         {items.map((it) => (
-          <div key={it.label} className="rounded-xl bg-surface-2 px-2 py-2 text-center">
-            <dt className="text-[11px] text-muted">{it.label}</dt>
-            <dd
-              data-testid={`summary-${it.label}`}
-              className={`mt-0.5 text-base font-semibold tabular-nums ${it.ok === true ? 'text-accent' : it.ok === false ? 'text-muted' : ''}`}
-            >
-              {it.value}
-            </dd>
-          </div>
+          <StatTile
+            key={it.key}
+            icon={it.icon}
+            tone={it.tone}
+            label={it.label}
+            value={
+              <span
+                data-testid={`summary-${it.key}`}
+                className={it.ok === true ? 'text-accent' : it.ok === false ? 'text-muted' : ''}
+              >
+                {it.value}
+              </span>
+            }
+          />
         ))}
-      </dl>
+      </div>
       {!evening && (
-        <Link to="/mind/checkin?slot=evening" className="mt-3 inline-block text-sm text-accent">
-          Отметить вечернее настроение →
-        </Link>
+        <LinkButton to="/mind/checkin?slot=evening" variant="secondary" size="sm" icon="moon" className="mt-3">
+          Отметить вечернее настроение
+        </LinkButton>
       )}
-    </Card>
+    </section>
   )
 }

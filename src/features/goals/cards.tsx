@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../../db'
-import { Card, Progress } from '../../components/ui'
+import { Card, IconBadge, LinkButton, Progress } from '../../components/ui'
 import { Icon } from '../../components/icons'
 import { areaMeta } from './areas'
 import {
@@ -15,7 +15,6 @@ import {
   weekStartOf,
 } from './calc'
 import { Stars } from './components'
-import { LINK_PRIMARY } from './styles'
 
 /** Up to three active goals with KR progress, for the "Сегодня" dashboard. */
 export function GoalsFocusCard() {
@@ -46,18 +45,16 @@ export function GoalsFocusCard() {
             const kr = g.keyResults[0]
             return (
               <li key={g.id}>
-                <Link to={`/goals/${g.id}`} className="block">
-                  <div className="flex items-baseline justify-between gap-2 text-sm">
-                    <span className="truncate font-medium">
-                      <span aria-hidden className="mr-1.5">
-                        {areaMeta(g.area).icon}
-                      </span>
-                      {g.title}
+                <Link to={`/goals/${g.id}`} className="flex items-start gap-3">
+                  <IconBadge name={areaMeta(g.area).iconName} tone={areaMeta(g.area).tone} size="sm" className="mt-0.5" />
+                  <span className="block min-w-0 flex-1">
+                    <span className="flex items-baseline justify-between gap-2 text-sm">
+                      <span className="truncate font-medium">{g.title}</span>
+                      <span className="shrink-0 tabular-nums text-muted">{pct}%</span>
                     </span>
-                    <span className="shrink-0 tabular-nums text-muted">{pct}%</span>
-                  </div>
-                  <Progress value={pct / 100} className="mt-1.5" />
-                  {kr && <div className="mt-1 truncate text-xs text-muted">{krSummary(kr)}</div>}
+                    <Progress value={pct / 100} tone={areaMeta(g.area).tone} className="mt-1.5 h-1.5" />
+                    {kr && <span className="mt-1 block truncate text-xs text-muted">{krSummary(kr)}</span>}
+                  </span>
                 </Link>
               </li>
             )
@@ -86,18 +83,19 @@ export function WeeklyReviewCard({ now }: { now?: Date }) {
   if (review === null) {
     return (
       <Card>
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <div className="font-semibold">
+        <div className="flex items-center gap-3">
+          <IconBadge name="calendar" tone="amber" />
+          <div className="min-w-0 flex-1">
+            <div className="font-semibold tracking-tight">
               {reviewDay ? 'Подвести итоги недели' : 'Обзор прошлой недели'}
             </div>
             <div className="text-xs text-muted">
               {reviewDay ? `Неделя ${weekLabel(week)}` : `${weekLabel(week)} · ещё не заполнен`}
             </div>
           </div>
-          <Link to={`/goals/review?week=${week}`} className={`${LINK_PRIMARY} shrink-0`}>
+          <LinkButton to={`/goals/review?week=${week}`} size="sm" className="shrink-0">
             {reviewDay ? 'Начать' : 'Заполнить'}
-          </Link>
+          </LinkButton>
         </div>
       </Card>
     )
@@ -106,13 +104,18 @@ export function WeeklyReviewCard({ now }: { now?: Date }) {
   return (
     <Card>
       <Link to={`/goals/review/${week}`} className="block">
-        <div className="flex items-baseline justify-between gap-2">
-          <span className="font-semibold">
-            {reviewDay ? 'Итоги недели подведены' : 'Прошлая неделя'}
-          </span>
-          <Stars value={review.rating} />
+        <div className="flex items-center gap-3">
+          <IconBadge name="calendar" tone="amber" />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-between gap-2">
+              <span className="truncate font-semibold tracking-tight">
+                {reviewDay ? 'Итоги недели подведены' : 'Прошлая неделя'}
+              </span>
+              <Stars value={review.rating} />
+            </div>
+            <div className="text-xs text-muted tabular-nums">{weekLabel(week)}</div>
+          </div>
         </div>
-        <div className="text-xs text-muted">{weekLabel(week)}</div>
         {review.nextFocus.length > 0 && (
           <p className="mt-2 text-sm">
             <span className="text-muted">Фокус: </span>

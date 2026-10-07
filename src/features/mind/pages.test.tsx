@@ -101,7 +101,7 @@ describe('MindPage', () => {
     renderAt('/mind')
     expect(await screen.findByText('С тегом «зал» настроение в среднем 4.5, без — 3.0', { exact: false })).toBeInTheDocument()
     expect(screen.getByTestId('gratitude-streak')).toHaveTextContent('2')
-    expect(screen.getByText('12 мин', { selector: 'div' })).toBeInTheDocument()
+    expect(screen.getByTestId('practice-week')).toHaveTextContent(/12\s*мин/)
     expect(screen.getByRole('link', { name: /Утро\s*Отлично/ })).toHaveAttribute('href', '/mind/checkin?slot=morning')
     expect(screen.getByRole('img', { name: 'Настроение и энергия за 30 дней' })).toBeInTheDocument()
   })
@@ -259,7 +259,7 @@ describe('MeditatePage', () => {
 
     vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] })
     renderAt('/mind/meditate')
-    fireEvent.click(screen.getByRole('button', { name: '5 мин' }))
+    fireEvent.click(screen.getByRole('radio', { name: '5 мин' }))
     expect(screen.getByRole('timer')).toHaveTextContent('5:00')
     fireEvent.click(screen.getByRole('button', { name: 'Начать' }))
     act(() => vi.advanceTimersByTime(60_000))
@@ -295,7 +295,7 @@ describe('MeditatePage', () => {
 
   it('does not save an accidental start and supports a custom duration', async () => {
     renderAt('/mind/meditate?kind=reading_spiritual')
-    fireEvent.click(screen.getByRole('button', { name: 'Своё' }))
+    fireEvent.click(screen.getByRole('radio', { name: 'Своё' }))
     fireEvent.change(screen.getByLabelText('Своя длительность, минут'), { target: { value: '7' } })
     expect(screen.getByRole('timer')).toHaveTextContent('7:00')
     fireEvent.click(screen.getByRole('button', { name: 'Начать' }))

@@ -103,7 +103,7 @@ describe('GoalsPage', () => {
     expect(within(body).getByText('50%')).toBeInTheDocument()
     expect(screen.queryByText('Марафон')).not.toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: 'Завершённые' }))
+    await user.click(screen.getByRole('radio', { name: 'Завершённые' }))
     expect(await screen.findByText('Марафон')).toBeInTheDocument()
     expect(screen.queryByText('Сбросить вес')).not.toBeInTheDocument()
   })

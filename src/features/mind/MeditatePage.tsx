@@ -1,14 +1,25 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useSearchParams } from 'react-router'
-import { Button, Card, Chip, PageHeader, Stepper } from '../../components/ui'
+import { useSearchParams } from 'react-router'
+import { motion } from 'motion/react'
+import {
+  Button,
+  Card,
+  Confetti,
+  IconBadge,
+  LinkButton,
+  PageHeader,
+  Ring,
+  SegmentedControl,
+  Stepper,
+} from '../../components/ui'
+import { toneTint, useReduceMotion } from '../../components/ui/helpers'
 import { db } from '../../db'
 import { today } from '../../lib/dates'
 import { newId } from '../../lib/id'
 import { plural } from '../../lib/format'
-import { MIND_KIND_ICON, type MindKind } from './calc'
+import type { MindKind } from './calc'
 import { playGong, primeAudio, vibrate } from './device'
-import { TimerRing } from './parts'
-import { linkPrimary, linkSecondary } from './styles'
+import { MIND_KIND_BADGE } from './styles'
 import { completed, formatClock, remainingMs, sessionMinutes, shouldSave } from './timer'
 import { useCountdown } from './useCountdown'
 
@@ -16,11 +27,13 @@ const TIMER_PRESETS = [5, 10, 15, 20]
 
 type TimerKind = Exclude<MindKind, 'breathing'>
 
-const KIND_TABS: { kind: TimerKind; label: string }[] = [
-  { kind: 'meditation', label: 'Медитация' },
-  { kind: 'prayer', label: 'Молитва' },
-  { kind: 'reading_spiritual', label: 'Духовное чтение' },
+const KIND_TABS: { value: TimerKind; label: string }[] = [
+  { value: 'meditation', label: 'Медитация' },
+  { value: 'prayer', label: 'Молитва' },
+  { value: 'reading_spiritual', label: 'Чтение' },
 ]
+
+const RING_SIZE = 264
 
 const KIND_TEXT: Record<TimerKind, { title: string; hint: string; done: string }> = {
   meditation: {
@@ -63,6 +76,8 @@ export function MeditatePage() {
   const [savedMin, setSavedMin] = useState<number | null>(null)
   const handled = useRef(false)
   const text = KIND_TEXT[kind]
+  const reduce = useReduceMotion()
+  const badge = MIND_KIND_BADGE[kind]
 
   // Persist once when the timer is done (at zero or finished early).
   useEffect(() => {
@@ -106,26 +121,33 @@ export function MeditatePage() {
   }
 
   if (state.done) {
+    const saved = shouldSave(state.elapsedMs)
     return (
       <>
         <PageHeader title={text.title} back="/mind" />
-        <Card className="text-center">
-          <div className="text-5xl" aria-hidden>
-            {MIND_KIND_ICON[kind]}
-          </div>
-          <h2 className="mt-3 text-xl font-semibold">{text.done}</h2>
+        <Card variant="accent" tone={badge.tone} className="relative overflow-visible py-8 text-center">
+          {completed(state) && <Confetti />}
+          <motion.div
+            className="mx-auto w-fit"
+            initial={reduce ? false : { scale: 0.6, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 16 }}
+          >
+            <IconBadge name={completed(state) ? 'check' : badge.icon} tone={badge.tone} size="lg" className="size-16 rounded-3xl" />
+          </motion.div>
+          <h2 className="mt-4 text-xl font-semibold tracking-tight">{text.done}</h2>
           <p className="mt-1 text-sm text-muted" role="status">
-            {!shouldSave(state.elapsedMs)
+            {!saved
               ? 'Меньше 15 секунд — практика не сохранена'
               : savedMin == null
                 ? 'Сохраняем…'
                 : `Сохранено: ${savedMin} ${plural(savedMin, ['минута', 'минуты', 'минут'])}`}
           </p>
-          <div className="mt-5 flex justify-center gap-2">
-            <Link to="/mind" className={linkPrimary}>
+          <div className="mt-6 flex justify-center gap-2">
+            <LinkButton to="/mind" icon="check">
               Готово
-            </Link>
-            <Button variant="secondary" onClick={again}>
+            </LinkButton>
+            <Button variant="secondary" icon="history" onClick={again}>
               Ещё раз
             </Button>
           </div>
@@ -136,71 +158,111 @@ export function MeditatePage() {
 
   const remainingSec = remainingMs(state) / 1000
   const progress = state.totalMs > 0 ? state.elapsedMs / state.totalMs : 0
+  const finalCountdown = timer.running && remainingSec <= 10
 
   return (
     <>
       <PageHeader title={text.title} subtitle={timer.started ? undefined : 'Таймер практики'} back="/mind" />
 
       {!timer.started && (
-        <div role="group" aria-label="Вид практики" className="mb-4 flex flex-wrap gap-2">
-          {KIND_TABS.map((t) => (
-            <Chip key={t.kind} active={t.kind === kind} onClick={() => setParams({ kind: t.kind }, { replace: true })}>
-              {t.label}
-            </Chip>
-          ))}
-        </div>
+        <SegmentedControl
+          aria-label="Вид практики"
+          className="mb-5"
+          value={kind}
+          onChange={(k) => setParams({ kind: k }, { replace: true })}
+          options={KIND_TABS}
+        />
       )}
 
-      <TimerRing progress={progress}>
-        <div role="timer" aria-label="Осталось" aria-live="off" className="text-6xl font-bold tracking-tight tabular-nums">
-          {formatClock(remainingSec)}
-        </div>
-        <div className="mt-1 text-sm text-muted">
-          {timer.running ? 'идёт практика' : timer.started ? 'пауза' : `${minutes} ${plural(minutes, ['минута', 'минуты', 'минут'])}`}
-        </div>
-      </TimerRing>
+      <div className="relative mx-auto grid w-fit place-items-center">
+        {!reduce && (
+          <motion.span
+            aria-hidden
+            className="absolute inset-4 rounded-full"
+            style={{ background: `radial-gradient(circle, ${toneTint(badge.tone, 24)} 0%, transparent 70%)` }}
+            animate={
+              finalCountdown
+                ? { scale: [1, 1.12, 1], opacity: [0.6, 1, 0.6] }
+                : timer.running
+                  ? { scale: [1, 1.04, 1], opacity: [0.35, 0.55, 0.35] }
+                  : { scale: 1, opacity: 0.3 }
+            }
+            transition={
+              finalCountdown
+                ? { duration: 1, repeat: Infinity, ease: 'easeInOut' }
+                : timer.running
+                  ? { duration: 5, repeat: Infinity, ease: 'easeInOut' }
+                  : { duration: 0.3 }
+            }
+          />
+        )}
+        <motion.div
+          animate={reduce ? undefined : finalCountdown ? { scale: [1, 1.025, 1] } : { scale: 1 }}
+          transition={finalCountdown ? { duration: 1, repeat: Infinity, ease: 'easeInOut' } : { duration: 0.3 }}
+        >
+          <Ring value={1 - progress} size={RING_SIZE} stroke={12} tone={badge.tone}>
+            <div className="flex flex-col items-center">
+              <div
+                role="timer"
+                aria-label="Осталось"
+                aria-live="off"
+                className={`text-[56px] leading-none font-bold tracking-tight tabular-nums transition-colors duration-300 ${
+                  finalCountdown ? 'text-violet' : ''
+                }`}
+              >
+                {formatClock(remainingSec)}
+              </div>
+              <div className="mt-2 text-sm text-muted">
+                {timer.running ? 'идёт практика' : timer.started ? 'пауза' : `${minutes} ${plural(minutes, ['минута', 'минуты', 'минут'])}`}
+              </div>
+            </div>
+          </Ring>
+        </motion.div>
+      </div>
 
       {!timer.started ? (
         <div className="mt-6 space-y-4">
-          <div role="group" aria-label="Длительность" className="grid grid-cols-5 gap-2">
-            {TIMER_PRESETS.map((m) => (
-              <button
-                key={m}
-                type="button"
-                aria-pressed={!custom && minutes === m}
-                onClick={() => choose(m, false)}
-                className={`rounded-xl border py-2 text-sm font-medium tabular-nums transition ${
-                  !custom && minutes === m ? 'border-accent bg-accent/15 text-accent' : 'border-border bg-surface-2 text-muted hover:text-text'
-                }`}
-              >
-                {m} мин
-              </button>
-            ))}
-            <button
-              type="button"
-              aria-pressed={custom}
-              onClick={() => choose(minutes, true)}
-              className={`rounded-xl border py-2 text-sm font-medium transition ${
-                custom ? 'border-accent bg-accent/15 text-accent' : 'border-border bg-surface-2 text-muted hover:text-text'
-              }`}
-            >
-              Своё
-            </button>
-          </div>
+          <SegmentedControl
+            aria-label="Длительность"
+            value={custom ? 'custom' : String(minutes)}
+            onChange={(v) => (v === 'custom' ? choose(minutes, true) : choose(Number(v), false))}
+            options={[
+              ...TIMER_PRESETS.map((m) => ({
+                value: String(m),
+                label: (
+                  <span className="tabular-nums">
+                    {m}{' '}
+                    <span className="text-[11px] font-normal text-muted">мин</span>
+                  </span>
+                ),
+              })),
+              { value: 'custom', label: 'Своё' },
+            ]}
+            className="[&>button]:px-1"
+          />
           {custom && (
             <div className="flex items-center justify-between gap-3">
               <span className="text-sm text-muted">Минут</span>
               <Stepper aria-label="Своя длительность, минут" value={minutes} min={1} max={180} onChange={(v) => choose(v ?? 1, true)} />
             </div>
           )}
-          <p className="text-sm text-muted">{text.hint}</p>
-          <Button size="lg" className="w-full" onClick={start}>
+          <Card className="flex gap-3 p-3">
+            <IconBadge name={badge.icon} tone={badge.tone} size="sm" />
+            <p className="text-sm text-muted">{text.hint}</p>
+          </Card>
+          <Button size="lg" icon="play" className="w-full" onClick={start}>
             Начать
           </Button>
         </div>
       ) : (
         <div className="mt-6 space-y-2">
-          <Button size="lg" variant={timer.running ? 'secondary' : 'primary'} className="w-full" onClick={timer.running ? timer.pause : start}>
+          <Button
+            size="lg"
+            variant={timer.running ? 'secondary' : 'primary'}
+            icon={timer.running ? 'pause' : 'play'}
+            className="w-full"
+            onClick={timer.running ? timer.pause : start}
+          >
             {timer.running ? 'Пауза' : 'Продолжить'}
           </Button>
           <Button variant="ghost" className="w-full" onClick={timer.finish}>
@@ -210,10 +272,10 @@ export function MeditatePage() {
       )}
 
       {!timer.started && (
-        <div className="mt-4 text-center">
-          <Link to="/mind/breathe" className={linkSecondary}>
-            🌬️ Дыхательные практики
-          </Link>
+        <div className="mt-3 text-center">
+          <LinkButton to="/mind/breathe" variant="ghost" icon="wind">
+            Дыхательные практики
+          </LinkButton>
         </div>
       )}
     </>

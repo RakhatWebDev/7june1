@@ -1,7 +1,19 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useNavigate, useSearchParams } from 'react-router'
-import { Button, Card, Chip, Field, Input, PageHeader } from '../../components/ui'
+import { AnimatePresence, motion } from 'motion/react'
+import {
+  Button,
+  Card,
+  Chip,
+  Field,
+  IconBadge,
+  Input,
+  PageHeader,
+  SegmentedControl,
+  Skeleton,
+} from '../../components/ui'
+import { useReduceMotion } from '../../components/ui/helpers'
 import { db } from '../../db'
 import type { ISODate, MoodEntry } from '../../db/types'
 import { today } from '../../lib/dates'
@@ -49,23 +61,25 @@ export function CheckinPage() {
         subtitle={existing ? 'Уже отмечено — можно изменить' : 'Как вы сейчас?'}
         back="/mind"
       />
-      <div role="group" aria-label="Время дня" className="mb-4 flex gap-2">
-        {(['morning', 'evening'] as const).map((s) => (
-          <Chip
-            key={s}
-            active={s === slot}
-            onClick={() => {
-              const next = new URLSearchParams(params)
-              next.set('slot', s)
-              setParams(next, { replace: true })
-            }}
-          >
-            {s === 'morning' ? '☀️' : '🌙'} {SLOT_LABEL[s]}
-          </Chip>
-        ))}
-      </div>
+      <SegmentedControl
+        aria-label="Время дня"
+        className="mb-4"
+        value={slot}
+        onChange={(s) => {
+          const next = new URLSearchParams(params)
+          next.set('slot', s)
+          setParams(next, { replace: true })
+        }}
+        options={[
+          { value: 'morning', label: SLOT_LABEL.morning, icon: 'sun' },
+          { value: 'evening', label: SLOT_LABEL.evening, icon: 'moon' },
+        ]}
+      />
       {existing === undefined ? (
-        <p className="text-sm text-muted">Загрузка…</p>
+        <div className="space-y-4" aria-busy="true">
+          <Skeleton className="h-32" rounded="rounded-3xl" />
+          <Skeleton className="h-40" rounded="rounded-3xl" />
+        </div>
       ) : (
         <CheckinForm key={`${date}-${slot}`} date={date} slot={slot} existing={existing} knownTags={knownTags ?? []} />
       )}
@@ -124,25 +138,31 @@ function CheckinForm({
   }
 
   return (
-    <div className="space-y-4">
-      <Card>
-        <h2 className="mb-3 flex items-baseline justify-between text-sm font-medium text-muted">
-          <span>Настроение</span>
-          <span className="text-text">{mood ? MOOD_LABEL[mood - 1] : ''}</span>
-        </h2>
+    <div className="space-y-3">
+      <Card variant="elevated" tone="violet">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h2 className="flex items-center gap-2 text-[17px] font-semibold tracking-tight">
+            <IconBadge name="heart" tone="violet" size="sm" />
+            Настроение
+          </h2>
+          <MoodLabel mood={mood} />
+        </div>
         <MoodPicker value={mood} onChange={setMood} />
       </Card>
 
       <Card className="space-y-4">
-        <DotScale label="Энергия" value={energy} onChange={setEnergy} low="нет сил" high="бодрость" />
-        <DotScale label="Стресс" value={stress} onChange={setStress} low="спокойно" high="напряжённо" />
+        <DotScale label="Энергия" tone="info" value={energy} onChange={setEnergy} low="нет сил" high="бодрость" />
+        <DotScale label="Стресс" tone="warn" value={stress} onChange={setStress} low="спокойно" high="напряжённо" />
       </Card>
 
       <Card>
-        <h2 className="mb-2 text-sm font-medium text-muted">Что влияет</h2>
+        <h2 className="mb-2.5 flex items-center gap-2 text-[17px] font-semibold tracking-tight">
+          <IconBadge name="sparkles" tone="violet" size="sm" />
+          Что влияет
+        </h2>
         <div className="flex flex-wrap gap-2">
           {tagOptions.map((t) => (
-            <Chip key={t} active={tags.includes(t)} onClick={() => toggleTag(t)}>
+            <Chip key={t} tone="violet" icon={tags.includes(t) ? 'check' : undefined} active={tags.includes(t)} onClick={() => toggleTag(t)}>
               {t}
             </Chip>
           ))}
@@ -155,20 +175,45 @@ function CheckinForm({
           }}
         >
           <Input aria-label="Свой тег" placeholder="Свой тег" value={newTag} onChange={(e) => setNewTag(e.target.value)} />
-          <Button type="submit" variant="secondary" disabled={!newTag.trim()}>
+          <Button type="submit" variant="secondary" icon="plus" className="shrink-0" disabled={!newTag.trim()}>
             Добавить
           </Button>
         </form>
       </Card>
 
-      <Field label="Заметка">
-        <AutoTextarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Пара слов о том, что происходит" />
-      </Field>
+      <Card>
+        <Field label="Заметка">
+          <AutoTextarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Пара слов о том, что происходит" />
+        </Field>
+      </Card>
 
-      <Button size="lg" className="w-full" disabled={mood == null || saving} onClick={() => void save()}>
+      <Button size="lg" icon="check" className="w-full" disabled={mood == null || saving} onClick={() => void save()}>
         {existing ? 'Сохранить изменения' : 'Сохранить'}
       </Button>
       {mood == null && <p className="text-center text-xs text-muted">Выберите настроение, чтобы сохранить</p>}
     </div>
+  )
+}
+
+/** Name of the chosen mood; crossfades with a small slide when it changes. */
+function MoodLabel({ mood }: { mood: MoodValue | null }) {
+  const reduce = useReduceMotion()
+  const text = mood ? MOOD_LABEL[mood - 1] : ''
+  if (reduce) return <span className="text-sm font-semibold text-violet">{text}</span>
+  return (
+    <span className="relative grid h-5 min-w-24 justify-items-end overflow-hidden text-sm font-semibold text-violet">
+      <AnimatePresence initial={false}>
+        <motion.span
+          key={text}
+          className="col-start-1 row-start-1"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          transition={{ duration: 0.2, ease: 'easeOut' }}
+        >
+          {text}
+        </motion.span>
+      </AnimatePresence>
+    </span>
   )
 }
