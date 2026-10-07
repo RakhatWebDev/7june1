@@ -9,6 +9,7 @@ import { buildSessionFromDay, emptySets, isStartableDay } from './calc'
 /* ------------------------------------------------------------------ */
 
 export const ACTIVE_PROGRAM_KEY = 'activeProgramId'
+export const HIDE_MEDIA_KEY = 'session.hideMedia'
 
 /** The unfinished session (no `finishedAt`), newest first. At most one should exist. */
 export async function findActiveSession(database: FormaDB = defaultDb): Promise<WorkoutSession | undefined> {
@@ -136,4 +137,8 @@ export function deleteSession(id: string, database: FormaDB = defaultDb) {
 
 export function setActiveProgram(programId: string, database: FormaDB = defaultDb) {
   return database.settings.put({ key: ACTIVE_PROGRAM_KEY, value: programId })
+}
+
+export function setHideMedia(hidden: boolean, database: FormaDB = defaultDb) {
+  return database.settings.put({ key: HIDE_MEDIA_KEY, value: hidden })
 }

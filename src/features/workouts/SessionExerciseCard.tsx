@@ -2,10 +2,12 @@ import { useState } from 'react'
 import { Link } from 'react-router'
 import { Button, Card } from '../../components/ui'
 import { ExerciseMedia } from '../../components/ExerciseMedia'
+import { exerciseImageUrl } from '../../data/exercises'
 import type { Exercise, SessionExercise, SetLog } from '../../db/types'
 import { addSet, applyPreviousWeights, removeSet, updateSet } from './actions'
 import { formatPerformance, type PastPerformance } from './calc'
 import { restLabel } from './labels'
+import { ExerciseTechniqueSheet } from './ExerciseTechniqueSheet'
 import { SetRow } from './SetRow'
 
 /** One exercise inside a session: media, short instructions, plan, last time, sets. */
@@ -15,6 +17,7 @@ export function SessionExerciseCard({
   exercise,
   libraryExercise,
   last,
+  hideMedia = false,
   onSetDone,
   onRemove,
 }: {
@@ -23,10 +26,12 @@ export function SessionExerciseCard({
   exercise: SessionExercise
   libraryExercise?: Exercise
   last: PastPerformance | null
+  /** Show a small thumbnail instead of the inline animation */
+  hideMedia?: boolean
   onSetDone: (restSec: number | undefined) => void
   onRemove: () => void
 }) {
-  const [showMedia, setShowMedia] = useState(false)
+  const [techniqueOpen, setTechniqueOpen] = useState(false)
   const [showAllSteps, setShowAllSteps] = useState(false)
   const steps = libraryExercise?.instructions ?? []
   const visibleSteps = showAllSteps ? steps : steps.slice(0, 2)
@@ -39,8 +44,23 @@ export function SessionExerciseCard({
 
   return (
     <Card as="article" className="p-3">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
+      <div className="flex items-start gap-3">
+        {hideMedia && libraryExercise?.images[0] && (
+          <button
+            type="button"
+            aria-label={`Техника: ${exercise.name}`}
+            className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-white"
+            onClick={() => setTechniqueOpen(true)}
+          >
+            <img
+              src={exerciseImageUrl(libraryExercise.images[0])}
+              alt=""
+              loading="lazy"
+              className="h-full w-full object-contain"
+            />
+          </button>
+        )}
+        <div className="min-w-0 flex-1">
           <h2 className="font-semibold">{exercise.name}</h2>
           <p className="text-xs text-muted">
             План: {exercise.targetSets} × {exercise.targetReps}
@@ -56,17 +76,16 @@ export function SessionExerciseCard({
         </Link>
       </div>
 
-      {libraryExercise && (
-        <div className="mt-2">
+      {libraryExercise && !hideMedia && (
+        <div className="relative mx-auto mt-3 w-full max-w-[240px]" data-testid="session-media">
+          <ExerciseMedia exercise={libraryExercise} className="max-h-[180px]" />
+          {/* Overlay (sibling, not nested — ExerciseMedia is itself a button) opens the big view */}
           <button
             type="button"
-            className="text-sm text-accent"
-            aria-expanded={showMedia}
-            onClick={() => setShowMedia((v) => !v)}
-          >
-            {showMedia ? 'Скрыть технику ▴' : 'Показать технику ▾'}
-          </button>
-          {showMedia && <ExerciseMedia exercise={libraryExercise} className="mt-2" />}
+            aria-label={`Техника: ${exercise.name}`}
+            className="absolute inset-0 rounded-2xl"
+            onClick={() => setTechniqueOpen(true)}
+          />
         </div>
       )}
 
@@ -131,6 +150,14 @@ export function SessionExerciseCard({
           Удалить упражнение
         </Button>
       </div>
+      {libraryExercise && (
+        <ExerciseTechniqueSheet
+          open={techniqueOpen}
+          onClose={() => setTechniqueOpen(false)}
+          title={exercise.name}
+          exercise={libraryExercise}
+        />
+      )}
     </Card>
   )
 }

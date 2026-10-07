@@ -2,11 +2,11 @@ import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { Button, EmptyState, PageHeader, Sheet } from '../../components/ui'
 import type { WorkoutSession } from '../../db/types'
-import { addExercise, finishSession, removeExercise } from './actions'
+import { addExercise, finishSession, removeExercise, setHideMedia } from './actions'
 import { formatClock, lastPerformance, occurrenceIndex, sessionVolume } from './calc'
 import { ConfirmSheet } from './ConfirmSheet'
 import { ExercisePickerSheet } from './ExercisePickerSheet'
-import { useExerciseMap, useNow, useSession, useSessions } from './hooks'
+import { useExerciseMap, useHideMedia, useNow, useSession, useSessions } from './hooks'
 import { formatSessionDateTime } from './labels'
 import { primaryLink, secondaryLink } from './linkStyles'
 import { RestTimer } from './RestTimer'
@@ -35,6 +35,7 @@ export function SessionPage() {
 
 function SessionView({ session, allSessions }: { session: WorkoutSession; allSessions: WorkoutSession[] }) {
   const { map } = useExerciseMap()
+  const hideMedia = useHideMedia() ?? false
   const [rest, setRest] = useState<{ sec: number; key: number } | null>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [removeIdx, setRemoveIdx] = useState<number | null>(null)
@@ -72,13 +73,24 @@ function SessionView({ session, allSessions }: { session: WorkoutSession; allSes
         subtitle={isActive ? undefined : `Завершена · ${formatSessionDateTime(session.startedAt)}`}
         back={isActive ? '/workouts' : '/workouts/history'}
         action={
-          isActive ? (
-            <Button onClick={() => setConfirmFinish(true)}>Завершить</Button>
-          ) : (
-            <Link to="/workouts/history" className={secondaryLink}>
-              История
-            </Link>
-          )
+          <div className="flex flex-col items-end gap-1">
+            {isActive ? (
+              <Button onClick={() => setConfirmFinish(true)}>Завершить</Button>
+            ) : (
+              <Link to="/workouts/history" className={secondaryLink}>
+                История
+              </Link>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-pressed={hideMedia}
+              className={hideMedia ? 'text-accent' : ''}
+              onClick={() => void setHideMedia(!hideMedia)}
+            >
+              {hideMedia ? '✓ ' : ''}Скрывать технику
+            </Button>
+          </div>
         }
       />
       {isActive ? (
@@ -102,6 +114,7 @@ function SessionView({ session, allSessions }: { session: WorkoutSession; allSes
             exercise={e}
             libraryExercise={map.get(e.exerciseId)}
             last={lasts[i]}
+            hideMedia={hideMedia}
             onSetDone={onSetDone}
             onRemove={() => setRemoveIdx(i)}
           />

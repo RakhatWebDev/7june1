@@ -4,7 +4,7 @@ import { db } from '../../db'
 import type { Exercise, Program } from '../../db/types'
 import { builtInPrograms } from '../../data/programs'
 import { useExercises } from '../../data/exercises'
-import { ACTIVE_PROGRAM_KEY, findActiveSession } from './actions'
+import { ACTIVE_PROGRAM_KEY, HIDE_MEDIA_KEY, findActiveSession } from './actions'
 import { buildAliasMap } from './calc'
 
 /** `undefined` while loading, `null` when there is no active session. */
@@ -70,4 +70,9 @@ export function useNow(intervalMs = 1000): Date {
     return () => clearInterval(t)
   }, [intervalMs])
   return now
+}
+
+/** Per-user "hide technique media in sessions" flag; `undefined` while loading. */
+export function useHideMedia(): boolean | undefined {
+  return useLiveQuery(async () => (await db.settings.get(HIDE_MEDIA_KEY))?.value === true, [])
 }

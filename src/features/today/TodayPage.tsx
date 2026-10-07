@@ -10,6 +10,7 @@ import { newId } from '../../lib/id'
 import { Button, Card, Field, Input, PageHeader, Progress, Sheet } from '../../components/ui'
 import { computeTargets } from '../nutrition/calc'
 import { UpcomingCard } from '../calendar/UpcomingCard'
+import { HabitsTodayCard, ReadingTodayCard } from '../growth/cards'
 import {
   ACTIVITY_ICON,
   ACTIVITY_LABEL_RU,
@@ -84,6 +85,8 @@ export function TodayPage() {
             <WeightCard data={data} />
           </div>
           <ActivitiesCard data={data} />
+          <HabitsTodayCard />
+          <ReadingTodayCard />
         </div>
       )}
     </>

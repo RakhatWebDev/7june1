@@ -104,6 +104,34 @@ describe('SessionPage', () => {
     await waitFor(async () => expect((await db.sessions.get('cur'))?.exercises.map((e) => e.exerciseId)).toEqual(['Pushups']))
   })
 
+  it('shows technique media by default and opens the full technique sheet on tap', async () => {
+    renderRoute('/workouts/session/cur')
+    expect(await screen.findByAltText('Barbell Bench Press — кадр 1')).toBeInTheDocument()
+    expect(screen.getByTestId('session-media')).toBeInTheDocument()
+    expect(screen.queryByText('Press up.')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Техника: Жим лёжа' }))
+    const sheet = await screen.findByRole('dialog', { name: 'Жим лёжа' })
+    expect(within(sheet).getByText('Press up.')).toBeInTheDocument()
+    expect(within(sheet).getByAltText('Barbell Bench Press — кадр 1')).toBeInTheDocument()
+  })
+
+  it('hides media when the session.hideMedia setting is on, keeping a thumbnail', async () => {
+    await db.settings.put({ key: 'session.hideMedia', value: true })
+    renderRoute('/workouts/session/cur')
+    const toggle = await screen.findByRole('button', { name: /Скрывать технику/, pressed: true })
+    const thumb = await screen.findByRole('button', { name: 'Техника: Жим лёжа' })
+    expect(within(thumb).getByRole('presentation', { hidden: true })).toHaveAttribute('src', expect.stringContaining('Bench/0.jpg'))
+    expect(screen.queryByTestId('session-media')).not.toBeInTheDocument()
+    expect(screen.queryByAltText('Barbell Bench Press — кадр 1')).not.toBeInTheDocument()
+    fireEvent.click(thumb)
+    expect(await screen.findByRole('dialog', { name: 'Жим лёжа' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Закрыть' }))
+
+    fireEvent.click(toggle)
+    expect(await screen.findByTestId('session-media')).toBeInTheDocument()
+    expect((await db.settings.get('session.hideMedia'))?.value).toBe(false)
+  })
+
   it('opens a finished session in review mode with a summary', async () => {
     renderRoute('/workouts/session/prev')
     expect(await screen.findByText(/Режим просмотра/)).toBeInTheDocument()
