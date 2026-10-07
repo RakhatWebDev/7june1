@@ -7,6 +7,7 @@ import { nutritionRoutes } from '../features/nutrition/routes'
 import { sleepRoutes } from '../features/sleep/routes'
 import { progressRoutes } from '../features/progress/routes'
 import { SettingsPage } from '../features/settings/SettingsPage'
+import { calendarRoutes } from '../features/calendar/routes'
 
 /**
  * Route map (hash router, so it works on GitHub Pages without a 404 fallback):
@@ -26,6 +27,7 @@ import { SettingsPage } from '../features/settings/SettingsPage'
  *   /nutrition/plan           Расчёт нормы (TDEE, макросы)
  *   /sleep                    Сон
  *   /progress                 Прогресс: вес, замеры, объём, рекорды
+ *   /calendar                 Календарь: занятия из OneFit (импорт .ics / подписка), ближайшие
  *   /settings                 Профиль и настройки, экспорт/импорт
  *
  * Each feature owns its `routes.tsx` and may add nested routes freely.
@@ -41,6 +43,7 @@ export const router = createHashRouter([
       ...nutritionRoutes,
       ...sleepRoutes,
       ...progressRoutes,
+      ...calendarRoutes,
       { path: 'settings', element: <SettingsPage /> },
       { path: '*', element: <Navigate to="/" replace /> },
     ],

@@ -220,6 +220,31 @@ export interface SleepEntry {
   notes?: string
 }
 
+/** An event imported from the user's calendar (OneFit bookings, classes, gym slots). */
+export interface CalendarEvent {
+  /** iCalendar UID (+ recurrence id if any) — stable across re-imports */
+  id: string
+  title: string
+  startAt: ISODateTime
+  endAt: ISODateTime
+  allDay: boolean
+  location?: string
+  description?: string
+  /** Where it came from: file name or feed URL label */
+  source: string
+  /** Classified kind for icons/links: gym → link to start a workout, etc. */
+  kind: 'gym' | 'swim' | 'class' | 'run' | 'bike' | 'other'
+  importedAt: ISODateTime
+}
+
+export interface CalendarFeed {
+  id: string
+  label: string
+  url: string
+  lastSyncAt?: ISODateTime
+  lastError?: string
+}
+
 export interface Setting {
   key: string
   value: unknown

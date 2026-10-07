@@ -17,7 +17,7 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icons/*.svg'],
       manifest: {
-        name: 'FORMA — тренировки, питание, сон',
+        name: 'FORMA — My Training Process',
         short_name: 'FORMA',
         description: 'Личный тренировочный дневник: зал, кардио, растяжка, питание и сон.',
         theme_color: '#0f172a',

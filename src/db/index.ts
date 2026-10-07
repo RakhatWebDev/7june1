@@ -1,6 +1,8 @@
 import Dexie, { type EntityTable } from 'dexie'
 import type {
   Activity,
+  CalendarEvent,
+  CalendarFeed,
   Food,
   FoodEntry,
   Measurement,
@@ -25,6 +27,8 @@ export class FormaDB extends Dexie {
   measurements!: EntityTable<Measurement, 'id'>
   sleep!: EntityTable<SleepEntry, 'id'>
   settings!: EntityTable<Setting, 'key'>
+  calendarEvents!: EntityTable<CalendarEvent, 'id'>
+  calendarFeeds!: EntityTable<CalendarFeed, 'id'>
 
   constructor(name = 'forma') {
     super(name)
@@ -41,6 +45,10 @@ export class FormaDB extends Dexie {
       measurements: 'id, date',
       sleep: 'id, date',
       settings: 'key',
+    })
+    this.version(2).stores({
+      calendarEvents: 'id, startAt, kind, source',
+      calendarFeeds: 'id',
     })
   }
 }

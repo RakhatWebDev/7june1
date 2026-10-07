@@ -131,3 +131,43 @@
 2. Прогон по критериям каждого пункта в браузере (Playwright-скриншоты 390×844).
 3. Несоответствия → задача возвращается агенту с конкретным списком; повтор до закрытия.
 4. Коммит по агенту: `feat(workouts): …`, `feat(cardio,sleep): …`, `feat(nutrition): …`, `feat(today,progress,settings): …`.
+
+---
+
+## Агент E — Календарь занятий (OneFit) (G9)
+
+Контекст: владелец ходит в зал через приложение OneFit. У OneFit нет публичного API, но каждая запись на занятие
+попадает в его календарь (Google / Apple). Значит источник — **календарь**, не OneFit.
+
+Папка: `src/features/calendar/`. Таблицы: `calendarEvents`, `calendarFeeds` (Dexie v2, уже добавлены в `src/db`).
+Экспорт `calendarRoutes` сохранить. Дополнительно экспортировать из `src/features/calendar/UpcomingCard.tsx`
+компонент `UpcomingCard` (ближайшие 3 события на 7 дней) — архитектор встроит его в дашборд «Сегодня».
+
+### E1. Парсер iCalendar — `ics.ts`
+- `parseIcs(text: string, source: string): CalendarEvent[]`: VEVENT → `CalendarEvent`. Поддержать: line unfolding (CRLF + пробел),
+  `DTSTART`/`DTEND` в формах UTC (`Z`), с `TZID=` (использовать `Intl`/`date-fns`-free подход: трактовать как локальное время
+  если TZID совпадает с локальной зоной или отсутствует; иначе грубое смещение не требуется — зафиксировать ограничение в комментарии),
+  `VALUE=DATE` (allDay), `DURATION` без `DTEND`, экранирование `\,` `\n` `\;`, `SUMMARY`, `LOCATION`, `DESCRIPTION`, `UID`, `RECURRENCE-ID`.
+  `RRULE` — развернуть только простые `FREQ=WEEKLY` (с `BYDAY`, `COUNT`/`UNTIL`) на 8 недель вперёд; остальное — только первое вхождение.
+- `classifyEvent(title, location, description): CalendarEvent['kind']` по ключевым словам (ru/en): gym/зал/fitness/тренаж → `gym`;
+  swim/бассейн/pool/aqua → `swim`; yoga/pilates/stretch/растяж/crossfit/hiit/box/group/занятие → `class`; run/бег → `run`; bike/вело/cycling/spinning → `bike`.
+- Приёмка: тесты с реальными фрагментами ICS (Google Calendar export формат, событие OneFit вида `SUMMARY:OneFit: Fitness24 — Gym`), включая unfolding, allDay, weekly RRULE.
+
+### E2. Импорт файла и подписка
+- `/calendar`: кнопка «Импортировать .ics» (file input, `accept=".ics,text/calendar"`) → парсинг → upsert в `calendarEvents` по `id`
+  (повторный импорт того же файла не создаёт дублей). Показать итог «Импортировано N событий, из них ближайших M».
+- Подписка по URL (`calendarFeeds`): поле «Секретный адрес календаря в формате iCal» + «Синхронизировать». `fetch(url)` с обработкой
+  ошибки CORS/сети: понятное сообщение «Календарь не отдаёт данные браузеру напрямую (CORS). Скачайте .ics и импортируйте файлом» —
+  Google Calendar так себя ведёт, это ожидаемо; документировать это в подсказке на странице. При успехе — upsert и `lastSyncAt`.
+- Инструкция на странице (сворачиваемая): как получить .ics из Google Calendar (Настройки → календарь → «Секретный адрес в формате iCal» / «Экспорт»)
+  и из Apple Calendar (Файл → Экспорт).
+- Приёмка: тест — импорт одного и того же текста дважды → количество событий не меняется.
+
+### E3. Просмотр
+- `/calendar`: список «Ближайшие» (от сейчас, 14 дней) и «Прошедшие» (7 дней), группировка по дню, время, место, kind-иконка;
+  у событий `gym` кнопка «Начать тренировку» → `/workouts` ; у `swim`/`run`/`bike`/`class` — «Записать активность» → `/cardio/new?type=swim|run|bike|other`.
+- Удаление всех событий источника (кнопка у источника). Фильтр по kind чипами.
+- `UpcomingCard`: 3 ближайших события на 7 дней с относительным временем («сегодня 18:30», «завтра 07:00», «пт 19:00»), ссылка на `/calendar`; пустое состояние — «Импортируйте календарь» со ссылкой.
+- Приёмка: тест рендера `UpcomingCard` с 2 событиями и с пустой БД.
+
+Вне скоупа E (итерация 2): OAuth Google Calendar API, автообновление подписки в фоне, запись тренировок обратно в календарь.
