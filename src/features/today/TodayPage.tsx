@@ -9,6 +9,7 @@ import { int, kg, km } from '../../lib/format'
 import { newId } from '../../lib/id'
 import { Button, Card, Field, Input, PageHeader, Progress, Sheet } from '../../components/ui'
 import { computeTargets } from '../nutrition/calc'
+import { UpcomingCard } from '../calendar/UpcomingCard'
 import {
   ACTIVITY_ICON,
   ACTIVITY_LABEL_RU,
@@ -76,6 +77,7 @@ export function TodayPage() {
       {data && (
         <div className="space-y-3">
           <WorkoutCard data={data} />
+          <UpcomingCard />
           <NutritionCard data={data} />
           <div className="grid gap-3 sm:grid-cols-2">
             <SleepCard data={data} />
