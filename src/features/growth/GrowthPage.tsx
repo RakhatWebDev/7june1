@@ -1,14 +1,15 @@
 import type { ReactNode } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Link } from 'react-router'
-import { PageHeader, Progress } from '../../components/ui'
+import { Card, IconBadge, PageHeader, Progress, StaggerList, type Tone } from '../../components/ui'
+import { Icon, type IconName } from '../../components/icons'
 import { db } from '../../db'
 import { formatMinutes, today, weekDates } from '../../lib/dates'
 import { plural } from '../../lib/format'
 import { useCurrentBook } from './books/hooks'
 import { useHabitsToday } from './habits/hooks'
 import { CURRENCY_KEY, currencySymbol, goalsSummary, money, monthExpenses, MOOD_EMOJI, moodBySlot } from './hub'
-import { ddmm, tint, colorVar } from './shared'
+import { ddmm } from './shared'
 
 const QUALITY_RU = ['', 'ужасно', 'плохо', 'нормально', 'хорошо', 'отлично']
 
@@ -25,32 +26,25 @@ function HubCard({
   children,
 }: {
   to: string
-  icon: string
-  color: string
+  icon: IconName
+  color: Tone
   title: string
   children: ReactNode
 }) {
   return (
-    <Link
-      to={to}
-      className="block rounded-3xl border border-border bg-surface p-5 transition-[border-color,transform] hover:border-accent/60 active:scale-[0.99]"
-    >
-      <div className="flex items-start gap-4">
-        <span
-          aria-hidden
-          className="grid size-12 shrink-0 place-items-center rounded-2xl text-2xl"
-          style={{ backgroundColor: tint(color, 18), color: colorVar(color) }}
-        >
-          {icon}
-        </span>
+    <Link to={to} className="group block rounded-3xl">
+      <Card
+        as="div"
+        tone={color}
+        className="flex items-start gap-4 p-5 transition-[border-color,transform] duration-200 group-hover:border-white/15 group-active:scale-[0.99] motion-reduce:transform-none"
+      >
+        <IconBadge name={icon} tone={color} size="lg" />
         <div className="min-w-0 flex-1">
           <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
           <div className="mt-1 text-sm text-muted">{children}</div>
         </div>
-        <span aria-hidden className="self-center text-muted">
-          ›
-        </span>
-      </div>
+        <Icon name="chevron-right" size={20} className="self-center text-muted transition-transform group-hover:translate-x-0.5" />
+      </Card>
     </Link>
   )
 }
@@ -85,23 +79,26 @@ export function GrowthPage() {
       <PageHeader title="Развитие" subtitle="Привычки, цели, книги, разум, финансы и сон" />
 
       <p
-        className="mb-4 rounded-2xl border border-border bg-surface-2/60 px-4 py-3 text-center font-semibold"
+        className="mb-4 flex items-center gap-3 rounded-3xl border border-white/[0.06] bg-surface bg-[image:var(--gradient-surface)] px-4 py-3 font-semibold"
         data-testid="growth-streak"
       >
-        <span aria-hidden>🔥</span> Серия: {streak} {plural(streak, ['день', 'дня', 'дней'])}
+        <IconBadge name="flame" tone={streak > 0 ? 'amber' : 'muted'} />
+        <span className="min-w-0">
+        Серия: {streak} {plural(streak, ['день', 'дня', 'дней'])}
         <span className="block text-xs font-normal text-muted">
           {streak > 0 ? 'подряд выполнены все ежедневные привычки' : 'выполните все ежедневные привычки сегодня, чтобы начать серию'}
         </span>
+        </span>
       </p>
 
-      <div className="space-y-3">
-        <HubCard to="/habits" icon="✅" color="pink" title="Привычки">
+      <StaggerList className="space-y-3">
+        <HubCard to="/habits" icon="check" color="pink" title="Привычки">
           {habits ? (
             <>
               <span className="text-text tabular-nums" data-testid="hub-habits">
                 Сегодня выполнено {habits.done} из {habits.total}
               </span>
-              <Progress className="mt-2" value={habits.total ? habits.done / habits.total : 0} />
+              <Progress className="mt-2" tone="pink" value={habits.total ? habits.done / habits.total : 0} />
               <span className="mt-1 block">
                 Текущая серия: {streak} {plural(streak, ['день', 'дня', 'дней'])}
               </span>
@@ -111,7 +108,7 @@ export function GrowthPage() {
           )}
         </HubCard>
 
-        <HubCard to="/goals" icon="🎯" color="accent" title="Цели">
+        <HubCard to="/goals" icon="target" color="accent" title="Цели">
           {hub ? (
             <>
               <span className="text-text tabular-nums" data-testid="hub-goals">
@@ -131,7 +128,7 @@ export function GrowthPage() {
           )}
         </HubCard>
 
-        <HubCard to="/books" icon="📚" color="amber" title="Книги">
+        <HubCard to="/books" icon="book" color="amber" title="Книги">
           {reading?.book ? (
             <>
               <span className="text-text">
@@ -139,7 +136,7 @@ export function GrowthPage() {
               </span>
               {reading.book.totalPages ? (
                 <>
-                  <Progress className="mt-2" value={reading.percent / 100} />
+                  <Progress className="mt-2" tone="amber" value={reading.percent / 100} />
                   <span className="mt-1 block tabular-nums">{reading.percent}% прочитано</span>
                 </>
               ) : null}
@@ -151,7 +148,7 @@ export function GrowthPage() {
           )}
         </HubCard>
 
-        <HubCard to="/mind" icon="🧘" color="info" title="Разум и дух">
+        <HubCard to="/mind" icon="brain" color="violet" title="Разум и дух">
           {hub ? (
             <>
               <span className="text-text" data-testid="hub-mood">
@@ -165,7 +162,7 @@ export function GrowthPage() {
           )}
         </HubCard>
 
-        <HubCard to="/finance" icon="💰" color="warn" title="Финансы">
+        <HubCard to="/finance" icon="wallet" color="amber" title="Финансы">
           {hub ? (
             <>
               <span className="text-text tabular-nums" data-testid="hub-finance">
@@ -180,7 +177,7 @@ export function GrowthPage() {
           )}
         </HubCard>
 
-        <HubCard to="/sleep" icon="🌙" color="violet" title="Сон">
+        <HubCard to="/sleep" icon="moon" color="violet" title="Сон">
           {lastSleep ? (
             <>
               <span className="text-text">
@@ -197,7 +194,7 @@ export function GrowthPage() {
             '…'
           )}
         </HubCard>
-      </div>
+      </StaggerList>
     </>
   )
 }

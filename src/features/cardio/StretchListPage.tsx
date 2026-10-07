@@ -1,12 +1,14 @@
 import { Link } from 'react-router'
 import { Card, PageHeader } from '../../components/ui'
+import { WorkoutsNav } from '../../components/WorkoutsNav'
 import { plural } from '../../lib/format'
 import { routineDurationSec, stretchRoutines } from './stretchRoutines'
 
 export function StretchListPage() {
   return (
     <>
-      <PageHeader title="Растяжка" subtitle="Комплексы с таймером — 30 с на сторону" back="/cardio" />
+      <PageHeader title="Растяжка" subtitle="Комплексы с таймером — 30 с на сторону" />
+      <WorkoutsNav />
       <ul className="space-y-3">
         {stretchRoutines.map((r) => {
           const min = Math.round(routineDurationSec(r) / 60)

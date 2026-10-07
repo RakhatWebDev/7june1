@@ -46,12 +46,12 @@ describe('TodayPage', () => {
   it('renders empty states with an empty database', async () => {
     renderPage()
     expect(await screen.findByText('Программа не выбрана.')).toBeInTheDocument()
-    expect(screen.getByText('Прошлая ночь не записана.')).toBeInTheDocument()
-    expect(screen.getByText('Сегодня активностей пока нет.')).toBeInTheDocument()
-    expect(screen.getByText('Взвешиваний пока нет.')).toBeInTheDocument()
+    expect(screen.getByText('Нет записи за ночь')).toBeInTheDocument()
+    expect(screen.getByText('Сегодня пока пусто')).toBeInTheDocument()
+    expect(screen.getByText('Пока нет взвешиваний')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Записать' })).toHaveAttribute('href', '/sleep/new')
-    expect(screen.getByRole('link', { name: '+ Кардио' })).toHaveAttribute('href', '/cardio/new')
-    expect(screen.getByRole('link', { name: 'Дневник →' })).toHaveAttribute('href', '/nutrition')
+    expect(screen.getByRole('link', { name: 'Добавить кардио' })).toHaveAttribute('href', '/cardio/new')
+    expect(screen.getByRole('link', { name: 'Дневник' })).toHaveAttribute('href', '/nutrition')
     expect(screen.getByRole('link', { name: 'профиль' })).toBeInTheDocument()
   })
 
@@ -83,11 +83,11 @@ describe('TodayPage', () => {
     expect(screen.queryByRole('link', { name: 'Начать' })).not.toBeInTheDocument()
   })
 
-  it('shows «Выполнено ✓» with volume when today’s session is finished', async () => {
+  it('shows «Выполнено» with volume when today’s session is finished', async () => {
     await ensureSeeded(db)
     await db.sessions.put(session({ id: 'done-1', finishedAt: new Date().toISOString() }))
     renderPage()
-    expect(await screen.findByText('Выполнено ✓')).toBeInTheDocument()
+    expect(await screen.findByText('Выполнено')).toBeInTheDocument()
     expect(screen.getByText(/объём 500 кг/)).toBeInTheDocument()
   })
 
@@ -128,7 +128,7 @@ describe('TodayPage', () => {
     await ensureSeeded(db)
     renderPage()
     const user = userEvent.setup()
-    await user.click(await screen.findByRole('button', { name: '+ Вес' }))
+    await user.click(await screen.findByRole('button', { name: 'Добавить вес' }))
     await user.type(screen.getByLabelText('Вес, кг'), '86.4')
     await user.click(screen.getByRole('button', { name: 'Сохранить' }))
     await waitFor(async () => expect((await db.weights.toArray()).map((w) => w.weightKg)).toEqual([86.4]))

@@ -32,6 +32,7 @@ import {
   type ImportResult,
 } from './store'
 import { useNow } from './useNow'
+import { WorkoutsNav } from '../../components/WorkoutsNav'
 
 const DAY_MS = 86_400_000
 
@@ -144,7 +145,8 @@ export function CalendarPage() {
 
   return (
     <>
-      <PageHeader title="Календарь" subtitle="Записи OneFit из Google / Apple Calendar" back="/" />
+      <PageHeader title="Календарь" subtitle="Записи OneFit из Google / Apple Calendar" />
+      <WorkoutsNav />
 
       <div className="space-y-4">
         <Card>

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
 import { Card, EmptyState, PageHeader } from '../../components/ui'
+import { WorkoutsNav } from '../../components/WorkoutsNav'
 import type { WorkoutSession } from '../../db/types'
 import { formatMinutes } from '../../lib/dates'
 import { int, plural } from '../../lib/format'
@@ -18,7 +19,8 @@ export function HistoryPage() {
 
   return (
     <>
-      <PageHeader title="История" subtitle={sessions ? `${sessions.length} ${plural(sessions.length, ['тренировка', 'тренировки', 'тренировок'])}` : undefined} back="/workouts" />
+      <PageHeader title="История" subtitle={sessions ? `${sessions.length} ${plural(sessions.length, ['тренировка', 'тренировки', 'тренировок'])}` : undefined} />
+      <WorkoutsNav />
       {sessions && sessions.length === 0 && (
         <EmptyState
           title="Тренировок пока нет"

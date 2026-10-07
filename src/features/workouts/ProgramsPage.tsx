@@ -1,12 +1,13 @@
 import { Link } from 'react-router'
-import { Card, EmptyState, PageHeader } from '../../components/ui'
+import { Card, EmptyState, IconBadge, LinkButton, PageHeader, SectionHeader, StaggerList } from '../../components/ui'
+import { Icon } from '../../components/icons'
+import { WorkoutsNav } from '../../components/WorkoutsNav'
 import type { Program, WorkoutSession } from '../../db/types'
 import { WEEKDAY_RU, weekdayIndex } from '../../lib/dates'
 import { isStartableDay, scheduledDay } from './calc'
 import { useActiveProgram, useActiveSession, usePrograms } from './hooks'
 import { DAY_TYPE_RU } from './labels'
 import { primaryLink, secondaryLink } from './linkStyles'
-
 
 /** /workouts — today's planned day, active session, program list. */
 export function ProgramsPage() {
@@ -16,38 +17,41 @@ export function ProgramsPage() {
 
   return (
     <>
-      <PageHeader title="Зал" subtitle="Программы и тренировки" />
-      <nav className="mb-4 grid grid-cols-2 gap-2">
-        <Link to="/workouts/history" className={secondaryLink}>
-          История
-        </Link>
-        <Link to="/workouts/exercises" className={secondaryLink}>
-          Упражнения
-        </Link>
-      </nav>
+      <PageHeader
+        title="Тренировки"
+        subtitle="Зал и программы"
+        action={
+          <LinkButton to="/workouts/exercises" variant="secondary" size="sm" icon="search">
+            Упражнения
+          </LinkButton>
+        }
+      />
+      <WorkoutsNav />
 
       {!loading && active !== undefined && <TodayCard program={program} active={active} />}
 
-      <h2 className="mt-6 mb-2 text-sm font-semibold tracking-wide text-muted uppercase">Программы</h2>
-      {programs && programs.length === 0 && <EmptyState title="Программ пока нет" />}
-      <ul className="space-y-3">
+      <SectionHeader title="Программы" icon="list" />
+      {programs && programs.length === 0 && <EmptyState icon="dumbbell" title="Программ пока нет" />}
+      <StaggerList as="ul" className="space-y-3">
         {programs?.map((p) => (
-          <li key={p.id}>
-            <Link to={`/workouts/programs/${p.id}`} className="block">
-              <Card as="div" className="transition hover:border-accent/60">
+          <Link key={p.id} to={`/workouts/programs/${p.id}`} className="group block">
+            <Card as="div" className="flex items-start gap-3 transition-[border-color,transform] group-hover:border-accent/40 group-active:scale-[0.99]">
+              <IconBadge name="dumbbell" tone={program?.id === p.id ? 'accent' : 'muted'} />
+              <div className="min-w-0 flex-1">
                 <div className="flex items-start justify-between gap-2">
-                  <h3 className="font-semibold">{p.name}</h3>
+                  <h3 className="font-semibold tracking-tight">{p.name}</h3>
                   {program?.id === p.id && (
-                    <span className="shrink-0 rounded-full bg-accent/15 px-2 py-0.5 text-xs text-accent">Активная</span>
+                    <span className="shrink-0 rounded-full bg-accent/15 px-2 py-0.5 text-xs font-medium text-accent">Активная</span>
                   )}
                 </div>
-                <p className="mt-1 text-xs text-muted">{p.daysPerWeek} дн./нед.</p>
-                <p className="mt-2 line-clamp-2 text-sm text-muted">{p.description}</p>
-              </Card>
-            </Link>
-          </li>
+                <p className="mt-0.5 text-xs text-muted tabular-nums">{p.daysPerWeek} дн./нед.</p>
+                <p className="mt-1.5 line-clamp-2 text-sm text-muted">{p.description}</p>
+              </div>
+              <Icon name="chevron-right" size={18} className="mt-2.5 text-muted" />
+            </Card>
+          </Link>
         ))}
-      </ul>
+      </StaggerList>
     </>
   )
 }
@@ -57,8 +61,11 @@ function TodayCard({ program, active }: { program: Program | null; active: Worko
   const day = program ? scheduledDay(program, weekday) : undefined
 
   return (
-    <Card className="border-accent/40">
-      <p className="text-xs font-medium tracking-wide text-muted uppercase">Сегодня по плану · {WEEKDAY_RU[weekday]}</p>
+    <Card variant="accent">
+      <p className="flex items-center gap-1.5 text-xs font-medium tracking-wide text-accent uppercase">
+        <Icon name="calendar" size={14} />
+        Сегодня по плану · {WEEKDAY_RU[weekday]}
+      </p>
       {!program && <p className="mt-2 text-sm text-muted">Нет программы.</p>}
       {program && !day && (
         <p className="mt-2 text-sm text-muted">
@@ -67,17 +74,17 @@ function TodayCard({ program, active }: { program: Program | null; active: Worko
       )}
       {program && day && (
         <>
-          <h2 className="mt-1 text-xl font-bold">{day.name}</h2>
+          <h2 className="mt-1.5 text-2xl font-bold tracking-tight">{day.name}</h2>
           <p className="text-xs text-muted">
             {program.name} · {DAY_TYPE_RU[day.type]}
           </p>
           {day.notes && <p className="mt-2 text-sm">{day.notes}</p>}
           {day.exercises.length > 0 && (
-            <ul className="mt-3 space-y-1 text-sm">
+            <ul className="mt-3 divide-y divide-white/[0.06] text-sm">
               {day.exercises.map((e, i) => (
-                <li key={`${e.exerciseId}-${i}`} className="flex justify-between gap-3">
+                <li key={`${e.exerciseId}-${i}`} className="flex justify-between gap-3 py-1.5">
                   <span className="min-w-0 truncate">{e.name}</span>
-                  <span className="shrink-0 text-muted">
+                  <span className="shrink-0 text-muted tabular-nums">
                     {e.sets} × {e.reps}
                   </span>
                 </li>
@@ -88,21 +95,23 @@ function TodayCard({ program, active }: { program: Program | null; active: Worko
       )}
       <div className="mt-4 flex flex-wrap gap-2">
         {active ? (
-          <Link to={`/workouts/session/${active.id}`} className={primaryLink}>
+          <Link to={`/workouts/session/${active.id}`} className={`${primaryLink} min-h-12 basis-full text-base`}>
+            <Icon name="play" size={18} />
             Продолжить тренировку
           </Link>
         ) : (
           program &&
           day &&
           isStartableDay(day) && (
-            <Link to={`/workouts/start/${program.id}/${day.id}`} className={primaryLink}>
+            <Link to={`/workouts/start/${program.id}/${day.id}`} className={`${primaryLink} min-h-12 basis-full text-base`}>
+              <Icon name="play" size={18} />
               Начать тренировку
             </Link>
           )
         )}
         {active && <span className="self-center text-xs text-muted">Идёт: {active.name}</span>}
         {program && (
-          <Link to={`/workouts/programs/${program.id}`} className={secondaryLink}>
+          <Link to={`/workouts/programs/${program.id}`} className={`${secondaryLink} min-h-10 flex-1`}>
             Вся программа
           </Link>
         )}

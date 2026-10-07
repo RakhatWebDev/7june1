@@ -3,6 +3,7 @@ import { Link } from 'react-router'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../../db'
 import { Card, Progress } from '../../components/ui'
+import { Icon } from '../../components/icons'
 import { areaMeta } from './areas'
 import {
   goalProgress,
@@ -23,7 +24,8 @@ export function GoalsFocusCard() {
   return (
     <Card>
       <div className="mb-3 flex items-baseline justify-between gap-2">
-        <Link to="/goals" className="font-semibold hover:text-accent">
+        <Link to="/goals" className="flex items-center gap-2 font-semibold tracking-tight hover:text-accent">
+          <Icon name="target" size={18} className="text-accent" />
           Цели
         </Link>
         {goals && goals.length > 3 && (

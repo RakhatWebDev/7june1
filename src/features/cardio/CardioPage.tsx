@@ -1,6 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Link } from 'react-router'
-import { Card, EmptyState, PageHeader, Stat } from '../../components/ui'
+import { Card, EmptyState, LinkButton, PageHeader, Stat } from '../../components/ui'
+import { WorkoutsNav } from '../../components/WorkoutsNav'
 import { db } from '../../db'
 import type { ActivityType } from '../../db/types'
 import { formatMinutes, weekDates } from '../../lib/dates'
@@ -35,7 +36,16 @@ export function CardioPage() {
 
   return (
     <>
-      <PageHeader title="Кардио и активности" action={<Link to="/cardio/new" className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-bg">+ Добавить</Link>} />
+      <PageHeader
+        title="Кардио"
+        subtitle="Бег, вело, бассейн и другие активности"
+        action={
+          <LinkButton to="/cardio/new" size="sm" icon="plus">
+            Добавить
+          </LinkButton>
+        }
+      />
+      <WorkoutsNav />
 
       <section aria-label="Эта неделя" className="mb-4">
         <h2 className="mb-2 text-sm font-medium text-muted">Эта неделя</h2>

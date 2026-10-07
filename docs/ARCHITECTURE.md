@@ -18,14 +18,17 @@ public/data/exercises.json     библиотека упражнений (876, f
 public/icons/icon.svg          иконка PWA
 src/main.tsx                   вход, сидирование БД
 src/app/router.tsx             карта маршрутов (собирает routes.tsx из фич)
-src/app/Layout.tsx             оболочка + нижняя навигация (6 вкладок)
-src/index.css                  Tailwind v4 + дизайн-токены (@theme)
+src/app/Layout.tsx             оболочка + нижняя навигация (5 вкладок) + переходы страниц (motion)
+src/index.css                  Tailwind v4 + дизайн-токены (@theme), keyframes, reduced-motion
 src/db/types.ts                доменные типы
 src/db/index.ts                класс FormaDB (Dexie), экспорт `db`
 src/db/seed.ts                 профиль по умолчанию + встроенные программы
 src/data/exercises.ts          загрузка библиотеки, useExercises(), URL картинок, словари RU
 src/data/programs/             встроенные программы (davidLaidDup.ts)
-src/components/ui/index.tsx    Button, Card, PageHeader, Field, Input, Select, Stepper, EmptyState, Stat, Chip, Sheet, Progress
+src/components/ui/index.tsx    примитивы UI (см. «Дизайн-система»)
+src/components/ui/helpers.ts   тоны доменов (TONE_*), buttonClasses(), useReduceMotion()
+src/components/icons.tsx       <Icon name=… /> — inline-SVG в стиле Lucide (IconName)
+src/components/WorkoutsNav.tsx сегменты хаба «Тренировки» (Зал · Кардио · Растяжка · Календарь · История)
 src/components/ExerciseMedia.tsx анимация упражнения (чередование 2 кадров)
 src/lib/                       dates.ts (toISODate, today, weekdayIndex, weekDates), format.ts, id.ts
 src/features/<feature>/routes.tsx  экспорт RouteObject[] фичи
@@ -53,10 +56,20 @@ src/test/setup.ts              fake-indexeddb + jest-dom
 
 ## Дизайн-система
 
-Тёмная тема, токены в `src/index.css`: `bg`, `surface`, `surface-2`, `border`, `text`, `muted`,
-`accent` (лайм), `danger`, `warn`, `info`. Используй классы `bg-surface`, `text-muted`, `border-border`,
-`text-accent` и т.д. Радиусы `rounded-2xl` для карточек, `rounded-xl` для контролов. Контент
-ограничен `max-w-3xl`, нижняя навигация фиксирована — у страницы уже есть `pb-24`.
+Тёмная тёплая тема, токены в `src/index.css`: `bg`, `surface`, `surface-2`, `surface-3`, `border`, `text`, `muted`,
+`accent` (лайм), `danger`, `warn`, `info`, `violet`, `pink`, `amber`. Цвет по доменам (точечно — иконка, кольцо, прогресс):
+зал `accent`, кардио `info`, питание `warn`, сон/разум `violet`, привычки `pink`, книги/финансы `amber`.
+Радиусы: карточки `rounded-3xl` (даёт `Card`), контролы `rounded-xl`. Контент `max-w-3xl`, отступ под навигацию уже в `Layout`.
+Числа — `tabular-nums`. Эмодзи — только там, где их выбирает пользователь (привычки, категории); иначе `<Icon />`.
+
+Примитивы (`src/components/ui`): `Button` (`variant`, `size`, `icon`, `iconRight`, `loading`), `LinkButton` (router-ссылка
+в виде кнопки), `Card` (`variant`: default | elevated | glass | accent, `tone`), `PageHeader` (`eyebrow`, `back`, `action`),
+`SectionHeader`, `IconBadge`, `Field`/`Input`/`Select`, `Stepper` (слайд значения), `EmptyState` (`icon`, `tone`, «дышит»),
+`Stat` (`icon`, `tone`), `StatTile` (плитка дашборда), `Chip` (`icon`, `tone`, `className`), `SegmentedControl`,
+`SegmentedNav` (сегменты-ссылки), `Sheet` (пружина, свайп вниз, Esc, портал), `Progress` (`tone`, анимация ширины),
+`Skeleton`, `Ring` (SVG-кольцо 0..1), `CountUp`, `StaggerList` (появление детей с шагом 40 мс), `Confetti`, `Toast`.
+Анимации — `motion/react`, 180–320 мс; под `prefers-reduced-motion` всё статично (`useReduceMotion()`); в тестах
+`matchMedia` замокан на reduce, поэтому motion-компоненты рендерятся детерминированно.
 
 Графики — Recharts. Цвет серии по умолчанию `var(--color-accent)`, сетка `var(--color-border)`.
 

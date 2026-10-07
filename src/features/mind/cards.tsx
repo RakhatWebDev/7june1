@@ -1,9 +1,19 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Link } from 'react-router'
-import { Card } from '../../components/ui'
+import { Card, StatTile } from '../../components/ui'
+import { Icon } from '../../components/icons'
 import { db } from '../../db'
 import { today, weekDates } from '../../lib/dates'
-import { defaultSlot, MOOD_EMOJI, MOOD_LABEL, moodEntryId, practiceMinutes, SLOT_LABEL, type MoodValue, type Slot } from './calc'
+import {
+  defaultSlot,
+  MOOD_EMOJI,
+  MOOD_LABEL,
+  moodEntryId,
+  practiceMinutes,
+  SLOT_LABEL,
+  type MoodValue,
+  type Slot,
+} from './calc'
 import { MoodPicker } from './parts'
 import { linkPrimary, linkSecondary } from './styles'
 
@@ -11,7 +21,7 @@ import { linkPrimary, linkSecondary } from './styles'
  * Dashboard card: quick mood check-in for the current slot (morning / evening) with five
  * emoji buttons; once both are filled — or the current one is — it shows a compact summary.
  */
-export function MoodCheckinCard() {
+export function MoodCheckinCard({ variant = 'card' }: { variant?: 'card' | 'strip' }) {
   const date = today()
   const slot = defaultSlot()
   const moods = useLiveQuery(() => db.moods.where('date').equals(date).toArray(), [date])
@@ -20,7 +30,66 @@ export function MoodCheckinCard() {
   const current = bySlot(slot)
 
   async function quickSave(mood: MoodValue) {
-    await db.moods.put({ id: moodEntryId(date, slot), date, slot, mood, createdAt: new Date().toISOString() })
+    await db.moods.put({
+      id: moodEntryId(date, slot),
+      date,
+      slot,
+      mood,
+      createdAt: new Date().toISOString(),
+    })
+  }
+
+  if (variant === 'strip') {
+    return (
+      <Card className="flex min-h-14 items-center gap-2.5 px-3 py-2">
+        {current ? (
+          <>
+            <Link
+              to="/mind"
+              aria-label="Настроение"
+              className="grid size-9 shrink-0 place-items-center rounded-xl bg-violet/15 text-violet"
+            >
+              <Icon name="heart" size={18} />
+            </Link>
+            <ul className="grid min-w-0 flex-1 grid-cols-2 gap-2" aria-label="Чек-ины сегодня">
+              {(['morning', 'evening'] as const).map((s) => {
+                const m = bySlot(s)
+                return (
+                  <li key={s} className="min-w-0">
+                    <Link
+                      to={`/mind/checkin?slot=${s}`}
+                      className="flex items-center gap-2 rounded-xl px-1.5 py-1 transition hover:bg-surface-2"
+                    >
+                      <span className="text-xl leading-none" aria-hidden>
+                        {m ? MOOD_EMOJI[m.mood - 1] : '·'}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block text-[11px] leading-tight text-muted">
+                          {SLOT_LABEL[s]}
+                        </span>
+                        <span
+                          className="block truncate text-sm leading-tight"
+                          data-testid={`mood-summary-${s}`}
+                        >
+                          {m ? MOOD_LABEL[m.mood - 1] : 'не отмечено'}
+                        </span>
+                      </span>
+                    </Link>
+                  </li>
+                )
+              })}
+            </ul>
+          </>
+        ) : (
+          <>
+            <p className="min-w-0 flex-1 pl-1 text-[13px] leading-tight font-medium">
+              {slot === 'morning' ? 'Как вы начинаете день?' : 'Как прошёл день?'}
+            </p>
+            <MoodPicker size="sm" value={null} onChange={(v) => void quickSave(v)} />
+          </>
+        )}
+      </Card>
+    )
   }
 
   return (
@@ -57,7 +126,9 @@ export function MoodCheckinCard() {
         </ul>
       ) : (
         <>
-          <p className="mb-2 text-sm text-muted">{slot === 'morning' ? 'Как вы начинаете день?' : 'Как прошёл день?'}</p>
+          <p className="mb-2 text-sm text-muted">
+            {slot === 'morning' ? 'Как вы начинаете день?' : 'Как прошёл день?'}
+          </p>
           <MoodPicker size="md" value={null} onChange={(v) => void quickSave(v)} />
         </>
       )}
@@ -65,8 +136,8 @@ export function MoodCheckinCard() {
   )
 }
 
-/** Dashboard card: practice minutes today / this week and a one-tap 10-minute meditation. */
-export function MindTodayCard() {
+/** Dashboard card: practice minutes today / this week and a one-tap 10-minute meditation. `compact` = 2-column tile. */
+export function MindTodayCard({ compact = false }: { compact?: boolean }) {
   const date = today()
   const week = weekDates()
   const data = useLiveQuery(
@@ -75,6 +146,28 @@ export function MindTodayCard() {
   )
   const todayMin = practiceMinutes(data ?? [], date)
   const weekMin = practiceMinutes(data ?? [], week[0], week[6])
+  if (compact) {
+    return (
+      <StatTile
+        icon="brain"
+        tone="violet"
+        label="Практика"
+        to="/mind"
+        value={<span data-testid="mind-today-min">{todayMin}</span>}
+        unit="мин"
+        sub={`за неделю ${weekMin} мин`}
+        action={
+          <Link
+            to="/mind/meditate?min=10"
+            aria-label="Медитация 10 мин"
+            className="grid size-8 place-items-center rounded-full bg-violet/15 text-violet transition active:scale-95"
+          >
+            <Icon name="play" size={14} />
+          </Link>
+        }
+      />
+    )
+  }
   return (
     <Card>
       <div className="mb-3 flex items-baseline justify-between gap-2">

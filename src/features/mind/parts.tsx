@@ -10,11 +10,11 @@ export function MoodPicker({
 }: {
   value: MoodValue | null
   onChange: (v: MoodValue) => void
-  size?: 'md' | 'lg'
+  size?: 'sm' | 'md' | 'lg'
 }) {
-  const box = size === 'lg' ? 'h-14 text-3xl' : 'h-11 text-2xl'
+  const box = size === 'lg' ? 'h-14 text-3xl' : size === 'md' ? 'h-11 text-2xl' : 'size-9 text-lg sm:size-10 sm:text-xl'
   return (
-    <div role="group" aria-label="Настроение" className="grid grid-cols-5 gap-2">
+    <div role="group" aria-label="Настроение" className={size === 'sm' ? 'flex shrink-0 gap-1' : 'grid grid-cols-5 gap-2'}>
       {MOOD_VALUES.map((v) => {
         const active = value === v
         return (

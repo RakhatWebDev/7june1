@@ -1,6 +1,7 @@
 import { Link } from 'react-router'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Card } from '../../components/ui'
+import { Card, StatTile } from '../../components/ui'
+import { Icon } from '../../components/icons'
 import { db } from '../../db'
 import { today } from '../../lib/dates'
 import { dailyAllowance, formatMoney, monthBudget, monthOf, monthRange, monthTotals, remainingDays, spentOn } from './calc'
@@ -8,7 +9,7 @@ import { linkBtn } from './components'
 import { useCurrency } from './hooks'
 
 /** Dashboard card: spent today, what is left of the month's budget, quick «+ Расход». */
-export function FinanceTodayCard() {
+export function FinanceTodayCard({ compact = false }: { compact?: boolean }) {
   const date = today()
   const month = monthOf(date)
   const { from, to } = monthRange(month)
@@ -28,6 +29,35 @@ export function FinanceTodayCard() {
   const left = budget - totals.expense
   const perDay = dailyAllowance(budget, totals.expense, remainingDays(month, date))
 
+  if (compact) {
+    return (
+      <StatTile
+        icon="wallet"
+        tone="amber"
+        label="Финансы"
+        to="/finance"
+        value={<span data-testid="finance-today-spent">{fmt(spentOn(txs, date))}</span>}
+        sub={
+          budget > 0 ? (
+            <span className={left < 0 ? 'text-danger' : ''}>
+              остаток <span data-testid="finance-today-left">{fmt(left)}</span>
+            </span>
+          ) : (
+            'потрачено сегодня'
+          )
+        }
+        action={
+          <Link
+            to="/finance/new?kind=expense"
+            aria-label="Добавить расход"
+            className="grid size-8 place-items-center rounded-full bg-amber/15 text-amber transition active:scale-95"
+          >
+            <Icon name="plus" size={16} />
+          </Link>
+        }
+      />
+    )
+  }
   return (
     <Card>
       <div className="mb-3 flex items-baseline justify-between gap-2">

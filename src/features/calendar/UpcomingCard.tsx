@@ -1,6 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Link } from 'react-router'
-import { Card } from '../../components/ui'
+import { Card, IconBadge } from '../../components/ui'
+import { Icon } from '../../components/icons'
 import { db } from '../../db'
 import { KIND_META, relativeLabel, upcomingEvents } from './meta'
 import { useNow } from './useNow'
@@ -22,24 +23,34 @@ export function UpcomingCard() {
   }, [minuteKey])
 
   return (
-    <Card>
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <h2 className="font-semibold">Ближайшие занятия</h2>
-        <Link to="/calendar" className="text-sm text-accent hover:underline">
-          Календарь →
+    <Card className="p-3.5">
+      <div className="flex items-center gap-3">
+        <IconBadge name="calendar" tone="info" />
+        <div className="min-w-0 flex-1">
+          <h2 className="truncate text-[15px] font-semibold tracking-tight">Ближайшие занятия</h2>
+          {events === undefined ? (
+            <p className="text-xs text-muted">Загрузка…</p>
+          ) : events.length === 0 ? (
+            <p className="text-xs text-muted">
+              Нет записей на неделю.{' '}
+              <Link to="/calendar" className="text-accent hover:underline">
+                Импортируйте календарь
+              </Link>
+            </p>
+          ) : (
+            <p className="text-xs text-muted tabular-nums">на 7 дней вперёд</p>
+          )}
+        </div>
+        <Link
+          to="/calendar"
+          aria-label="Календарь"
+          className="grid size-9 shrink-0 place-items-center rounded-full bg-surface-2 text-muted transition-colors hover:text-text"
+        >
+          <Icon name="chevron-right" size={18} />
         </Link>
       </div>
-      {events === undefined ? (
-        <p className="text-sm text-muted">Загрузка…</p>
-      ) : events.length === 0 ? (
-        <p className="text-sm text-muted">
-          Нет записей на неделю.{' '}
-          <Link to="/calendar" className="text-accent hover:underline">
-            Импортируйте календарь
-          </Link>
-        </p>
-      ) : (
-        <ul className="divide-y divide-border">
+      {events && events.length > 0 && (
+        <ul className="mt-2 divide-y divide-white/[0.06]">
           {events.map((ev) => (
             <li key={ev.id} className="flex items-center gap-3 py-2">
               <span aria-hidden className="text-xl leading-none">
