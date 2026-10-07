@@ -53,6 +53,11 @@ export function krStep(kr: GoalKeyResult): number {
   return 1
 }
 
+/** One-line KR summary: "Вес: 85 → 82 кг". */
+export function krSummary(kr: GoalKeyResult): string {
+  return `${kr.title}: ${kr.current} → ${kr.target}${kr.unit ? ` ${kr.unit}` : ''}`
+}
+
 /* ----------------------------- balance wheel ----------------------------- */
 
 export interface WheelPoint {

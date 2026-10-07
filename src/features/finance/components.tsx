@@ -3,7 +3,7 @@ import { Link, NavLink } from 'react-router'
 import { Button, Chip, Field, Input } from '../../components/ui'
 import type { ISODate, TxCategory, TxKind } from '../../db/types'
 import { today } from '../../lib/dates'
-import { CURRENCY_SYMBOL, budgetUsage, formatMoney, parseAmount, type BudgetLevel, type Currency } from './calc'
+import { CURRENCY_SYMBOL, KIND_RU, budgetUsage, formatMoney, parseAmount, type BudgetLevel, type Currency } from './calc'
 
 export const linkBtn =
   'inline-flex items-center justify-center rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-bg hover:bg-accent-strong'
@@ -141,8 +141,6 @@ export interface TxFormValues {
   date: ISODate
   note: string
 }
-
-export const KIND_RU: Record<TxKind, string> = { expense: 'Расход', income: 'Доход' }
 
 /** Transaction form shared by the "new" page and the edit sheet. */
 export function TxForm({

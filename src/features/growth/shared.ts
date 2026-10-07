@@ -35,6 +35,8 @@ export function colorVar(token: string | undefined): string {
       return 'var(--color-violet, #a78bfa)'
     case 'pink':
       return 'var(--color-pink, #f472b6)'
+    case 'amber':
+      return 'var(--color-amber, #f59e0b)'
     default:
       return 'var(--color-accent)'
   }

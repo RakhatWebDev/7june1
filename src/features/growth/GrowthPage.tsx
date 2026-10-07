@@ -3,10 +3,11 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { Link } from 'react-router'
 import { PageHeader, Progress } from '../../components/ui'
 import { db } from '../../db'
-import { formatMinutes, today } from '../../lib/dates'
+import { formatMinutes, today, weekDates } from '../../lib/dates'
 import { plural } from '../../lib/format'
 import { useCurrentBook } from './books/hooks'
 import { useHabitsToday } from './habits/hooks'
+import { CURRENCY_KEY, currencySymbol, goalsSummary, money, monthExpenses, MOOD_EMOJI, moodBySlot } from './hub'
 import { ddmm, tint, colorVar } from './shared'
 
 const QUALITY_RU = ['', 'ужасно', 'плохо', 'нормально', 'хорошо', 'отлично']
@@ -60,10 +61,28 @@ export function GrowthPage() {
   const lastSleep = useLiveQuery(async () => (await db.sleep.orderBy('date').reverse().first()) ?? null, [])
   const todayDate = today()
   const streak = habits?.streak ?? 0
+  const week = weekDates()
+  const month = todayDate.slice(0, 7)
+  const hub = useLiveQuery(async () => {
+    const [moods, mind, txs, goals, currency] = await Promise.all([
+      db.moods.where('date').equals(todayDate).toArray(),
+      db.mindSessions.where('date').between(week[0], week[6], true, true).toArray(),
+      db.transactions.where('date').between(`${month}-01`, `${month}-31`, true, true).toArray(),
+      db.lifeGoals.toArray(),
+      db.settings.get(CURRENCY_KEY),
+    ])
+    return {
+      mood: moodBySlot(moods),
+      mindMinutes: mind.reduce((s, m) => s + (m.durationMin || 0), 0),
+      spent: monthExpenses(txs, month),
+      goals: goalsSummary(goals),
+      symbol: currencySymbol(currency?.value),
+    }
+  }, [todayDate, week[0], week[6], month])
 
   return (
     <>
-      <PageHeader title="Развитие" subtitle="Привычки, книги и сон" />
+      <PageHeader title="Развитие" subtitle="Привычки, цели, книги, разум, финансы и сон" />
 
       <p
         className="mb-4 rounded-2xl border border-border bg-surface-2/60 px-4 py-3 text-center font-semibold"
@@ -92,7 +111,27 @@ export function GrowthPage() {
           )}
         </HubCard>
 
-        <HubCard to="/books" icon="📚" color="warn" title="Книги">
+        <HubCard to="/goals" icon="🎯" color="accent" title="Цели">
+          {hub ? (
+            <>
+              <span className="text-text tabular-nums" data-testid="hub-goals">
+                Активных целей: {hub.goals.active}
+              </span>
+              {hub.goals.avgProgress !== null && (
+                <>
+                  <Progress className="mt-2" value={hub.goals.avgProgress} />
+                  <span className="mt-1 block tabular-nums">
+                    Средний прогресс: {Math.round(hub.goals.avgProgress * 100)}%
+                  </span>
+                </>
+              )}
+            </>
+          ) : (
+            '…'
+          )}
+        </HubCard>
+
+        <HubCard to="/books" icon="📚" color="amber" title="Книги">
           {reading?.book ? (
             <>
               <span className="text-text">
@@ -107,6 +146,35 @@ export function GrowthPage() {
             </>
           ) : reading ? (
             'Сейчас ничего не читаете — выберите книгу'
+          ) : (
+            '…'
+          )}
+        </HubCard>
+
+        <HubCard to="/mind" icon="🧘" color="info" title="Разум и дух">
+          {hub ? (
+            <>
+              <span className="text-text" data-testid="hub-mood">
+                Утро: {hub.mood.morning ? MOOD_EMOJI[hub.mood.morning] : 'не отмечено'} · Вечер:{' '}
+                {hub.mood.evening ? MOOD_EMOJI[hub.mood.evening] : 'не отмечено'}
+              </span>
+              <span className="mt-1 block tabular-nums">Практики за неделю: {hub.mindMinutes} мин</span>
+            </>
+          ) : (
+            '…'
+          )}
+        </HubCard>
+
+        <HubCard to="/finance" icon="💰" color="warn" title="Финансы">
+          {hub ? (
+            <>
+              <span className="text-text tabular-nums" data-testid="hub-finance">
+                Потрачено в этом месяце: {money(hub.spent.total, hub.symbol)}
+              </span>
+              <span className="mt-1 block tabular-nums">
+                {hub.spent.count} {plural(hub.spent.count, ['операция', 'операции', 'операций'])}
+              </span>
+            </>
           ) : (
             '…'
           )}

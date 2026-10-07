@@ -52,6 +52,8 @@ export function parseAmount(input: string): number | null {
   return Math.round(n * 100) / 100
 }
 
+export const KIND_RU: Record<TxKind, string> = { expense: 'Расход', income: 'Доход' }
+
 /* ---------------------------------- Months ---------------------------------- */
 
 /** "YYYY-MM" */

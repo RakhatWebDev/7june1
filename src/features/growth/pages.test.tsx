@@ -38,6 +38,10 @@ beforeEach(async () => {
     db.sessions.clear(),
     db.activities.clear(),
     db.profile.clear(),
+    db.transactions.clear(),
+    db.lifeGoals.clear(),
+    db.moods.clear(),
+    db.mindSessions.clear(),
   ])
   await db.profile.put({ ...DEFAULT_PROFILE, waterTargetMl: 2000 })
 })
@@ -317,6 +321,39 @@ describe('GrowthPage hub', () => {
     expect(screen.getByText('25% прочитано')).toBeInTheDocument()
     expect(await screen.findByText(/Прошлая ночь: 8 ч 00 мин/)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Сон/ })).toHaveAttribute('href', '/sleep')
+  })
+})
+
+describe('GrowthPage hub: goals, mind, finance', () => {
+  it('renders the hub with one transaction and one active goal, in the right card order', async () => {
+    const createdAt = new Date().toISOString()
+    await db.settings.put({ key: 'currency', value: 'RUB' })
+    await db.transactions.add({ id: 't1', kind: 'expense', amount: 12500, categoryId: 'food', date: today(), createdAt })
+    await db.lifeGoals.add({
+      id: 'g1',
+      area: 'body',
+      title: 'Пробежать полумарафон',
+      status: 'active',
+      keyResults: [
+        { id: 'k1', title: 'Км в неделю', current: 15, target: 30 },
+        { id: 'k2', title: 'Забегов', current: 4, target: 2 },
+      ],
+      sort: 0,
+      createdAt,
+    })
+    await db.moods.add({ id: 'm1', date: today(), slot: 'morning', mood: 4, createdAt })
+    await db.mindSessions.add({ id: 'ms', date: today(), kind: 'meditation', durationMin: 10, createdAt })
+
+    renderAt('/growth')
+    await waitFor(() => expect(screen.getByTestId('hub-finance')).toHaveTextContent(/Потрачено в этом месяце: 12\s500 ₽/))
+    expect(screen.getByText('1 операция')).toBeInTheDocument()
+    expect(screen.getByTestId('hub-goals')).toHaveTextContent('Активных целей: 1')
+    expect(screen.getByText('Средний прогресс: 75%')).toBeInTheDocument()
+    expect(screen.getByTestId('hub-mood')).toHaveTextContent('Утро: 🙂 · Вечер: не отмечено')
+    expect(screen.getByText('Практики за неделю: 10 мин')).toBeInTheDocument()
+
+    const hrefs = screen.getAllByRole('link').map((a) => a.getAttribute('href'))
+    expect(hrefs).toEqual(['/habits', '/goals', '/books', '/mind', '/finance', '/sleep'])
   })
 })
 
