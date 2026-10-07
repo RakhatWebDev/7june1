@@ -1,10 +1,23 @@
 import { useState, type FormEvent } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useNavigate, useParams } from 'react-router'
-import { Button, EmptyState, Field, Input, PageHeader, Select, Stepper } from '../../../components/ui'
+import { motion } from 'motion/react'
+import {
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  Input,
+  PageHeader,
+  SegmentedControl,
+  Select,
+  Stepper,
+} from '../../../components/ui'
+import { useReduceMotion } from '../../../components/ui/helpers'
 import { db } from '../../../db'
 import type { Habit, HabitAutoRule } from '../../../db/types'
 import { newId } from '../../../lib/id'
+import { Icon } from '../../../components/icons'
 import { COLOR_TOKENS, colorVar, tint } from '../shared'
 import { AUTO_RULE_RU, AUTO_RULES } from './calc'
 import { COLOR_RU, HABIT_EMOJI } from './meta'
@@ -13,10 +26,7 @@ type Draft = Pick<Habit, 'name' | 'icon' | 'color' | 'frequency' | 'targetPerWee
 
 const EMPTY: Draft = { name: '', icon: HABIT_EMOJI[0], color: 'accent', frequency: 'daily', targetPerWeek: 3, autoRule: null }
 
-const segment = (active: boolean) =>
-  `min-h-11 flex-1 rounded-xl border px-3 text-sm transition-colors ${
-    active ? 'border-accent bg-accent/15 text-accent' : 'border-border bg-surface-2 text-muted hover:text-text'
-  }`
+const legendClass = 'mb-2 text-xs font-medium tracking-wide text-muted uppercase'
 
 export function HabitEditPage() {
   const { id } = useParams()
@@ -28,7 +38,7 @@ export function HabitEditPage() {
     return (
       <>
         <PageHeader title="Привычка" back="/habits" />
-        <EmptyState title="Привычка не найдена" />
+        <EmptyState icon="search" tone="pink" title="Привычка не найдена" />
       </>
     )
   }
@@ -37,6 +47,7 @@ export function HabitEditPage() {
 
 function HabitForm({ habit }: { habit: Habit | null }) {
   const navigate = useNavigate()
+  const reduce = useReduceMotion()
   const [draft, setDraft] = useState<Draft>(() =>
     habit
       ? {
@@ -90,61 +101,119 @@ function HabitForm({ habit }: { habit: Habit | null }) {
     <>
       <PageHeader title={habit ? 'Изменить привычку' : 'Новая привычка'} back="/habits" />
       <form onSubmit={save} className="space-y-5">
+        <Card
+          variant="elevated"
+          className="flex items-center gap-3"
+          style={{
+            backgroundImage: `radial-gradient(120% 120% at 100% 0%, ${tint(draft.color, 22)} 0%, transparent 70%), var(--gradient-elevated)`,
+          }}
+        >
+          <motion.span
+            key={draft.icon}
+            aria-hidden
+            className="grid size-14 shrink-0 place-items-center rounded-2xl text-3xl leading-none"
+            style={{ backgroundColor: tint(draft.color, 22) }}
+            initial={reduce ? false : { scale: 0.7, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 18 }}
+          >
+            {draft.icon}
+          </motion.span>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-medium tracking-wide text-muted uppercase">Предпросмотр</p>
+            <p className="truncate text-lg font-semibold tracking-tight">{draft.name.trim() || 'Новая привычка'}</p>
+            <p className="text-xs text-muted tabular-nums">
+              {draft.frequency === 'daily' ? 'Каждый день' : `${draft.targetPerWeek ?? 3} раз в неделю`}
+              {draft.autoRule ? ` · авто: ${AUTO_RULE_RU[draft.autoRule].toLowerCase()}` : ''}
+            </p>
+          </div>
+        </Card>
+
         <Field label="Название">
           <Input value={draft.name} onChange={(e) => set('name', e.target.value)} placeholder="Например, медитация" required autoFocus={!habit} />
         </Field>
 
         <fieldset>
-          <legend className="mb-1 text-xs font-medium tracking-wide text-muted uppercase">Иконка</legend>
+          <legend className={legendClass}>Иконка</legend>
           <div className="grid grid-cols-8 gap-1.5">
-            {HABIT_EMOJI.map((e) => (
-              <button
-                key={e}
-                type="button"
-                aria-label={`Иконка ${e}`}
-                aria-pressed={draft.icon === e}
-                onClick={() => set('icon', e)}
-                className={`grid aspect-square min-h-10 place-items-center rounded-xl border text-xl transition-transform active:scale-95 ${
-                  draft.icon === e ? 'border-accent bg-accent/15' : 'border-border bg-surface-2'
-                }`}
-              >
-                {e}
-              </button>
-            ))}
+            {HABIT_EMOJI.map((e) => {
+              const active = draft.icon === e
+              return (
+                <motion.button
+                  key={e}
+                  type="button"
+                  aria-label={`Иконка ${e}`}
+                  aria-pressed={active}
+                  onClick={() => set('icon', e)}
+                  whileTap={reduce ? undefined : { scale: 0.85 }}
+                  animate={reduce ? undefined : { scale: active ? 1.06 : 1 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                  className={`grid aspect-square min-h-10 min-w-0 place-items-center rounded-xl border text-xl transition-[background-color,border-color] duration-150 ${
+                    active ? '' : 'border-white/[0.05] bg-surface-2 hover:bg-surface-3'
+                  }`}
+                  style={active ? { borderColor: colorVar(draft.color), backgroundColor: tint(draft.color, 18) } : undefined}
+                >
+                  {e}
+                </motion.button>
+              )
+            })}
           </div>
         </fieldset>
 
         <fieldset>
-          <legend className="mb-1 text-xs font-medium tracking-wide text-muted uppercase">Цвет</legend>
+          <legend className={legendClass}>Цвет</legend>
           <div className="flex flex-wrap gap-3">
-            {COLOR_TOKENS.map((c) => (
-              <button
-                key={c}
-                type="button"
-                aria-label={COLOR_RU[c]}
-                aria-pressed={draft.color === c}
-                onClick={() => set('color', c)}
-                className="grid size-11 place-items-center rounded-full border-2 transition-transform active:scale-95"
-                style={{ borderColor: draft.color === c ? colorVar(c) : 'transparent', backgroundColor: tint(c, 20) }}
-              >
-                <span className="size-6 rounded-full" style={{ backgroundColor: colorVar(c) }} />
-              </button>
-            ))}
+            {COLOR_TOKENS.map((c) => {
+              const active = draft.color === c
+              return (
+                <motion.button
+                  key={c}
+                  type="button"
+                  aria-label={COLOR_RU[c]}
+                  aria-pressed={active}
+                  onClick={() => set('color', c)}
+                  whileTap={reduce ? undefined : { scale: 0.88 }}
+                  className="relative grid size-11 place-items-center rounded-full"
+                  style={{ backgroundColor: tint(c, 16) }}
+                >
+                  <span
+                    aria-hidden
+                    className={`absolute inset-0 rounded-full border-2 transition-[opacity,transform] duration-200 ${
+                      active ? 'scale-100 opacity-100' : 'scale-75 opacity-0'
+                    }`}
+                    style={{ borderColor: colorVar(c) }}
+                  />
+                  <span
+                    aria-hidden
+                    className={`grid size-6 place-items-center rounded-full text-bg transition-transform duration-200 ${active ? 'scale-110' : ''}`}
+                    style={{ backgroundColor: colorVar(c), boxShadow: active ? `0 0 14px -2px ${colorVar(c)}` : undefined }}
+                  >
+                    {active && <Icon name="check" size={14} strokeWidth={3} />}
+                  </span>
+                </motion.button>
+              )
+            })}
           </div>
         </fieldset>
 
         <fieldset>
-          <legend className="mb-1 text-xs font-medium tracking-wide text-muted uppercase">Частота</legend>
-          <div className="flex gap-2">
-            <button type="button" aria-pressed={draft.frequency === 'daily'} className={segment(draft.frequency === 'daily')} onClick={() => set('frequency', 'daily')}>
-              Ежедневно
-            </button>
-            <button type="button" aria-pressed={draft.frequency === 'weekly'} className={segment(draft.frequency === 'weekly')} onClick={() => set('frequency', 'weekly')}>
-              N раз в неделю
-            </button>
-          </div>
+          <legend className={legendClass}>Частота</legend>
+          <SegmentedControl
+            aria-label="Частота"
+            value={draft.frequency}
+            onChange={(v) => set('frequency', v)}
+            options={[
+              { value: 'daily', label: 'Ежедневно' },
+              { value: 'weekly', label: 'N раз в неделю' },
+            ]}
+          />
           {draft.frequency === 'weekly' && (
-            <div className="mt-2 flex items-center gap-3">
+            <motion.div
+              className="mt-3 flex items-center gap-3"
+              initial={reduce ? false : { opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.22 }}
+            >
               <Stepper
                 aria-label="Раз в неделю"
                 value={draft.targetPerWeek ?? 3}
@@ -153,7 +222,7 @@ function HabitForm({ habit }: { habit: Habit | null }) {
                 onChange={(v) => set('targetPerWeek', v ?? 1)}
               />
               <span className="text-sm text-muted">раз в неделю</span>
-            </div>
+            </motion.div>
           )}
         </fieldset>
 
@@ -175,10 +244,10 @@ function HabitForm({ habit }: { habit: Habit | null }) {
 
       {habit && (
         <div className="mt-6 flex gap-2">
-          <Button variant="secondary" className="flex-1" onClick={() => void toggleArchive()}>
+          <Button variant="secondary" className="flex-1" icon="history" onClick={() => void toggleArchive()}>
             {habit.archived ? 'Вернуть из архива' : 'Архивировать'}
           </Button>
-          <Button variant="danger" className="flex-1" onClick={() => void remove()}>
+          <Button variant="danger" className="flex-1" icon="trash" onClick={() => void remove()}>
             Удалить
           </Button>
         </div>

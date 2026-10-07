@@ -86,7 +86,15 @@ export function BookForm({ book, onSaved }: { book?: Book; onSaved: (id: string)
         <Field label="Обложка (URL)">
           <Input type="url" value={cover} onChange={(e) => setCover(e.target.value)} placeholder="https://…" />
         </Field>
-        <Button variant="secondary" size="sm" className="mt-2" disabled={!title.trim() || searching} onClick={() => void findCover()}>
+        <Button
+          variant="secondary"
+          size="sm"
+          icon="search"
+          loading={searching}
+          className="mt-2"
+          disabled={!title.trim()}
+          onClick={() => void findCover()}
+        >
           {searching ? 'Ищу…' : 'Найти обложку'}
         </Button>
         {hits.length > 0 && (
@@ -98,7 +106,7 @@ export function BookForm({ book, onSaved }: { book?: Book; onSaved: (id: string)
                   aria-label={`Выбрать обложку: ${h.title}`}
                   aria-pressed={cover === h.coverUrl}
                   onClick={() => setCover(h.coverUrl!)}
-                  className={`block overflow-hidden rounded-lg border-2 ${cover === h.coverUrl ? 'border-accent' : 'border-transparent'}`}
+                  className={`block overflow-hidden rounded-lg border-2 transition-[border-color,transform] active:scale-95 ${cover === h.coverUrl ? 'border-amber' : 'border-transparent'}`}
                 >
                   <img src={h.coverUrl} alt="" className="h-24 w-16 object-cover" loading="lazy" />
                 </button>

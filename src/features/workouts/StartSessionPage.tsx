@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router'
-import { EmptyState, PageHeader } from '../../components/ui'
+import { useNavigate, useParams } from 'react-router'
+import { EmptyState, LinkButton, PageHeader, Skeleton } from '../../components/ui'
 import { startSession } from './actions'
-import { secondaryLink } from './linkStyles'
 
 /**
  * /workouts/start/:programId/:dayId — creates a session from the program day (or reuses the
@@ -33,16 +32,21 @@ export function StartSessionPage() {
       <PageHeader title="Тренировка" back="/workouts" />
       {error ? (
         <EmptyState
+          icon="dumbbell"
           title="Не удалось начать тренировку"
           hint={error}
           action={
-            <Link to="/workouts" className={secondaryLink}>
+            <LinkButton to="/workouts" variant="secondary" icon="list">
               К программам
-            </Link>
+            </LinkButton>
           }
         />
       ) : (
-        <p className="text-muted">Создаём тренировку…</p>
+        <>
+          <p className="mb-3 text-sm text-muted">Создаём тренировку…</p>
+          <Skeleton className="mb-4 h-14" rounded="rounded-2xl" />
+          <Skeleton className="h-72" rounded="rounded-3xl" />
+        </>
       )}
     </>
   )

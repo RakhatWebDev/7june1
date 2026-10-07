@@ -1,8 +1,22 @@
 import { useState } from 'react'
-import { Link, useSearchParams } from 'react-router'
+import { useSearchParams } from 'react-router'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { Button, Card, EmptyState, Field, PageHeader, Select, Sheet, Stat } from '../../components/ui'
+import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import {
+  Button,
+  Card,
+  CountUp,
+  EmptyState,
+  Field,
+  IconBadge,
+  LinkButton,
+  PageHeader,
+  SectionHeader,
+  Select,
+  Sheet,
+  StaggerList,
+  StatTile,
+} from '../../components/ui'
 import { db } from '../../db'
 import type { Transaction } from '../../db/types'
 import { today } from '../../lib/dates'
@@ -25,22 +39,25 @@ import {
   shiftMonth,
   type Currency,
 } from './calc'
-import { FinanceNav, SectionTitle, TxForm, linkBtn, linkBtnSecondary } from './components'
+import { EmojiBadge, FinanceNav, PeriodSwitcher, ToneBar, TxForm, moneyCounter } from './components'
 import { useCategories, useCurrency, useFinanceSeed } from './hooks'
 
 const AXIS_TICK = { fill: 'var(--color-muted)', fontSize: 11 }
 const GRID = 'var(--color-border)'
 const TOOLTIP = {
   contentStyle: {
-    background: 'var(--color-surface-2)',
-    border: '1px solid var(--color-border)',
-    borderRadius: 12,
+    background: 'color-mix(in srgb, var(--color-surface-2) 92%, transparent)',
+    border: '1px solid rgb(255 255 255 / 0.08)',
+    borderRadius: 14,
+    boxShadow: 'var(--shadow-float)',
+    backdropFilter: 'blur(12px)',
     color: 'var(--color-text)',
     fontSize: 12,
+    padding: '8px 12px',
   },
-  labelStyle: { color: 'var(--color-muted)' },
-  itemStyle: { color: 'var(--color-text)' },
-  cursor: { fill: 'var(--color-surface-2)' },
+  labelStyle: { color: 'var(--color-muted)', marginBottom: 2 },
+  itemStyle: { color: 'var(--color-text)', fontWeight: 600, padding: 0 },
+  cursor: { fill: 'rgb(255 255 255 / 0.04)' },
 }
 
 /** "2026-10-07" → "7 окт" style label for the day list. */
@@ -56,6 +73,7 @@ function compact(n: number): string {
   if (n >= 1000) return `${Number((n / 1000).toFixed(1))}k`
   return String(Math.round(n))
 }
+
 
 /** Month overview: totals, daily allowance, daily chart, categories, operations. `?month=YYYY-MM`. */
 export function FinancePage() {
@@ -82,6 +100,9 @@ export function FinancePage() {
   const groups = groupByDate(list)
   const catById = new Map((categories ?? []).map((c) => [c.id, c]))
   const fmt = (n: number) => formatMoney(n, currency)
+  const todayISO = today()
+  const negative = totals.balance < 0
+  const overspent = perDay != null && perDay < 0
 
   const go = (delta: number) => {
     const next = shiftMonth(month, delta)
@@ -101,88 +122,148 @@ export function FinancePage() {
 
   return (
     <>
-      <PageHeader
-        title="Финансы"
-        back="/growth"
-        action={
-          <Link to="/finance/new?kind=expense" className={linkBtn}>
-            + Расход
-          </Link>
-        }
-      />
+      <PageHeader title="Финансы" back="/growth" />
       <FinanceNav />
 
-      <div className="mb-4 flex items-center justify-between gap-2">
-        <Button variant="secondary" size="sm" aria-label="Предыдущий месяц" onClick={() => go(-1)}>
-          ←
-        </Button>
-        <div className="min-w-0 text-center">
-          <div className="truncate font-semibold" data-testid="finance-month">
-            {monthLabel(month)}
-          </div>
-          {month !== current && (
-            <button type="button" className="text-xs text-accent" onClick={() => setParams({}, { replace: true })}>
+      <PeriodSwitcher
+        label={monthLabel(month)}
+        testId="finance-month"
+        prevLabel="Предыдущий месяц"
+        nextLabel="Следующий месяц"
+        onPrev={() => go(-1)}
+        onNext={() => go(1)}
+        reset={
+          month !== current && (
+            <button
+              type="button"
+              className="min-h-9 rounded-full bg-amber/15 px-3 text-xs font-medium text-amber transition-transform active:scale-95 motion-reduce:active:scale-100"
+              onClick={() => setParams({}, { replace: true })}
+            >
               к текущему
             </button>
-          )}
-        </div>
-        <Button variant="secondary" size="sm" aria-label="Следующий месяц" onClick={() => go(1)}>
-          →
-        </Button>
-      </div>
+          )
+        }
+      />
 
-      <section aria-label="Сводка месяца" className="mb-4 grid grid-cols-2 gap-2">
-        <Stat label="Доходы" value={<span className="text-accent">{fmt(totals.income)}</span>} />
-        <Stat label="Расходы" value={fmt(totals.expense)} />
-        <Stat
-          label="Баланс"
-          value={<span className={totals.balance < 0 ? 'text-danger' : ''}>{fmt(totals.balance)}</span>}
-        />
-        <Stat
-          label="Можно тратить в день"
-          value={
-            <span data-testid="daily-allowance" className={perDay != null && perDay < 0 ? 'text-danger' : ''}>
-              {perDay != null ? fmt(Math.max(0, perDay)) : '—'}
-            </span>
-          }
-          sub={
-            budget <= 0
-              ? 'задайте бюджет или доход'
-              : daysLeft <= 0
-                ? 'месяц завершён'
-                : perDay != null && perDay < 0
-                  ? `перерасход ${fmt(totals.expense - budget)}`
-                  : `${daysLeft} дн. · бюджет ${fmt(budget)}`
-          }
-        />
+      <section aria-label="Сводка месяца" className="space-y-3">
+        <Card variant="accent" tone={negative ? 'danger' : 'amber'} className="p-5">
+          <div className="flex items-center gap-2.5">
+            <IconBadge name="wallet" tone={negative ? 'danger' : 'amber'} size="sm" />
+            <h2 className="text-xs font-semibold tracking-wide text-muted uppercase">Баланс месяца</h2>
+          </div>
+          <div
+            className={`mt-3 text-[40px] leading-none font-bold tracking-tight ${negative ? 'text-danger' : 'text-text'}`}
+          >
+            <CountUp value={totals.balance} format={moneyCounter(totals.balance, currency)} />
+          </div>
+          <p className="mt-2 text-sm text-muted">
+            Доходы минус расходы
+            {month === current && daysLeft > 0 ? ` · до конца месяца ${daysLeft} дн.` : ''}
+          </p>
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <LinkButton to="/finance/new?kind=expense" icon="minus" className="w-full">
+              Расход
+            </LinkButton>
+            <LinkButton to="/finance/new?kind=income" variant="secondary" icon="plus" className="w-full">
+              Доход
+            </LinkButton>
+          </div>
+        </Card>
+
+        <StaggerList className="grid grid-cols-2 gap-3" delay={0.08}>
+          <StatTile
+            key="income"
+            icon="plus"
+            tone="accent"
+            label="Доходы"
+            value={
+              <span className="text-[19px] text-accent">
+                <CountUp value={totals.income} format={moneyCounter(totals.income, currency)} />
+              </span>
+            }
+          />
+          <StatTile
+            key="expense"
+            icon="minus"
+            tone="danger"
+            label="Расходы"
+            value={
+              <span className="text-[19px]">
+                <CountUp value={totals.expense} format={moneyCounter(totals.expense, currency)} />
+              </span>
+            }
+          />
+          <StatTile
+            key="allowance"
+            icon="calendar"
+            tone={overspent ? 'danger' : 'amber'}
+            label="Можно тратить в день"
+            className="col-span-2"
+            value={
+              <span data-testid="daily-allowance" className={overspent ? 'text-danger' : ''}>
+                {perDay != null ? fmt(Math.max(0, perDay)) : '—'}
+              </span>
+            }
+            sub={
+              budget <= 0
+                ? 'задайте бюджет или доход'
+                : daysLeft <= 0
+                  ? 'месяц завершён'
+                  : overspent
+                    ? `перерасход ${fmt(totals.expense - budget)}`
+                    : `${daysLeft} дн. · бюджет ${fmt(budget)}`
+            }
+          />
+        </StaggerList>
       </section>
 
-      <div className="mb-4 grid grid-cols-2 gap-2">
-        <Link to="/finance/new?kind=expense" className={linkBtnSecondary}>
-          − Расход
-        </Link>
-        <Link to="/finance/new?kind=income" className={linkBtnSecondary}>
-          + Доход
-        </Link>
-      </div>
-
-      <Card className="mb-4">
-        <SectionTitle>Расходы по дням</SectionTitle>
+      <SectionHeader
+        title="Расходы по дням"
+        icon="chart"
+        tone="amber"
+        action={totals.expense > 0 && <span className="text-xs text-muted tabular-nums">{fmt(totals.expense)}</span>}
+      />
+      <Card>
         {totals.expense === 0 ? (
-          <p className="py-6 text-center text-sm text-muted">Расходов в этом месяце нет</p>
+          <p className="flex flex-col items-center gap-2 py-6 text-center text-sm text-muted">
+            <IconBadge name="chart" tone="muted" />
+            Расходов в этом месяце нет
+          </p>
         ) : (
           <div className="h-44 w-full" data-testid="finance-daily-chart">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={daily} margin={{ top: 8, right: 4, bottom: 0, left: -16 }}>
                 <CartesianGrid stroke={GRID} strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="day" tick={AXIS_TICK} stroke={GRID} interval="preserveStartEnd" minTickGap={8} />
-                <YAxis tick={AXIS_TICK} stroke={GRID} tickFormatter={compact} width={48} />
+                <XAxis
+                  dataKey="day"
+                  tick={AXIS_TICK}
+                  stroke={GRID}
+                  tickLine={false}
+                  interval="preserveStartEnd"
+                  minTickGap={8}
+                />
+                <YAxis tick={AXIS_TICK} stroke={GRID} tickLine={false} axisLine={false} tickFormatter={compact} width={48} />
                 <Tooltip
                   {...TOOLTIP}
                   labelFormatter={(l) => `${l} ${MONTHS_GEN[Number(month.slice(5, 7)) - 1]}`}
                   formatter={(v) => [fmt(Number(v)), 'Расходы']}
                 />
-                <Bar dataKey="amount" fill="var(--color-accent)" radius={[4, 4, 0, 0]} isAnimationActive={false} />
+                <Bar
+                  dataKey="amount"
+                  radius={[5, 5, 2, 2]}
+                  maxBarSize={14}
+                  isAnimationActive
+                  animationDuration={600}
+                  animationEasing="ease-out"
+                >
+                  {daily.map((d) => (
+                    <Cell
+                      key={d.date}
+                      fill="var(--color-amber)"
+                      fillOpacity={d.date === todayISO ? 1 : 0.55}
+                    />
+                  ))}
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -190,77 +271,82 @@ export function FinancePage() {
       </Card>
 
       {slices.length > 0 && (
-        <Card className="mb-4">
-          <SectionTitle>По категориям</SectionTitle>
-          <ul className="space-y-3" aria-label="Расходы по категориям">
-            {slices.map((s) => (
-              <li key={s.categoryId}>
-                <div className="mb-1 flex items-baseline gap-2 text-sm">
-                  <span aria-hidden>{s.icon}</span>
-                  <span className="min-w-0 flex-1 truncate">{s.name}</span>
-                  <span className="text-xs text-muted tabular-nums">{s.pct}%</span>
-                  <span className="font-medium tabular-nums">{fmt(s.amount)}</span>
-                </div>
-                <div className="h-2 w-full overflow-hidden rounded-full bg-surface-2">
-                  <div className="h-full rounded-full bg-accent" style={{ width: `${s.pct}%` }} />
-                </div>
-              </li>
-            ))}
-          </ul>
-        </Card>
+        <>
+          <SectionHeader title="По категориям" icon="list" tone="amber" />
+          <Card>
+            <ul className="space-y-3.5" aria-label="Расходы по категориям">
+              {slices.map((s, i) => (
+                <li key={s.categoryId} className="flex items-center gap-3">
+                  <EmojiBadge emoji={s.icon} />
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-1.5 flex items-baseline gap-2 text-sm">
+                      <span className="min-w-0 flex-1 truncate font-medium">{s.name}</span>
+                      <span className="text-xs text-muted tabular-nums">{s.pct}%</span>
+                      <span className="font-semibold tabular-nums">{fmt(s.amount)}</span>
+                    </div>
+                    <ToneBar value={s.pct / 100} tone="amber" className="h-1.5" delay={0.05 * Math.min(i, 8)} />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        </>
       )}
 
-      <SectionTitle>Операции</SectionTitle>
+      <SectionHeader title="Операции" icon="history" tone="amber" />
       {txs && groups.length === 0 ? (
         <EmptyState
+          icon="wallet"
+          tone="amber"
           title="Операций за месяц нет"
           hint="Добавьте расход или доход — займёт пару секунд."
           action={
-            <Link to="/finance/new?kind=expense" className={linkBtn}>
+            <LinkButton to="/finance/new?kind=expense" icon="plus">
               Добавить расход
-            </Link>
+            </LinkButton>
           }
         />
       ) : (
-        <div className="space-y-3">
+        <StaggerList className="space-y-4">
           {groups.map((g) => (
             <section key={g.date} aria-label={dayLabel(g.date)}>
-              <div className="mb-1 flex justify-between px-1 text-xs text-muted">
+              <div className="mb-1.5 flex justify-between px-1 text-xs font-medium text-muted">
                 <span>{dayLabel(g.date)}</span>
-                <span className="tabular-nums">{fmt(g.net)}</span>
+                <span className={`tabular-nums ${g.net > 0 ? 'text-accent' : ''}`}>{fmt(g.net)}</span>
               </div>
-              <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface">
-                {g.items.map((t) => {
-                  const c = catById.get(t.categoryId)
-                  return (
-                    <li key={t.id}>
-                      <button
-                        type="button"
-                        onClick={() => setEditing(t)}
-                        className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-surface-2"
-                        aria-label={`Операция ${c?.name ?? ''} ${fmt(t.amount)}`}
-                      >
-                        <span className="text-xl" aria-hidden>
-                          {c?.icon ?? '📦'}
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm">{c?.name ?? 'Без категории'}</span>
-                          {t.note && <span className="block truncate text-xs text-muted">{t.note}</span>}
-                        </span>
-                        <span
-                          className={`shrink-0 font-medium tabular-nums ${t.kind === 'income' ? 'text-accent' : ''}`}
+              <Card as="div" className="overflow-hidden p-0">
+                <ul className="divide-y divide-white/[0.05]">
+                  {g.items.map((t) => {
+                    const c = catById.get(t.categoryId)
+                    const income = t.kind === 'income'
+                    return (
+                      <li key={t.id}>
+                        <button
+                          type="button"
+                          onClick={() => setEditing(t)}
+                          className="flex w-full items-center gap-3 px-3.5 py-3 text-left transition-colors hover:bg-white/[0.03] active:bg-white/[0.05]"
+                          aria-label={`Операция ${c?.name ?? ''} ${fmt(t.amount)}`}
                         >
-                          {t.kind === 'income' ? '+' : '−'}
-                          {fmt(t.amount)}
-                        </span>
-                      </button>
-                    </li>
-                  )
-                })}
-              </ul>
+                          <EmojiBadge emoji={c?.icon ?? '📦'} tone={income ? 'accent' : 'amber'} />
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-medium">{c?.name ?? 'Без категории'}</span>
+                            {t.note && <span className="block truncate text-xs text-muted">{t.note}</span>}
+                          </span>
+                          <span
+                            className={`shrink-0 text-[15px] font-semibold tabular-nums ${income ? 'text-accent' : ''}`}
+                          >
+                            {income ? '+' : '−'}
+                            {fmt(t.amount)}
+                          </span>
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </Card>
             </section>
           ))}
-        </div>
+        </StaggerList>
       )}
 
       <CurrencyPicker currency={currency} />
@@ -274,7 +360,7 @@ export function FinancePage() {
             currency={currency}
             onSubmit={(v) => saveEdit(editing, v)}
             extra={
-              <Button variant="danger" className="w-full" onClick={() => void remove(editing)}>
+              <Button variant="danger" icon="trash" className="w-full" onClick={() => void remove(editing)}>
                 Удалить
               </Button>
             }
@@ -287,8 +373,9 @@ export function FinancePage() {
 
 function CurrencyPicker({ currency }: { currency: Currency }) {
   return (
-    <div className="mt-6">
-      <Field label="Валюта">
+    <Card className="mt-6 flex items-end gap-3">
+      <IconBadge name="settings" tone="muted" className="mb-1" />
+      <Field label="Валюта" className="flex-1">
         <Select
           value={currency}
           onChange={(e) => void db.settings.put({ key: CURRENCY_SETTING_KEY, value: e.target.value })}
@@ -300,6 +387,6 @@ function CurrencyPicker({ currency }: { currency: Currency }) {
           ))}
         </Select>
       </Field>
-    </div>
+    </Card>
   )
 }

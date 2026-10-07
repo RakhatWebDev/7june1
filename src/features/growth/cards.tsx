@@ -9,19 +9,7 @@ import { bookProgress } from './books/calc'
 import { useCurrentBook } from './books/hooks'
 import { HabitBubble, HabitCheck } from './habits/HabitCheck'
 import { useHabitsToday } from './habits/hooks'
-import { setHabitDone } from './habits/meta'
-
-/** Marks today's all-done celebration as shown; `true` if it had not been shown yet today. */
-function claimCelebration(day: string): boolean {
-  const key = `forma:habits-confetti:${day}`
-  try {
-    if (localStorage.getItem(key) === '1') return false
-    localStorage.setItem(key, '1')
-  } catch {
-    /* storage unavailable — celebrate anyway */
-  }
-  return true
-}
+import { claimCelebration, setHabitDone } from './habits/meta'
 
 /**
  * Today's habits for the "Сегодня" dashboard: a checklist (`layout="list"`) or a compact

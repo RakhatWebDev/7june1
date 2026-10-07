@@ -81,7 +81,7 @@ describe('BooksPage', () => {
     await waitFor(async () => expect(await db.readingLogs.where('bookId').equals('b2').count()).toBe(2))
 
     // tabs
-    fireEvent.click(screen.getByRole('tab', { name: /Прочитано/ }))
+    fireEvent.click(screen.getByRole('radio', { name: /Прочитано/ }))
     const done = await screen.findByRole('list', { name: 'Полка: Прочитано' })
     expect(within(done).getByText('Старая')).toBeInTheDocument()
   })
@@ -153,7 +153,7 @@ describe('BookPage', () => {
     expect(await screen.findByTestId('book-progress')).toHaveTextContent('Страница 90 из 100 · 90%')
     expect(screen.queryByText(/Книга дочитана/)).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: '+ Записать чтение' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Записать чтение' }))
     const dialog = screen.getByRole('dialog', { name: 'Сессия чтения' })
     fireEvent.change(within(dialog).getByLabelText('Страницы'), { target: { value: '10' } })
     fireEvent.change(within(dialog).getByLabelText('Минуты'), { target: { value: '15' } })
@@ -260,7 +260,7 @@ describe('HabitEditPage', () => {
     fireEvent.change(screen.getByLabelText(/^Название/), { target: { value: 'Бассейн' } })
     fireEvent.click(screen.getByRole('button', { name: 'Иконка 🏊' }))
     fireEvent.click(screen.getByRole('button', { name: 'Фиолетовый' }))
-    fireEvent.click(screen.getByRole('button', { name: 'N раз в неделю' }))
+    fireEvent.click(screen.getByRole('radio', { name: 'N раз в неделю' }))
     fireEvent.change(screen.getByLabelText('Раз в неделю'), { target: { value: '2' } })
     fireEvent.change(screen.getByLabelText(/^Авто-отметка/), { target: { value: 'cardio' } })
     fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }))

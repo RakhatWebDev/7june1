@@ -30,3 +30,18 @@ export function streakLabel(habit: Pick<Habit, 'frequency'>, n: number): string 
     ? `${n} ${plural(n, ['неделя', 'недели', 'недель'])}`
     : `${n} ${plural(n, ['день', 'дня', 'дней'])}`
 }
+
+/**
+ * Marks the all-habits-done celebration of `day` as shown; `true` if it had not been shown yet
+ * (one confetti per day, shared by the dashboard card and the habits page).
+ */
+export function claimCelebration(day: ISODate): boolean {
+  const key = `forma:habits-confetti:${day}`
+  try {
+    if (localStorage.getItem(key) === '1') return false
+    localStorage.setItem(key, '1')
+  } catch {
+    /* storage unavailable — celebrate anyway */
+  }
+  return true
+}

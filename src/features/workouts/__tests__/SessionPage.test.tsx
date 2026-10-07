@@ -72,7 +72,7 @@ describe('SessionPage', () => {
       expect((await db.sessions.get('cur'))?.exercises[0].sets[0]).toMatchObject({ weightKg: 85, reps: 5, done: true }),
     )
 
-    fireEvent.click(screen.getByRole('button', { name: '+ Подход' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Подход' }))
     expect(await screen.findByLabelText('Вес, подход 4')).toHaveValue(null)
     fireEvent.click(screen.getByRole('button', { name: 'Удалить подход 4' }))
     await waitFor(() => expect(screen.queryByLabelText('Вес, подход 4')).not.toBeInTheDocument())
@@ -91,7 +91,7 @@ describe('SessionPage', () => {
 
   it('adds an exercise from the library and removes one with confirmation', async () => {
     renderRoute('/workouts/session/cur')
-    fireEvent.click(await screen.findByRole('button', { name: '+ Добавить упражнение' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Добавить упражнение' }))
     const sheet = await screen.findByRole('dialog', { name: 'Добавить упражнение' })
     fireEvent.change(within(sheet).getByLabelText('Поиск упражнения'), { target: { value: 'PUSH' } })
     fireEvent.click(within(sheet).getByRole('button', { name: /Pushups/ }))
