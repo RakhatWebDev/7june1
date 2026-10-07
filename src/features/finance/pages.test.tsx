@@ -98,7 +98,7 @@ describe('FinancePage', () => {
     expect(within(breakdown).getByText('80%')).toBeInTheDocument()
     expect(within(breakdown).getByText('20%')).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: /^Операция Еда 20\s000\s₸$/ }))
+    await user.click(await screen.findByRole('button', { name: /^Операция Еда 20\s000\s₸$/ }))
     const dialog = screen.getByRole('dialog', { name: 'Операция' })
     const amount = within(dialog).getByLabelText('Сумма')
     await user.clear(amount)
