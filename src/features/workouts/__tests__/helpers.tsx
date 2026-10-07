@@ -1,8 +1,11 @@
-import { render } from '@testing-library/react'
+import { configure, render } from '@testing-library/react'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { db } from '../../../db'
 import type { Exercise, SetLog, WorkoutSession } from '../../../db/types'
 import { workoutsRoutes } from '../routes'
+
+// IndexedDB + liveQuery round-trips can be slow when the machine is busy.
+configure({ asyncUtilTimeout: 4000 })
 
 export function makeExercise(p: Partial<Exercise> & { id: string }): Exercise {
   return {

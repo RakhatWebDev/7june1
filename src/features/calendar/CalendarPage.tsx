@@ -77,7 +77,10 @@ export function CalendarPage() {
     const t = minuteKey * 60_000
     return db.calendarEvents
       .where('startAt')
-      .between(new Date(t - (PAST_DAYS + 1) * DAY_MS).toISOString(), new Date(t + UPCOMING_DAYS * DAY_MS).toISOString())
+      .between(
+        new Date(t - (PAST_DAYS + 1) * DAY_MS).toISOString(),
+        new Date(t + UPCOMING_DAYS * DAY_MS).toISOString(),
+      )
       .toArray()
   }, [minuteKey])
   const sourceKeys = useLiveQuery(() => db.calendarEvents.orderBy('source').keys(), [])
@@ -105,7 +108,10 @@ export function CalendarPage() {
       }
       setImportNotice({ tone: 'ok', text: summaryText(totals) })
     } catch (err) {
-      setImportNotice({ tone: 'error', text: err instanceof Error ? err.message : 'Не удалось прочитать файл' })
+      setImportNotice({
+        tone: 'error',
+        text: err instanceof Error ? err.message : 'Не удалось прочитать файл',
+      })
     } finally {
       setBusy(false)
       input.value = ''
@@ -144,8 +150,8 @@ export function CalendarPage() {
         <Card>
           <h2 className="font-semibold">Импорт файла</h2>
           <p className="mt-1 text-sm text-muted">
-            OneFit добавляет каждую запись в календарь телефона. Загрузите календарь сюда — FORMA покажет ближайшие
-            занятия и предложит начать тренировку.
+            OneFit добавляет каждую запись в календарь телефона. Загрузите календарь сюда — FORMA
+            покажет ближайшие занятия и предложит начать тренировку.
           </p>
           <label
             className={`mt-3 inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-bg hover:bg-accent-strong ${
@@ -224,7 +230,11 @@ export function CalendarPage() {
 
         {hasAny ? (
           <>
-            <div className="-mx-1 flex flex-wrap gap-2 px-1" role="group" aria-label="Фильтр по типу">
+            <div
+              className="-mx-1 flex flex-wrap gap-2 px-1"
+              role="group"
+              aria-label="Фильтр по типу"
+            >
               <Chip active={kind === 'all'} onClick={() => setKind('all')}>
                 Все
               </Chip>
@@ -282,12 +292,16 @@ function EventSection({
         {title} <span className="text-sm font-normal text-muted">{subtitle}</span>
       </h2>
       {events.length === 0 ? (
-        <p className="rounded-2xl border border-dashed border-border p-4 text-center text-sm text-muted">{empty}</p>
+        <p className="rounded-2xl border border-dashed border-border p-4 text-center text-sm text-muted">
+          {empty}
+        </p>
       ) : (
         <div className="space-y-4">
           {groupByDay(events).map(([day, list]) => (
             <div key={day}>
-              <h3 className="mb-2 text-xs font-medium tracking-wide text-muted uppercase">{dayHeading(day, now)}</h3>
+              <h3 className="mb-2 text-xs font-medium tracking-wide text-muted uppercase">
+                {dayHeading(day, now)}
+              </h3>
               <ul className="space-y-2">
                 {list.map((ev) => (
                   <EventRow key={ev.id} ev={ev} />
@@ -406,21 +420,24 @@ function Instructions() {
       </summary>
       <div className="mt-3 space-y-4 text-sm text-muted">
         <p>
-          Сначала убедитесь, что записи OneFit попадают в календарь телефона (Google или Apple) — FORMA читает именно
-          его.
+          Сначала убедитесь, что записи OneFit попадают в календарь телефона (Google или Apple) —
+          FORMA читает именно его.
         </p>
         <div>
           <h3 className="mb-1 font-medium text-text">Google Calendar</h3>
           <ol className="list-decimal space-y-1 pl-5">
             <li>Откройте calendar.google.com на компьютере → ⚙ Настройки.</li>
-            <li>Слева в «Настройках моих календарей» выберите календарь, куда приходят записи OneFit.</li>
             <li>
-              Раздел «Интеграция календаря» → «Секретный адрес в формате iCal» — скопируйте и вставьте в поле подписки
-              выше.
+              Слева в «Настройках моих календарей» выберите календарь, куда приходят записи OneFit.
             </li>
             <li>
-              Если синхронизация пишет про CORS (для Google это обычно): Настройки → «Импорт и экспорт» → «Экспорт».
-              Скачается .zip — распакуйте его и импортируйте нужный .ics кнопкой «Импортировать .ics».
+              Раздел «Интеграция календаря» → «Секретный адрес в формате iCal» — скопируйте и
+              вставьте в поле подписки выше.
+            </li>
+            <li>
+              Если синхронизация пишет про CORS (для Google это обычно): Настройки → «Импорт и
+              экспорт» → «Экспорт». Скачается .zip — распакуйте его и импортируйте нужный .ics
+              кнопкой «Импортировать .ics».
             </li>
           </ol>
         </div>
@@ -432,8 +449,8 @@ function Instructions() {
             <li>Импортируйте файл кнопкой «Импортировать .ics».</li>
           </ol>
           <p className="mt-1">
-            С iPhone: в настройках календаря на iCloud.com можно включить «Публичный календарь» и вставить ссылку
-            (webcal://…) в поле подписки.
+            С iPhone: в настройках календаря на iCloud.com можно включить «Публичный календарь» и
+            вставить ссылку (webcal://…) в поле подписки.
           </p>
         </div>
         <p>Повторный импорт того же файла не создаёт дублей — события обновляются.</p>

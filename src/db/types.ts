@@ -305,6 +305,150 @@ export interface ReadingLog {
   createdAt: ISODateTime
 }
 
+/* ----------------------------------- Finance ----------------------------------- */
+
+export type TxKind = 'expense' | 'income'
+
+export interface TxCategory {
+  id: string
+  name: string
+  icon: string
+  kind: TxKind
+  color: string
+  sort: number
+  isBuiltIn?: boolean
+}
+
+export interface Transaction {
+  id: string
+  kind: TxKind
+  /** Amount in the user's currency, always positive */
+  amount: number
+  categoryId: string
+  date: ISODate
+  note?: string
+  /** Set when generated from a recurring item */
+  recurringId?: string
+  createdAt: ISODateTime
+}
+
+export interface Budget {
+  id: string
+  categoryId: string
+  /** Monthly limit */
+  monthlyLimit: number
+}
+
+export interface RecurringPayment {
+  id: string
+  name: string
+  amount: number
+  categoryId: string
+  /** Day of month 1–28 */
+  dayOfMonth: number
+  active: boolean
+  note?: string
+}
+
+export interface SavingsGoal {
+  id: string
+  name: string
+  icon: string
+  targetAmount: number
+  savedAmount: number
+  deadline?: ISODate
+  createdAt: ISODateTime
+}
+
+/* -------------------------------- Mind & spirit -------------------------------- */
+
+export interface MoodEntry {
+  id: string
+  date: ISODate
+  /** 'morning' | 'evening' check-in */
+  slot: 'morning' | 'evening'
+  /** 1 (very bad) … 5 (great) */
+  mood: 1 | 2 | 3 | 4 | 5
+  energy?: 1 | 2 | 3 | 4 | 5
+  stress?: 1 | 2 | 3 | 4 | 5
+  /** Free tags like 'работа', 'семья', 'зал' */
+  tags?: string[]
+  note?: string
+  createdAt: ISODateTime
+}
+
+export interface JournalEntry {
+  id: string
+  date: ISODate
+  kind: 'gratitude' | 'reflection' | 'evening_review' | 'free'
+  /** For gratitude: 3 lines; for evening review: wins / improve / tomorrow */
+  items?: string[]
+  text?: string
+  tags?: string[]
+  createdAt: ISODateTime
+}
+
+export interface MindSession {
+  id: string
+  date: ISODate
+  kind: 'meditation' | 'breathing' | 'prayer' | 'reading_spiritual'
+  /** Preset name, e.g. 'box-4-4-4-4', 'calm-10' */
+  preset?: string
+  durationMin: number
+  note?: string
+  createdAt: ISODateTime
+}
+
+/* ------------------------------ Goals & weekly review ------------------------------ */
+
+export type LifeArea =
+  | 'body'
+  | 'mind'
+  | 'finance'
+  | 'career'
+  | 'relationships'
+  | 'spirit'
+  | 'learning'
+
+export interface KeyResult {
+  id: string
+  title: string
+  /** Numeric progress: current / target (unit free text) */
+  current: number
+  target: number
+  unit?: string
+}
+
+export interface LifeGoal {
+  id: string
+  area: LifeArea
+  title: string
+  why?: string
+  deadline?: ISODate
+  status: 'active' | 'done' | 'paused' | 'dropped'
+  keyResults: KeyResult[]
+  /** Habit ids that support this goal */
+  habitIds?: string[]
+  sort: number
+  createdAt: ISODateTime
+  completedAt?: ISODate
+}
+
+export interface WeeklyReview {
+  id: string
+  /** Monday of the reviewed week */
+  weekStart: ISODate
+  /** Auto-collected snapshot at the time of the review */
+  stats: Record<string, number>
+  wins: string[]
+  improve: string[]
+  /** Up to 3 priorities for next week */
+  nextFocus: string[]
+  /** Overall week rating 1–5 */
+  rating?: 1 | 2 | 3 | 4 | 5
+  createdAt: ISODateTime
+}
+
 export interface Setting {
   key: string
   value: unknown

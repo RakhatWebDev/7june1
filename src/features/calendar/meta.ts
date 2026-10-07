@@ -72,7 +72,9 @@ export function timeRange(ev: Pick<CalendarEvent, 'startAt' | 'endAt' | 'allDay'
   const e = parseISO(ev.endAt)
   if (ev.allDay) {
     const days = differenceInCalendarDays(e, s)
-    return days > 1 ? `весь день, до ${format(addDays(e, -1), 'd MMM', { locale: ru }).replace('.', '')}` : 'весь день'
+    return days > 1
+      ? `весь день, до ${format(addDays(e, -1), 'd MMM', { locale: ru }).replace('.', '')}`
+      : 'весь день'
   }
   const from = format(s, 'HH:mm')
   return e.getTime() > s.getTime() ? `${from}–${format(e, 'HH:mm')}` : from

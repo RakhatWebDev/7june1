@@ -67,13 +67,18 @@ describe('CalendarPage', () => {
     const user = userEvent.setup()
     renderPage()
     await user.upload(fileInput(), icsFile())
-    expect(await screen.findByRole('status')).toHaveTextContent('Импортировано 4 события, из них ближайших 2')
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'Импортировано 4 события, из них ближайших 2',
+    )
     expect(await db.calendarEvents.count()).toBe(4)
 
     const upcoming = await screen.findByRole('region', { name: 'Ближайшие' })
     expect(await within(upcoming).findByText('OneFit: Fitness24 — Gym')).toBeInTheDocument()
     expect(within(upcoming).getByText(/Fitness24, пр\. Абая 52/)).toBeInTheDocument()
-    expect(within(upcoming).getByRole('link', { name: 'Начать тренировку' })).toHaveAttribute('href', '/workouts')
+    expect(within(upcoming).getByRole('link', { name: 'Начать тренировку' })).toHaveAttribute(
+      'href',
+      '/workouts',
+    )
     expect(within(upcoming).getByRole('link', { name: 'Записать активность' })).toHaveAttribute(
       'href',
       '/cardio/new?type=swim',
@@ -88,7 +93,9 @@ describe('CalendarPage', () => {
     )
 
     await user.upload(fileInput(), icsFile())
-    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Импортировано 4 события'))
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent('Импортировано 4 события'),
+    )
     expect(await db.calendarEvents.count()).toBe(4)
   })
 
@@ -150,9 +157,14 @@ describe('CalendarPage', () => {
     )
     const user = userEvent.setup()
     renderPage()
-    await user.type(screen.getByRole('textbox', { name: /Секретный адрес календаря/ }), 'webcal://example.org/cal.ics')
+    await user.type(
+      screen.getByRole('textbox', { name: /Секретный адрес календаря/ }),
+      'webcal://example.org/cal.ics',
+    )
     await user.click(screen.getByRole('button', { name: 'Синхронизировать' }))
-    expect(await screen.findByRole('status')).toHaveTextContent('Импортировано 4 события, из них ближайших 2')
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'Импортировано 4 события, из них ближайших 2',
+    )
     expect(fetch).toHaveBeenCalledWith('https://example.org/cal.ics', expect.anything())
     const [feed] = await db.calendarFeeds.toArray()
     expect(feed.lastSyncAt).toBeTruthy()

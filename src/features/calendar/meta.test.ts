@@ -1,13 +1,36 @@
 import { describe, expect, it } from 'vitest'
 import type { CalendarEvent } from '../../db/types'
-import { actionFor, dayHeading, groupByDay, pastEvents, relativeLabel, timeRange, upcomingEvents } from './meta'
+import {
+  actionFor,
+  dayHeading,
+  groupByDay,
+  pastEvents,
+  relativeLabel,
+  timeRange,
+  upcomingEvents,
+} from './meta'
 
 // Wednesday 7 Oct 2026, 12:00 local
 const NOW = new Date(2026, 9, 7, 12, 0)
 const at = (d: number, h: number, m = 0) => new Date(2026, 9, d, h, m).toISOString()
 
-function mk(id: string, start: string, end: string, extra: Partial<CalendarEvent> = {}): CalendarEvent {
-  return { id, title: id, startAt: start, endAt: end, allDay: false, source: 's', kind: 'gym', importedAt: start, ...extra }
+function mk(
+  id: string,
+  start: string,
+  end: string,
+  extra: Partial<CalendarEvent> = {},
+): CalendarEvent {
+  return {
+    id,
+    title: id,
+    startAt: start,
+    endAt: end,
+    allDay: false,
+    source: 's',
+    kind: 'gym',
+    importedAt: start,
+    ...extra,
+  }
 }
 
 describe('relativeLabel', () => {
@@ -30,10 +53,14 @@ describe('dayHeading and timeRange', () => {
   })
 
   it('formats time ranges', () => {
-    expect(timeRange({ startAt: at(7, 18, 30), endAt: at(7, 19, 30), allDay: false })).toBe('18:30–19:30')
+    expect(timeRange({ startAt: at(7, 18, 30), endAt: at(7, 19, 30), allDay: false })).toBe(
+      '18:30–19:30',
+    )
     expect(timeRange({ startAt: at(7, 18, 30), endAt: at(7, 18, 30), allDay: false })).toBe('18:30')
     expect(timeRange({ startAt: at(7, 0), endAt: at(8, 0), allDay: true })).toBe('весь день')
-    expect(timeRange({ startAt: at(7, 0), endAt: at(10, 0), allDay: true })).toBe('весь день, до 9 окт')
+    expect(timeRange({ startAt: at(7, 0), endAt: at(10, 0), allDay: true })).toBe(
+      'весь день, до 9 окт',
+    )
   })
 })
 
@@ -48,7 +75,11 @@ describe('upcoming / past windows', () => {
   ]
 
   it('upcoming includes in-progress events and respects the day limit', () => {
-    expect(upcomingEvents(events, NOW, 14).map((e) => e.id)).toEqual(['running-now', 'later-today', 'in-10-days'])
+    expect(upcomingEvents(events, NOW, 14).map((e) => e.id)).toEqual([
+      'running-now',
+      'later-today',
+      'in-10-days',
+    ])
     expect(upcomingEvents(events, NOW, 7).map((e) => e.id)).toEqual(['running-now', 'later-today'])
   })
 
@@ -71,7 +102,10 @@ describe('actionFor', () => {
     expect(actionFor('swim')?.to).toBe('/cardio/new?type=swim')
     expect(actionFor('run')?.to).toBe('/cardio/new?type=run')
     expect(actionFor('bike')?.to).toBe('/cardio/new?type=bike')
-    expect(actionFor('class')).toEqual({ to: '/cardio/new?type=other', label: 'Записать активность' })
+    expect(actionFor('class')).toEqual({
+      to: '/cardio/new?type=other',
+      label: 'Записать активность',
+    })
     expect(actionFor('other')).toBeNull()
   })
 })

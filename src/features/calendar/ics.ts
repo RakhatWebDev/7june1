@@ -149,7 +149,14 @@ function zoneOffsetMs(fmt: Intl.DateTimeFormat, instantMs: number): number {
   for (const p of fmt.formatToParts(new Date(instantMs))) {
     if (p.type !== 'literal') parts[p.type] = Number(p.value)
   }
-  const asUtc = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour % 24, parts.minute, parts.second)
+  const asUtc = Date.UTC(
+    parts.year,
+    parts.month - 1,
+    parts.day,
+    parts.hour % 24,
+    parts.minute,
+    parts.second,
+  )
   return asUtc - Math.floor(instantMs / 1000) * 1000
 }
 
@@ -210,7 +217,9 @@ function dateToInstant(d: IcsDate): Date {
 
 /** Parses an RFC 5545 DURATION (`P1W`, `PT1H30M`, `P1DT2H`, `-PT15M`) into milliseconds. */
 export function parseDuration(value: string): number | null {
-  const m = /^([+-])?P(?:(\d+)W)?(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$/.exec(value.trim())
+  const m = /^([+-])?P(?:(\d+)W)?(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$/.exec(
+    value.trim(),
+  )
   if (!m || value.trim() === 'P' || /T$/.test(value.trim())) return null
   const [, sign, w, d, h, mi, s] = m
   const ms =
@@ -418,7 +427,11 @@ function readEvents(lines: string[]): RawEvent[] {
  * same id and replace the generated occurrence. Ids are stable, so re-importing the same file
  * upserts instead of duplicating. Result is sorted by start time.
  */
-export function parseIcs(text: string, source: string, options: ParseOptions = {}): CalendarEvent[] {
+export function parseIcs(
+  text: string,
+  source: string,
+  options: ParseOptions = {},
+): CalendarEvent[] {
   const now = options.now ?? new Date()
   const horizon = new Date(now.getTime() + (options.horizonWeeks ?? 8) * WEEK_MS)
   const windowStart = now.getTime() - (options.lookbackWeeks ?? 8) * WEEK_MS

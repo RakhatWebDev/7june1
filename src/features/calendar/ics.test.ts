@@ -92,14 +92,28 @@ const GOOGLE_EXPORT = crlf([
 const NOW = new Date('2026-10-07T00:00:00Z')
 
 function ev(text: string, extra: string[] = [], now = NOW) {
-  return parseIcs(crlf(['BEGIN:VCALENDAR', 'BEGIN:VEVENT', 'UID:x@test', ...extra, 'END:VEVENT', 'END:VCALENDAR']), text, {
-    now,
-  })
+  return parseIcs(
+    crlf([
+      'BEGIN:VCALENDAR',
+      'BEGIN:VEVENT',
+      'UID:x@test',
+      ...extra,
+      'END:VEVENT',
+      'END:VCALENDAR',
+    ]),
+    text,
+    {
+      now,
+    },
+  )
 }
 
 describe('low-level helpers', () => {
   it('unfolds CRLF + space/tab continuations', () => {
-    expect(unfoldLines('SUMMARY:Hel\r\n lo\r\n\tWorld\r\nUID:1\r\n')).toEqual(['SUMMARY:HelloWorld', 'UID:1'])
+    expect(unfoldLines('SUMMARY:Hel\r\n lo\r\n\tWorld\r\nUID:1\r\n')).toEqual([
+      'SUMMARY:HelloWorld',
+      'UID:1',
+    ])
     expect(unfoldLines('A:1\nB:2\n C')).toEqual(['A:1', 'B:2C'])
   })
 
@@ -131,7 +145,11 @@ describe('low-level helpers', () => {
   })
 
   it('accepts only plain weekly rules', () => {
-    expect(parseWeeklyRule('FREQ=WEEKLY;BYDAY=MO,WE;COUNT=5')).toMatchObject({ byDay: [0, 2], count: 5, interval: 1 })
+    expect(parseWeeklyRule('FREQ=WEEKLY;BYDAY=MO,WE;COUNT=5')).toMatchObject({
+      byDay: [0, 2],
+      count: 5,
+      interval: 1,
+    })
     expect(parseWeeklyRule('FREQ=MONTHLY;BYMONTHDAY=1')).toBeNull()
     expect(parseWeeklyRule('FREQ=WEEKLY;BYDAY=1MO')).toBeNull()
     expect(parseWeeklyRule('FREQ=WEEKLY;BYSETPOS=1;BYDAY=MO')).toBeNull()
@@ -176,7 +194,9 @@ describe('parseIcs — Google Calendar export', () => {
   })
 
   it('replaces a moved occurrence via RECURRENCE-ID', () => {
-    const moved = events.find((e) => e.id === '7kukuqrfedlgf4hjj3n3l0b1qm@google.com#2026-10-09T04:30:00.000Z')
+    const moved = events.find(
+      (e) => e.id === '7kukuqrfedlgf4hjj3n3l0b1qm@google.com#2026-10-09T04:30:00.000Z',
+    )
     expect(moved?.title).toBe('Утреннее плавание (перенос)')
     expect(moved?.startAt).toBe('2026-10-09T06:00:00.000Z')
     expect(events.filter((e) => e.startAt.startsWith('2026-10-09T04:30'))).toHaveLength(0)
@@ -219,13 +239,19 @@ describe('parseIcs — edge cases', () => {
     const local = Intl.DateTimeFormat().resolvedOptions().timeZone
     const expected = new Date(2026, 9, 12, 18, 0).toISOString()
     expect(ev('f.ics', ['DTSTART:20261012T180000', 'SUMMARY:A'])[0].startAt).toBe(expected)
-    expect(ev('f.ics', [`DTSTART;TZID=${local}:20261012T180000`, 'SUMMARY:A'])[0].startAt).toBe(expected)
+    expect(ev('f.ics', [`DTSTART;TZID=${local}:20261012T180000`, 'SUMMARY:A'])[0].startAt).toBe(
+      expected,
+    )
   })
 
   it('converts IANA zones across DST and falls back to local for unknown TZIDs', () => {
     // Berlin is UTC+2 in summer, UTC+1 in winter
-    expect(ev('b.ics', ['DTSTART;TZID=Europe/Berlin:20260715T100000'])[0].startAt).toBe('2026-07-15T08:00:00.000Z')
-    expect(ev('b.ics', ['DTSTART;TZID=Europe/Berlin:20261215T100000'])[0].startAt).toBe('2026-12-15T09:00:00.000Z')
+    expect(ev('b.ics', ['DTSTART;TZID=Europe/Berlin:20260715T100000'])[0].startAt).toBe(
+      '2026-07-15T08:00:00.000Z',
+    )
+    expect(ev('b.ics', ['DTSTART;TZID=Europe/Berlin:20261215T100000'])[0].startAt).toBe(
+      '2026-12-15T09:00:00.000Z',
+    )
     expect(ev('w.ics', ['DTSTART;TZID=W. Europe Standard Time:20261215T100000'])[0].startAt).toBe(
       new Date(2026, 11, 15, 10).toISOString(),
     )
@@ -244,8 +270,17 @@ describe('parseIcs — edge cases', () => {
   })
 
   it('expands weekly COUNT rules', () => {
-    const list = ev('c.ics', ['DTSTART:20261006T180000Z', 'DTEND:20261006T190000Z', 'RRULE:FREQ=WEEKLY;COUNT=4;BYDAY=TU,TH'])
-    expect(list.map((e) => e.startAt.slice(0, 10))).toEqual(['2026-10-06', '2026-10-08', '2026-10-13', '2026-10-15'])
+    const list = ev('c.ics', [
+      'DTSTART:20261006T180000Z',
+      'DTEND:20261006T190000Z',
+      'RRULE:FREQ=WEEKLY;COUNT=4;BYDAY=TU,TH',
+    ])
+    expect(list.map((e) => e.startAt.slice(0, 10))).toEqual([
+      '2026-10-06',
+      '2026-10-08',
+      '2026-10-13',
+      '2026-10-15',
+    ])
   })
 
   it('expands open-ended weekly rules 8 weeks ahead and honours INTERVAL', () => {
@@ -253,12 +288,23 @@ describe('parseIcs — edge cases', () => {
     expect(weekly).toHaveLength(8) // 10 Oct … 28 Nov; 5 Dec is past now + 8 weeks
     expect(weekly.at(-1)?.startAt).toBe('2026-11-28T09:00:00.000Z')
     const biweekly = ev('o.ics', ['DTSTART:20261010T090000Z', 'RRULE:FREQ=WEEKLY;INTERVAL=2'])
-    expect(biweekly.map((e) => e.startAt.slice(0, 10))).toEqual(['2026-10-10', '2026-10-24', '2026-11-07', '2026-11-21'])
+    expect(biweekly.map((e) => e.startAt.slice(0, 10))).toEqual([
+      '2026-10-10',
+      '2026-10-24',
+      '2026-11-07',
+      '2026-11-21',
+    ])
   })
 
   it('keeps wall-clock time of weekly events across a DST change', () => {
-    const list = ev('dst.ics', ['DTSTART;TZID=Europe/Berlin:20261019T180000', 'RRULE:FREQ=WEEKLY;COUNT=2'])
-    expect(list.map((e) => e.startAt)).toEqual(['2026-10-19T16:00:00.000Z', '2026-10-26T17:00:00.000Z'])
+    const list = ev('dst.ics', [
+      'DTSTART;TZID=Europe/Berlin:20261019T180000',
+      'RRULE:FREQ=WEEKLY;COUNT=2',
+    ])
+    expect(list.map((e) => e.startAt)).toEqual([
+      '2026-10-19T16:00:00.000Z',
+      '2026-10-26T17:00:00.000Z',
+    ])
   })
 
   it('drops recurrences older than the lookback window', () => {
@@ -293,7 +339,9 @@ describe('parseIcs — edge cases', () => {
   })
 
   it('accepts LF-only input and missing SUMMARY', () => {
-    const [e] = parseIcs('BEGIN:VEVENT\nUID:1\nDTSTART:20261012T150000Z\nEND:VEVENT\n', 's', { now: NOW })
+    const [e] = parseIcs('BEGIN:VEVENT\nUID:1\nDTSTART:20261012T150000Z\nEND:VEVENT\n', 's', {
+      now: NOW,
+    })
     expect(e.title).toBe('Без названия')
     expect(e.kind).toBe('other')
   })

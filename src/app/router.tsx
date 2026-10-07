@@ -9,6 +9,9 @@ import { progressRoutes } from '../features/progress/routes'
 import { SettingsPage } from '../features/settings/SettingsPage'
 import { calendarRoutes } from '../features/calendar/routes'
 import { growthRoutes } from '../features/growth/routes'
+import { financeRoutes } from '../features/finance/routes'
+import { mindRoutes } from '../features/mind/routes'
+import { goalsRoutes } from '../features/goals/routes'
 
 /**
  * Route map (hash router, so it works on GitHub Pages without a 404 fallback):
@@ -33,6 +36,12 @@ import { growthRoutes } from '../features/growth/routes'
  *   /habits/new, /habits/:id  Создание / редактирование привычки
  *   /books                    Книжная полка: читаю / хочу / прочитано
  *   /books/new, /books/:id    Добавить книгу / карточка книги с логом чтения и заметками
+ *   /finance                  Финансы: месяц, расходы/доходы, бюджеты, подписки, накопления
+ *   /finance/new, /finance/budgets, /finance/recurring, /finance/savings
+ *   /mind                     Разум и дух: настроение, благодарность, дневник, медитация, дыхание, вечерний обзор
+ *   /mind/checkin, /mind/journal, /mind/journal/:id, /mind/meditate, /mind/breathe, /mind/review
+ *   /goals                    Цели по сферам жизни с ключевыми результатами
+ *   /goals/new, /goals/:id, /goals/review (еженедельный обзор), /goals/review/:weekStart
  *   /calendar                 Календарь: занятия из OneFit (импорт .ics / подписка), ближайшие
  *   /settings                 Профиль и настройки, экспорт/импорт
  *
@@ -51,6 +60,9 @@ export const router = createHashRouter([
       ...progressRoutes,
       ...calendarRoutes,
       ...growthRoutes,
+      ...financeRoutes,
+      ...mindRoutes,
+      ...goalsRoutes,
       { path: 'settings', element: <SettingsPage /> },
       { path: '*', element: <Navigate to="/" replace /> },
     ],

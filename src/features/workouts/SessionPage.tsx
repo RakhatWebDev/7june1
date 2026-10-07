@@ -151,7 +151,13 @@ function SessionView({ session, allSessions }: { session: WorkoutSession; allSes
         </div>
       </Sheet>
 
-      {rest && <RestTimer key={rest.key} durationSec={rest.sec} onClose={() => setRest(null)} />}
+      {rest && (
+        <>
+          {/* keeps the last set reachable above the fixed timer */}
+          <div className="h-24" aria-hidden />
+          <RestTimer key={rest.key} durationSec={rest.sec} onClose={() => setRest(null)} />
+        </>
+      )}
     </>
   )
 }

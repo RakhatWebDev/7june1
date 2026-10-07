@@ -26,7 +26,11 @@ function summarize(events: CalendarEvent[], now: Date): ImportResult {
 }
 
 /** Parses .ics text and upserts events by id: importing the same file twice adds nothing. */
-export async function importIcsText(text: string, source: string, opts: Opts = {}): Promise<ImportResult> {
+export async function importIcsText(
+  text: string,
+  source: string,
+  opts: Opts = {},
+): Promise<ImportResult> {
   const { database = defaultDb, now = new Date() } = opts
   if (!looksLikeIcs(text)) throw new Error('Это не файл календаря (.ics)')
   const events = parseIcs(text, source, { now })
@@ -84,14 +88,19 @@ export async function fetchFeedText(url: string, fetchImpl: typeof fetch = fetch
     // Browsers report CORS rejections and offline errors identically (TypeError).
     throw new FeedError(CORS_MESSAGE)
   }
-  if (!res.ok) throw new FeedError(`Сервер календаря ответил ошибкой ${res.status}. Проверьте адрес`)
+  if (!res.ok)
+    throw new FeedError(`Сервер календаря ответил ошибкой ${res.status}. Проверьте адрес`)
   const text = await res.text()
-  if (!looksLikeIcs(text)) throw new FeedError('По этому адресу нет календаря в формате iCal (.ics)')
+  if (!looksLikeIcs(text))
+    throw new FeedError('По этому адресу нет календаря в формате iCal (.ics)')
   return text
 }
 
 /** Finds a feed by URL or creates it. */
-export async function upsertFeed(url: string, database: FormaDB = defaultDb): Promise<CalendarFeed> {
+export async function upsertFeed(
+  url: string,
+  database: FormaDB = defaultDb,
+): Promise<CalendarFeed> {
   const existing = (await database.calendarFeeds.toArray()).find((f) => f.url === url)
   if (existing) return existing
   const feed: CalendarFeed = { id: newId(), label: feedLabel(url), url }
@@ -114,7 +123,11 @@ export async function syncFeed(
     await database.transaction('rw', database.calendarEvents, database.calendarFeeds, async () => {
       await database.calendarEvents.where('source').equals(feed.label).delete()
       await database.calendarEvents.bulkPut(events)
-      await database.calendarFeeds.put({ ...feed, lastSyncAt: now.toISOString(), lastError: undefined })
+      await database.calendarFeeds.put({
+        ...feed,
+        lastSyncAt: now.toISOString(),
+        lastError: undefined,
+      })
     })
     return summarize(events, now)
   } catch (err) {

@@ -57,7 +57,9 @@ describe('importIcsText', () => {
   })
 
   it('rejects text that is not a calendar', async () => {
-    await expect(importIcsText('hello', 'x.txt', { database: freshDb(), now: NOW })).rejects.toThrow(/не файл/)
+    await expect(
+      importIcsText('hello', 'x.txt', { database: freshDb(), now: NOW }),
+    ).rejects.toThrow(/не файл/)
   })
 
   it('deletes all events of one source only', async () => {
@@ -79,7 +81,8 @@ describe('importIcsText', () => {
 })
 
 describe('feeds', () => {
-  const GOOGLE = 'https://calendar.google.com/calendar/ical/rakhat%40gmail.com/private-abc123/basic.ics'
+  const GOOGLE =
+    'https://calendar.google.com/calendar/ical/rakhat%40gmail.com/private-abc123/basic.ics'
 
   it('normalizes and labels URLs', () => {
     expect(normalizeFeedUrl(' webcal://p01-caldav.icloud.com/published/2/abc ')).toBe(
@@ -104,7 +107,10 @@ describe('feeds', () => {
     const db = freshDb()
     const feed = await upsertFeed(GOOGLE, db)
     const fetchImpl = vi.fn(async () => okResponse(ICS)) as unknown as typeof fetch
-    expect(await syncFeed(feed, { database: db, now: NOW, fetchImpl })).toEqual({ total: 5, upcoming: 3 })
+    expect(await syncFeed(feed, { database: db, now: NOW, fetchImpl })).toEqual({
+      total: 5,
+      upcoming: 3,
+    })
     await db.calendarEvents.put({
       id: 'cancelled-booking',
       title: 'gone',
@@ -129,7 +135,9 @@ describe('feeds', () => {
     const fetchImpl = vi.fn(async () => {
       throw new TypeError('Failed to fetch')
     }) as unknown as typeof fetch
-    await expect(syncFeed(feed, { database: db, now: NOW, fetchImpl })).rejects.toThrow(CORS_MESSAGE)
+    await expect(syncFeed(feed, { database: db, now: NOW, fetchImpl })).rejects.toThrow(
+      CORS_MESSAGE,
+    )
     expect((await db.calendarFeeds.get(feed.id))?.lastError).toBe(CORS_MESSAGE)
     expect(await db.calendarEvents.count()).toBe(0)
   })
@@ -137,7 +145,11 @@ describe('feeds', () => {
   it('reports HTTP errors and non-calendar responses', async () => {
     const db = freshDb()
     const feed = await upsertFeed(GOOGLE, db)
-    const notFound = vi.fn(async () => ({ ok: false, status: 404, text: async () => '' })) as unknown as typeof fetch
+    const notFound = vi.fn(async () => ({
+      ok: false,
+      status: 404,
+      text: async () => '',
+    })) as unknown as typeof fetch
     await expect(syncFeed(feed, { database: db, fetchImpl: notFound })).rejects.toThrow(/404/)
     const html = vi.fn(async () => okResponse('<html></html>')) as unknown as typeof fetch
     await expect(syncFeed(feed, { database: db, fetchImpl: html })).rejects.toThrow(/iCal/)
@@ -146,7 +158,11 @@ describe('feeds', () => {
   it('deleteFeed removes the feed and its events', async () => {
     const db = freshDb()
     const feed = await upsertFeed(GOOGLE, db)
-    await syncFeed(feed, { database: db, now: NOW, fetchImpl: (async () => okResponse(ICS)) as unknown as typeof fetch })
+    await syncFeed(feed, {
+      database: db,
+      now: NOW,
+      fetchImpl: (async () => okResponse(ICS)) as unknown as typeof fetch,
+    })
     await deleteFeed(feed, db)
     expect(await db.calendarFeeds.count()).toBe(0)
     expect(await db.calendarEvents.count()).toBe(0)

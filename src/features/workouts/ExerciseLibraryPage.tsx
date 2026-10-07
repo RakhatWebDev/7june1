@@ -97,7 +97,7 @@ function ChipRow({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div role="group" aria-label={label}>
       <div className="mb-1 text-[11px] tracking-wide text-muted uppercase">{label}</div>
-      <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">{children}</div>
+      <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 whitespace-nowrap [&>*]:shrink-0">{children}</div>
     </div>
   )
 }

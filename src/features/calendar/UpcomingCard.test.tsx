@@ -8,7 +8,12 @@ import { UpcomingCard } from './UpcomingCard'
 const HOUR = 3_600_000
 const DAY = 24 * HOUR
 
-function event(id: string, title: string, offsetMs: number, extra: Partial<CalendarEvent> = {}): CalendarEvent {
+function event(
+  id: string,
+  title: string,
+  offsetMs: number,
+  extra: Partial<CalendarEvent> = {},
+): CalendarEvent {
   const start = Date.now() + offsetMs
   return {
     id,
@@ -60,7 +65,9 @@ describe('UpcomingCard', () => {
   })
 
   it('shows at most 3 events', async () => {
-    await db.calendarEvents.bulkPut([1, 2, 3, 4, 5].map((i) => event(`e${i}`, `Событие ${i}`, i * HOUR)))
+    await db.calendarEvents.bulkPut(
+      [1, 2, 3, 4, 5].map((i) => event(`e${i}`, `Событие ${i}`, i * HOUR)),
+    )
     renderCard()
     expect(await screen.findByText('Событие 1')).toBeInTheDocument()
     expect(screen.getAllByRole('listitem')).toHaveLength(3)

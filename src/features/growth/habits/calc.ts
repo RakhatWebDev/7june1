@@ -249,3 +249,19 @@ export function allDoneStreak(doneSets: Set<ISODate>[], todayDate: ISODate): num
 export function activeHabits(habits: Habit[]): Habit[] {
   return habits.filter((h) => !h.archived).sort((a, b) => a.sort - b.sort)
 }
+
+export interface TodaySummary {
+  habits: Habit[]
+  done: number
+  total: number
+  /** Days in a row with every active daily habit done. */
+  streak: number
+}
+
+/** Active habits with today's completion and the "all daily habits" streak. */
+export function todaySummary(habits: Habit[], status: Map<string, HabitStatus>, todayDate: ISODate): TodaySummary {
+  const active = activeHabits(habits)
+  const done = active.filter((h) => status.get(h.id)?.done.has(todayDate)).length
+  const daily = active.filter((h) => h.frequency === 'daily').map((h) => status.get(h.id)?.done ?? new Set<ISODate>())
+  return { habits: active, done, total: active.length, streak: allDoneStreak(daily, todayDate) }
+}
