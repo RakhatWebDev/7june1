@@ -17,7 +17,13 @@ export const LIFE_AREAS: AreaMeta[] = [
   { id: 'mind', name: 'Разум', short: 'Разум', icon: '🧠', color: 'var(--color-info)' },
   { id: 'finance', name: 'Финансы', short: 'Финансы', icon: '💰', color: 'var(--color-warn)' },
   { id: 'career', name: 'Карьера', short: 'Карьера', icon: '💼', color: 'var(--color-info)' },
-  { id: 'relationships', name: 'Отношения', short: 'Отношения', icon: '❤️', color: 'var(--color-pink, #f472b6)' },
+  {
+    id: 'relationships',
+    name: 'Отношения',
+    short: 'Отношения',
+    icon: '❤️',
+    color: 'var(--color-pink, #f472b6)',
+  },
   { id: 'spirit', name: 'Дух', short: 'Дух', icon: '🕊', color: 'var(--color-violet, #a78bfa)' },
   { id: 'learning', name: 'Обучение', short: 'Обучение', icon: '📚', color: 'var(--color-warn)' },
 ]

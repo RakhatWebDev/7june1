@@ -5,7 +5,16 @@ import { db } from '../../db'
 import type { ISODate, LifeGoal, WeeklyReview } from '../../db/types'
 import { Button, Card, Field, Input, PageHeader, Stepper } from '../../components/ui'
 import { areaMeta } from './areas'
-import { cleanLines, krProgress, krStep, padLines, reviewTargetWeek, shiftWeek, weekLabel, weekStartOf } from './calc'
+import {
+  cleanLines,
+  krProgress,
+  krStep,
+  padLines,
+  reviewTargetWeek,
+  shiftWeek,
+  weekLabel,
+  weekStartOf,
+} from './calc'
 import { RatingInput, StatGrid, Stars } from './components'
 import { useCurrencySign, useReviews, useWeekStats } from './hooks'
 import { collectWeekStats } from './stats'
@@ -37,14 +46,20 @@ export function WeeklyReviewPage() {
       <PageHeader title="Обзор недели" subtitle="Подведите итоги и обновите цели" back="/goals" />
 
       <div className="mb-4 flex items-center justify-between gap-2 rounded-2xl border border-border bg-surface px-2 py-1">
-        <Button variant="ghost" aria-label="Предыдущая неделя" onClick={() => goTo(shiftWeek(week, -1))}>
+        <Button
+          variant="ghost"
+          aria-label="Предыдущая неделя"
+          onClick={() => goTo(shiftWeek(week, -1))}
+        >
           ←
         </Button>
         <div className="text-center">
           <div className="font-semibold tabular-nums" data-testid="review-week">
             {weekLabel(week)}
           </div>
-          {existing && <div className="text-xs text-accent">Обзор сохранён — можно отредактировать</div>}
+          {existing && (
+            <div className="text-xs text-accent">Обзор сохранён — можно отредактировать</div>
+          )}
         </div>
         <Button
           variant="ghost"
@@ -59,7 +74,12 @@ export function WeeklyReviewPage() {
       {existing === undefined || goals === undefined ? (
         <p className="text-sm text-muted">Загрузка…</p>
       ) : (
-        <ReviewWizard key={`${week}:${existing?.id ?? 'new'}`} week={week} existing={existing} goals={goals} />
+        <ReviewWizard
+          key={`${week}:${existing?.id ?? 'new'}`}
+          week={week}
+          existing={existing}
+          goals={goals}
+        />
       )}
 
       {reviews && reviews.length > 0 && (
@@ -84,7 +104,15 @@ export function WeeklyReviewPage() {
   )
 }
 
-function ReviewWizard({ week, existing, goals }: { week: ISODate; existing: WeeklyReview | null; goals: LifeGoal[] }) {
+function ReviewWizard({
+  week,
+  existing,
+  goals,
+}: {
+  week: ISODate
+  existing: WeeklyReview | null
+  goals: LifeGoal[]
+}) {
   const navigate = useNavigate()
   const stats = useWeekStats(week)
   const prevStats = useWeekStats(shiftWeek(week, -1))
@@ -99,7 +127,8 @@ function ReviewWizard({ week, existing, goals }: { week: ISODate; existing: Week
   const [krEdits, setKrEdits] = useState<Record<string, Record<string, number>>>({})
   const [saving, setSaving] = useState(false)
 
-  const krValue = (goalId: string, krId: string, fallback: number) => krEdits[goalId]?.[krId] ?? fallback
+  const krValue = (goalId: string, krId: string, fallback: number) =>
+    krEdits[goalId]?.[krId] ?? fallback
   const setKrValue = (goalId: string, krId: string, v: number) =>
     setKrEdits((all) => ({ ...all, [goalId]: { ...all[goalId], [krId]: v } }))
 
@@ -122,7 +151,9 @@ function ReviewWizard({ week, existing, goals }: { week: ISODate; existing: Week
         const goal = await db.lifeGoals.get(goalId)
         if (!goal) continue
         await db.lifeGoals.update(goalId, {
-          keyResults: goal.keyResults.map((kr) => (kr.id in edits ? { ...kr, current: edits[kr.id] } : kr)),
+          keyResults: goal.keyResults.map((kr) =>
+            kr.id in edits ? { ...kr, current: edits[kr.id] } : kr,
+          ),
         })
       }
     })
@@ -152,8 +183,20 @@ function ReviewWizard({ week, existing, goals }: { week: ISODate; existing: Week
 
       {step === 1 && (
         <div className="space-y-4">
-          <LinesCard title="Победы" label="Победа" lines={wins} onChange={setWins} placeholder="Что получилось" />
-          <LinesCard title="Улучшить" label="Улучшить" lines={improve} onChange={setImprove} placeholder="Что можно сделать лучше" />
+          <LinesCard
+            title="Победы"
+            label="Победа"
+            lines={wins}
+            onChange={setWins}
+            placeholder="Что получилось"
+          />
+          <LinesCard
+            title="Улучшить"
+            label="Улучшить"
+            lines={improve}
+            onChange={setImprove}
+            placeholder="Что можно сделать лучше"
+          />
           <LinesCard
             title="Фокус на следующую неделю"
             label="Фокус"
@@ -186,7 +229,9 @@ function ReviewWizard({ week, existing, goals }: { week: ISODate; existing: Week
                   <span aria-hidden>{areaMeta(g.area).icon}</span>
                   {g.title}
                 </h3>
-                {g.keyResults.length === 0 && <p className="text-sm text-muted">Нет ключевых результатов.</p>}
+                {g.keyResults.length === 0 && (
+                  <p className="text-sm text-muted">Нет ключевых результатов.</p>
+                )}
                 <ul className="space-y-3">
                   {g.keyResults.map((kr) => {
                     const current = krValue(g.id, kr.id, kr.current)
@@ -218,7 +263,12 @@ function ReviewWizard({ week, existing, goals }: { week: ISODate; existing: Week
 
       <div className="flex gap-2">
         {step > 0 && (
-          <Button variant="secondary" size="lg" className="flex-1" onClick={() => setStep((s) => s - 1)}>
+          <Button
+            variant="secondary"
+            size="lg"
+            className="flex-1"
+            onClick={() => setStep((s) => s - 1)}
+          >
             Назад
           </Button>
         )}

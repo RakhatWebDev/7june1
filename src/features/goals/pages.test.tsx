@@ -58,7 +58,12 @@ const workout = (id: string, date: string): WorkoutSession => ({
 })
 
 /** Clicks the "−"/"+" button of the Stepper whose input has the given label. */
-async function step(user: ReturnType<typeof userEvent.setup>, label: string, dir: 'Меньше' | 'Больше', times = 1) {
+async function step(
+  user: ReturnType<typeof userEvent.setup>,
+  label: string,
+  dir: 'Меньше' | 'Больше',
+  times = 1,
+) {
   const input = await screen.findByLabelText(label)
   const box = input.parentElement as HTMLElement
   for (let i = 0; i < times; i++) await user.click(within(box).getByRole('button', { name: dir }))
@@ -83,7 +88,11 @@ describe('GoalsPage', () => {
 
   it('shows area progress on the wheel legend and filters finished goals', async () => {
     await db.lifeGoals.bulkPut([
-      goal('g1', 'Сбросить вес', { keyResults: [{ id: 'k', title: 'Вес', start: 88, current: 85, target: 82 } as GoalKeyResult] }),
+      goal('g1', 'Сбросить вес', {
+        keyResults: [
+          { id: 'k', title: 'Вес', start: 88, current: 85, target: 82 } as GoalKeyResult,
+        ],
+      }),
       goal('g2', 'Марафон', { status: 'done', sort: 1 }),
     ])
     const user = userEvent.setup()
@@ -114,9 +123,19 @@ describe('GoalFormPage', () => {
     await waitFor(() => expect(router.state.location.pathname).toBe('/goals'))
     const goals = await db.lifeGoals.toArray()
     expect(goals).toHaveLength(1)
-    expect(goals[0]).toMatchObject({ area: 'finance', title: 'Финансовая подушка', status: 'active' })
+    expect(goals[0]).toMatchObject({
+      area: 'finance',
+      title: 'Финансовая подушка',
+      status: 'active',
+    })
     expect(goals[0].keyResults).toEqual([
-      expect.objectContaining({ title: 'Накоплено', start: 0, current: 0, target: 600000, unit: '₸' }),
+      expect.objectContaining({
+        title: 'Накоплено',
+        start: 0,
+        current: 0,
+        target: 600000,
+        unit: '₸',
+      }),
     ])
   })
 
@@ -227,7 +246,9 @@ describe('WeeklyReviewPage', () => {
     await user.type(win, 'Пять тренировок')
     await user.click(screen.getByRole('button', { name: 'Далее' }))
     await user.click(screen.getByRole('button', { name: 'Сохранить обзор' }))
-    await waitFor(async () => expect((await db.weeklyReviews.toArray())[0].wins).toEqual(['Пять тренировок']))
+    await waitFor(async () =>
+      expect((await db.weeklyReviews.toArray())[0].wins).toEqual(['Пять тренировок']),
+    )
     expect(await db.weeklyReviews.count()).toBe(1)
   })
 
@@ -260,7 +281,19 @@ describe('WeeklyReviewPage', () => {
 describe('cards', () => {
   it('GoalsFocusCard shows up to three active goals', async () => {
     await db.lifeGoals.bulkPut([
-      goal('a', 'Цель A', { sort: 0, keyResults: [{ id: 'k', title: 'Вес', current: 85, target: 82, start: 88, unit: 'кг' } as GoalKeyResult] }),
+      goal('a', 'Цель A', {
+        sort: 0,
+        keyResults: [
+          {
+            id: 'k',
+            title: 'Вес',
+            current: 85,
+            target: 82,
+            start: 88,
+            unit: 'кг',
+          } as GoalKeyResult,
+        ],
+      }),
       goal('b', 'Цель B', { sort: 1 }),
       goal('c', 'Цель C', { sort: 2 }),
       goal('d', 'Цель D', { sort: 3 }),
@@ -279,7 +312,10 @@ describe('cards', () => {
   it('WeeklyReviewCard prompts on Sunday', async () => {
     renderEl(<WeeklyReviewCard now={new Date(2026, 9, 11, 10)} />)
     expect(await screen.findByText('Подвести итоги недели')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Начать' })).toHaveAttribute('href', '/goals/review?week=2026-10-05')
+    expect(screen.getByRole('link', { name: 'Начать' })).toHaveAttribute(
+      'href',
+      '/goals/review?week=2026-10-05',
+    )
   })
 
   it('WeeklyReviewCard shows last week rating mid-week', async () => {
@@ -302,6 +338,9 @@ describe('cards', () => {
   it('WeeklyReviewCard nudges to fill a missing review mid-week', async () => {
     renderEl(<WeeklyReviewCard now={new Date(2026, 9, 7, 10)} />)
     expect(await screen.findByText('Обзор прошлой недели')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Заполнить' })).toHaveAttribute('href', '/goals/review?week=2026-09-28')
+    expect(screen.getByRole('link', { name: 'Заполнить' })).toHaveAttribute(
+      'href',
+      '/goals/review?week=2026-09-28',
+    )
   })
 })

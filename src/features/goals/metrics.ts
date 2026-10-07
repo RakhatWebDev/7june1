@@ -3,7 +3,8 @@ import { formatMinutes } from '../../lib/dates'
 /** Which direction of change is an improvement for a weekly metric. */
 export type Better = 'up' | 'down' | 'neutral'
 
-export type MetricFormat = 'int' | 'kg' | 'km' | 'min' | 'duration' | 'ml' | 'pct' | 'score' | 'money' | 'kcal'
+export type MetricFormat =
+  'int' | 'kg' | 'km' | 'min' | 'duration' | 'ml' | 'pct' | 'score' | 'money' | 'kcal'
 
 export interface MetricMeta {
   key: string

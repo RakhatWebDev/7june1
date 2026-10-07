@@ -7,10 +7,20 @@ import { formatDiff, formatMetric, METRICS } from './metrics'
 import { TONE_CLASS, longDate } from './styles'
 
 /** Read-only star rating, e.g. ★★★★☆ */
-export function Stars({ value, className = '' }: { value: number | undefined; className?: string }) {
+export function Stars({
+  value,
+  className = '',
+}: {
+  value: number | undefined
+  className?: string
+}) {
   const v = Math.max(0, Math.min(5, Math.round(value ?? 0)))
   return (
-    <span className={`text-warn tabular-nums ${className}`} aria-label={`Оценка ${v} из 5`} role="img">
+    <span
+      className={`text-warn tabular-nums ${className}`}
+      aria-label={`Оценка ${v} из 5`}
+      role="img"
+    >
       {'★'.repeat(v)}
       <span className="text-border">{'★'.repeat(5 - v)}</span>
     </span>
@@ -18,7 +28,13 @@ export function Stars({ value, className = '' }: { value: number | undefined; cl
 }
 
 /** Tap-to-rate 1–5 stars. */
-export function RatingInput({ value, onChange }: { value: number | undefined; onChange: (v: 1 | 2 | 3 | 4 | 5) => void }) {
+export function RatingInput({
+  value,
+  onChange,
+}: {
+  value: number | undefined
+  onChange: (v: 1 | 2 | 3 | 4 | 5) => void
+}) {
   return (
     <div className="flex gap-1" role="group" aria-label="Оценка недели">
       {([1, 2, 3, 4, 5] as const).map((n) => (
@@ -59,8 +75,12 @@ export function GoalRow({ goal }: { goal: LifeGoal }) {
               <span className="shrink-0 text-sm font-semibold tabular-nums">{pct}%</span>
             </div>
             <p className="mt-0.5 text-xs text-muted">
-              {goal.status !== 'active' && <span className="mr-2">{GOAL_STATUS_RU[goal.status]}</span>}
-              {goal.keyResults.length > 0 ? `${goal.keyResults.length} KR` : 'Без ключевых результатов'}
+              {goal.status !== 'active' && (
+                <span className="mr-2">{GOAL_STATUS_RU[goal.status]}</span>
+              )}
+              {goal.keyResults.length > 0
+                ? `${goal.keyResults.length} KR`
+                : 'Без ключевых результатов'}
               {goal.deadline && ` · до ${longDate(goal.deadline)}`}
             </p>
             <Progress value={pct / 100} className="mt-2" />
@@ -88,9 +108,15 @@ export function StatGrid({
   currency: string
   showAll?: boolean
 }) {
-  const deltas = weekDeltas(current, previous).filter((d) => showAll || d.current !== 0 || d.previous !== 0)
+  const deltas = weekDeltas(current, previous).filter(
+    (d) => showAll || d.current !== 0 || d.previous !== 0,
+  )
   if (deltas.length === 0) {
-    return <p className="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted">За эту неделю пока нет данных.</p>
+    return (
+      <p className="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted">
+        За эту неделю пока нет данных.
+      </p>
+    )
   }
   const meta = new Map(METRICS.map((m) => [m.key, m]))
   return (
@@ -98,11 +124,22 @@ export function StatGrid({
       {deltas.map((d) => {
         const m = meta.get(d.key)!
         return (
-          <li key={d.key} className="rounded-2xl border border-border bg-surface p-3" data-testid={`stat-${d.key}`}>
+          <li
+            key={d.key}
+            className="rounded-2xl border border-border bg-surface p-3"
+            data-testid={`stat-${d.key}`}
+          >
             <div className="text-xs text-muted">{m.label}</div>
-            <div className="mt-1 text-lg font-semibold tabular-nums">{formatMetric(m.format, d.current, currency)}</div>
-            <div className={`text-xs tabular-nums ${TONE_CLASS[d.tone]}`} data-testid={`delta-${d.key}`}>
-              {d.direction === 'flat' ? '→ без изменений' : `${ARROW[d.direction]} ${formatDiff(m.format, d.diff, currency)}`}
+            <div className="mt-1 text-lg font-semibold tabular-nums">
+              {formatMetric(m.format, d.current, currency)}
+            </div>
+            <div
+              className={`text-xs tabular-nums ${TONE_CLASS[d.tone]}`}
+              data-testid={`delta-${d.key}`}
+            >
+              {d.direction === 'flat'
+                ? '→ без изменений'
+                : `${ARROW[d.direction]} ${formatDiff(m.format, d.diff, currency)}`}
             </div>
           </li>
         )

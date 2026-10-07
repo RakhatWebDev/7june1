@@ -40,7 +40,10 @@ function isEarlyBedtime(bedtime: string): boolean {
  *
  * Averages over days (kcal, water) only count days that have records.
  */
-export async function collectWeekStats(database: FormaDB, weekStart: ISODate): Promise<Record<string, number>> {
+export async function collectWeekStats(
+  database: FormaDB,
+  weekStart: ISODate,
+): Promise<Record<string, number>> {
   const dates = weekDates(fromISODate(weekStart))
   const start = dates[0]
   const end = dates[6]
@@ -90,7 +93,8 @@ export async function collectWeekStats(database: FormaDB, weekStart: ISODate): P
   for (const s of finished) {
     for (const ex of s.exercises ?? []) {
       for (const set of ex.sets ?? []) {
-        if (set.done && !set.warmup && set.weightKg != null && set.reps != null) volume += set.weightKg * set.reps
+        if (set.done && !set.warmup && set.weightKg != null && set.reps != null)
+          volume += set.weightKg * set.reps
       }
     }
   }
@@ -104,9 +108,13 @@ export async function collectWeekStats(database: FormaDB, weekStart: ISODate): P
   const kcalByDay = new Map<string, number>()
   for (const e of foodEntries) kcalByDay.set(e.date, (kcalByDay.get(e.date) ?? 0) + (e.kcal || 0))
   const loggedKcal = [...kcalByDay.values()].filter((k) => k > 0)
-  const kcalTarget = profile ? computeTargets(profile, lastWeight?.weightKg ?? profile.weightKg, fromISODate(end)).kcal : 0
+  const kcalTarget = profile
+    ? computeTargets(profile, lastWeight?.weightKg ?? profile.weightKg, fromISODate(end)).kcal
+    : 0
   const daysOnKcal =
-    kcalTarget > 0 ? loggedKcal.filter((k) => Math.abs(k - kcalTarget) <= kcalTarget * 0.1).length : 0
+    kcalTarget > 0
+      ? loggedKcal.filter((k) => Math.abs(k - kcalTarget) <= kcalTarget * 0.1).length
+      : 0
 
   const waterByDay = new Map<string, number>()
   for (const w of water) waterByDay.set(w.date, (waterByDay.get(w.date) ?? 0) + (w.ml || 0))
@@ -120,7 +128,9 @@ export async function collectWeekStats(database: FormaDB, weekStart: ISODate): P
     stretch: new Set(stretch.map((a) => a.date)),
     water: new Set([...waterByDay].filter(([, ml]) => ml >= waterTarget).map(([d]) => d)),
     sleep: new Set(sleep.filter((s) => isEarlyBedtime(s.bedtime)).map((s) => s.date)),
-    reading: new Set(readingLogs.filter((r) => (r.minutes ?? 0) >= 20 || r.pages >= 10).map((r) => r.date)),
+    reading: new Set(
+      readingLogs.filter((r) => (r.minutes ?? 0) >= 20 || r.pages >= 10).map((r) => r.date),
+    ),
   }
   const scores: number[] = []
   for (const h of habits) {
@@ -129,7 +139,8 @@ export async function collectWeekStats(database: FormaDB, weekStart: ISODate): P
     if (created > end) continue
     const manual = new Map<string, boolean>()
     for (const l of habitLogs) if (l.habitId === h.id) manual.set(l.date, l.done)
-    const isDone = (d: string) => (manual.has(d) ? manual.get(d) === true : !!h.autoRule && auto[h.autoRule].has(d))
+    const isDone = (d: string) =>
+      manual.has(d) ? manual.get(d) === true : !!h.autoRule && auto[h.autoRule].has(d)
     if (h.frequency === 'weekly') {
       const target = Math.min(7, Math.max(1, h.targetPerWeek ?? 3))
       scores.push(Math.min(target, dates.filter(isDone).length) / target)
@@ -141,7 +152,8 @@ export async function collectWeekStats(database: FormaDB, weekStart: ISODate): P
 
   /* --- mind --- */
   const moodValues = moods.map((m) => m.mood).filter((m) => Number.isFinite(m))
-  const gratitudeDays = new Set(journal.filter((j) => j.kind === 'gratitude').map((j) => j.date)).size
+  const gratitudeDays = new Set(journal.filter((j) => j.kind === 'gratitude').map((j) => j.date))
+    .size
 
   /* --- finance --- */
   const expenses = transactions.filter((t) => t.kind === 'expense')

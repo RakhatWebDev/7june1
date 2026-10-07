@@ -16,7 +16,10 @@ export function WeeklyReviewViewPage() {
     [week],
   )
   const prevReview = useLiveQuery(
-    async () => (prevWeek ? ((await db.weeklyReviews.where('weekStart').equals(prevWeek).first()) ?? null) : null),
+    async () =>
+      prevWeek
+        ? ((await db.weeklyReviews.where('weekStart').equals(prevWeek).first()) ?? null)
+        : null,
     [prevWeek],
   )
   // Previous week: its saved snapshot when reviewed, otherwise computed live.
@@ -32,7 +35,10 @@ export function WeeklyReviewViewPage() {
           title="Обзор не найден"
           hint={week.length === 10 ? `Неделя ${weekLabel(week)} ещё не подведена.` : undefined}
           action={
-            <Link to={`/goals/review${week.length === 10 ? `?week=${week}` : ''}`} className={LINK_PRIMARY}>
+            <Link
+              to={`/goals/review${week.length === 10 ? `?week=${week}` : ''}`}
+              className={LINK_PRIMARY}
+            >
               Подвести итоги
             </Link>
           }
@@ -62,7 +68,11 @@ export function WeeklyReviewViewPage() {
       <div className="space-y-4">
         <Card className="flex items-center justify-between gap-3">
           <span className="text-sm text-muted">Оценка недели</span>
-          {review.rating ? <Stars value={review.rating} className="text-xl" /> : <span className="text-sm text-muted">—</span>}
+          {review.rating ? (
+            <Stars value={review.rating} className="text-xl" />
+          ) : (
+            <span className="text-sm text-muted">—</span>
+          )}
         </Card>
 
         {sections.map(([title, lines]) => (

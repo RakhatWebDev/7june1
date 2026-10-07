@@ -3,7 +3,17 @@ import { Link, useNavigate, useParams } from 'react-router'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../../db'
 import type { LifeArea, LifeGoal } from '../../db/types'
-import { Button, Card, EmptyState, Field, Input, PageHeader, Select, Sheet, Stepper } from '../../components/ui'
+import {
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  Input,
+  PageHeader,
+  Select,
+  Sheet,
+  Stepper,
+} from '../../components/ui'
 import { today } from '../../lib/dates'
 import { newId } from '../../lib/id'
 import { GOAL_STATUS_RU, LIFE_AREAS } from './areas'
@@ -30,7 +40,14 @@ const toDraft = (kr: GoalKeyResult): KRDraft => ({
   current: kr.current,
 })
 
-const emptyKR = (): KRDraft => ({ id: newId(), title: '', unit: '', start: '0', target: '', current: 0 })
+const emptyKR = (): KRDraft => ({
+  id: newId(),
+  title: '',
+  unit: '',
+  start: '0',
+  target: '',
+  current: 0,
+})
 
 const parseNum = (s: string) => (s.trim() === '' ? NaN : Number(s.replace(',', '.')))
 
@@ -87,7 +104,14 @@ export function GoalFormPage() {
 function GoalForm({ goal }: { goal?: LifeGoal }) {
   const navigate = useNavigate()
   const isNew = !goal
-  const habits = useLiveQuery(() => db.habits.orderBy('sort').filter((h) => !h.archived).toArray(), [])
+  const habits = useLiveQuery(
+    () =>
+      db.habits
+        .orderBy('sort')
+        .filter((h) => !h.archived)
+        .toArray(),
+    [],
+  )
 
   const [area, setArea] = useState<LifeArea>(goal?.area ?? 'body')
   const [title, setTitle] = useState(goal?.title ?? '')
@@ -109,7 +133,9 @@ function GoalForm({ goal }: { goal?: LifeGoal }) {
   }
 
   function toggleHabit(habitId: string) {
-    setHabitIds((ids) => (ids.includes(habitId) ? ids.filter((x) => x !== habitId) : [...ids, habitId]))
+    setHabitIds((ids) =>
+      ids.includes(habitId) ? ids.filter((x) => x !== habitId) : [...ids, habitId],
+    )
   }
 
   async function save(e: FormEvent) {
@@ -164,8 +190,14 @@ function GoalForm({ goal }: { goal?: LifeGoal }) {
       <PageHeader title={isNew ? 'Новая цель' : 'Цель'} back="/goals" />
       <form onSubmit={save} className="space-y-4">
         <Card>
-          <span className="mb-2 block text-xs font-medium tracking-wide text-muted uppercase">Сфера</span>
-          <div className="grid grid-cols-4 gap-2 sm:grid-cols-7" role="radiogroup" aria-label="Сфера">
+          <span className="mb-2 block text-xs font-medium tracking-wide text-muted uppercase">
+            Сфера
+          </span>
+          <div
+            className="grid grid-cols-4 gap-2 sm:grid-cols-7"
+            role="radiogroup"
+            aria-label="Сфера"
+          >
             {LIFE_AREAS.map((a) => (
               <button
                 key={a.id}
@@ -174,7 +206,9 @@ function GoalForm({ goal }: { goal?: LifeGoal }) {
                 aria-checked={area === a.id}
                 onClick={() => setArea(a.id)}
                 className={`flex flex-col items-center gap-1 rounded-xl border px-1 py-2 text-[11px] transition ${
-                  area === a.id ? 'border-accent bg-accent/15 text-accent' : 'border-border bg-surface-2 text-muted hover:text-text'
+                  area === a.id
+                    ? 'border-accent bg-accent/15 text-accent'
+                    : 'border-border bg-surface-2 text-muted hover:text-text'
                 }`}
               >
                 <span aria-hidden className="text-xl leading-none">
@@ -198,7 +232,12 @@ function GoalForm({ goal }: { goal?: LifeGoal }) {
 
         <Card className="space-y-3">
           <Field label="Название">
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Эстетичное тело" required />
+            <Input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Эстетичное тело"
+              required
+            />
           </Field>
           <Field label="Зачем">
             <textarea
@@ -232,14 +271,21 @@ function GoalForm({ goal }: { goal?: LifeGoal }) {
               + KR
             </Button>
           </div>
-          {krs.length === 0 && <p className="text-sm text-muted">Добавьте измеримые результаты, чтобы видеть прогресс.</p>}
+          {krs.length === 0 && (
+            <p className="text-sm text-muted">
+              Добавьте измеримые результаты, чтобы видеть прогресс.
+            </p>
+          )}
           <ul className="space-y-3">
             {krs.map((k, i) => {
               const kr = draftKr(k)
               const pct = Number.isFinite(kr.target) ? Math.round(krProgress(kr)) : null
               const n = i + 1
               return (
-                <li key={k.id} className="space-y-2 rounded-xl border border-border bg-surface-2/40 p-3">
+                <li
+                  key={k.id}
+                  className="space-y-2 rounded-xl border border-border bg-surface-2/40 p-3"
+                >
                   <div className="flex items-end gap-2">
                     <Field label={`KR ${n}`} className="flex-1">
                       <Input
@@ -290,9 +336,13 @@ function GoalForm({ goal }: { goal?: LifeGoal }) {
                     </Field>
                   </div>
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-xs font-medium tracking-wide text-muted uppercase">Текущее</span>
+                    <span className="text-xs font-medium tracking-wide text-muted uppercase">
+                      Текущее
+                    </span>
                     <div className="flex items-center gap-3">
-                      {pct != null && <span className="text-sm text-muted tabular-nums">{pct}%</span>}
+                      {pct != null && (
+                        <span className="text-sm text-muted tabular-nums">{pct}%</span>
+                      )}
                       <Stepper
                         aria-label={`Текущее KR ${n}`}
                         value={k.current}
@@ -355,7 +405,9 @@ function GoalForm({ goal }: { goal?: LifeGoal }) {
       </form>
 
       <Sheet open={confirmDelete} onClose={() => setConfirmDelete(false)} title="Удалить цель?">
-        <p className="mb-4 text-sm text-muted">Цель «{goal?.title}» и её ключевые результаты будут удалены.</p>
+        <p className="mb-4 text-sm text-muted">
+          Цель «{goal?.title}» и её ключевые результаты будут удалены.
+        </p>
         <div className="flex gap-2">
           <Button variant="secondary" className="flex-1" onClick={() => setConfirmDelete(false)}>
             Отмена

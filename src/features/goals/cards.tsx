@@ -4,7 +4,15 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../../db'
 import { Card, Progress } from '../../components/ui'
 import { areaMeta } from './areas'
-import { goalProgress, isReviewDay, krSummary, reviewTargetWeek, shiftWeek, weekLabel, weekStartOf } from './calc'
+import {
+  goalProgress,
+  isReviewDay,
+  krSummary,
+  reviewTargetWeek,
+  shiftWeek,
+  weekLabel,
+  weekStartOf,
+} from './calc'
 import { Stars } from './components'
 import { LINK_PRIMARY } from './styles'
 
@@ -18,7 +26,9 @@ export function GoalsFocusCard() {
         <Link to="/goals" className="font-semibold hover:text-accent">
           Цели
         </Link>
-        {goals && goals.length > 3 && <span className="text-xs text-muted">ещё {goals.length - 3}</span>}
+        {goals && goals.length > 3 && (
+          <span className="text-xs text-muted">ещё {goals.length - 3}</span>
+        )}
       </div>
       {goals && goals.length === 0 ? (
         <p className="text-sm text-muted">
@@ -76,7 +86,9 @@ export function WeeklyReviewCard({ now }: { now?: Date }) {
       <Card>
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <div className="font-semibold">{reviewDay ? 'Подвести итоги недели' : 'Обзор прошлой недели'}</div>
+            <div className="font-semibold">
+              {reviewDay ? 'Подвести итоги недели' : 'Обзор прошлой недели'}
+            </div>
             <div className="text-xs text-muted">
               {reviewDay ? `Неделя ${weekLabel(week)}` : `${weekLabel(week)} · ещё не заполнен`}
             </div>
@@ -93,7 +105,9 @@ export function WeeklyReviewCard({ now }: { now?: Date }) {
     <Card>
       <Link to={`/goals/review/${week}`} className="block">
         <div className="flex items-baseline justify-between gap-2">
-          <span className="font-semibold">{reviewDay ? 'Итоги недели подведены' : 'Прошлая неделя'}</span>
+          <span className="font-semibold">
+            {reviewDay ? 'Итоги недели подведены' : 'Прошлая неделя'}
+          </span>
           <Stars value={review.rating} />
         </div>
         <div className="text-xs text-muted">{weekLabel(week)}</div>

@@ -48,7 +48,9 @@ export function isDecreasing(kr: GoalKeyResult): boolean {
 /** Stepper step for a key result: half-units for kg/km/hours or fractional values, else 1. */
 export function krStep(kr: GoalKeyResult): number {
   const unit = (kr.unit ?? '').toLowerCase()
-  const fractional = [kr.current, kr.target, krStart(kr)].some((v) => Number.isFinite(v) && !Number.isInteger(v))
+  const fractional = [kr.current, kr.target, krStart(kr)].some(
+    (v) => Number.isFinite(v) && !Number.isInteger(v),
+  )
   if (fractional || /кг|км|^ч|час|kg|km/.test(unit)) return 0.5
   return 1
 }
@@ -75,12 +77,21 @@ export interface WheelPoint {
  * Balance wheel: for each life area, the average progress of all key results of
  * its active goals (0–100). Areas without active goals (or KRs) are 0.
  */
-export function wheelValues(goals: Pick<LifeGoal, 'area' | 'status' | 'keyResults'>[]): WheelPoint[] {
+export function wheelValues(
+  goals: Pick<LifeGoal, 'area' | 'status' | 'keyResults'>[],
+): WheelPoint[] {
   return LIFE_AREAS.map((a) => {
     const active = goals.filter((g) => g.area === a.id && g.status === 'active')
     const krs = active.flatMap((g) => g.keyResults ?? [])
     const value = krs.length === 0 ? 0 : krs.reduce((s, kr) => s + krProgress(kr), 0) / krs.length
-    return { area: a.id, name: a.name, short: a.short, icon: a.icon, value: Math.round(value), goals: active.length }
+    return {
+      area: a.id,
+      name: a.name,
+      short: a.short,
+      icon: a.icon,
+      value: Math.round(value),
+      goals: active.length,
+    }
   })
 }
 
@@ -140,11 +151,14 @@ const round2 = (n: number) => Math.round(n * 100) / 100
 
 export function deltaTone(diff: number, better: Better): Tone {
   if (diff === 0 || better === 'neutral') return 'neutral'
-  return (diff > 0) === (better === 'up') ? 'good' : 'bad'
+  return diff > 0 === (better === 'up') ? 'good' : 'bad'
 }
 
 /** Change of every known weekly metric against the previous week (missing values count as 0). */
-export function weekDeltas(current: Record<string, number>, previous: Record<string, number> | undefined): MetricDelta[] {
+export function weekDeltas(
+  current: Record<string, number>,
+  previous: Record<string, number> | undefined,
+): MetricDelta[] {
   return METRICS.map((m) => {
     const cur = current[m.key] ?? 0
     const prev = previous?.[m.key] ?? 0

@@ -12,7 +12,11 @@ export const LINK_SECONDARY =
 export const TEXTAREA_CLASS =
   'w-full resize-y rounded-xl border border-border bg-surface-2 px-3 py-2 text-base text-text placeholder:text-muted focus:border-accent focus:outline-none'
 
-export const TONE_CLASS = { good: 'text-accent', bad: 'text-danger', neutral: 'text-muted' } as const
+export const TONE_CLASS = {
+  good: 'text-accent',
+  bad: 'text-danger',
+  neutral: 'text-muted',
+} as const
 
 /** "2026-03-01" → "01.03.2026" */
 export function longDate(iso: string): string {

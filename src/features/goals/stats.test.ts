@@ -10,14 +10,21 @@ const at = (date: string, hour = 12, min = 0) => {
   return new Date(y, m - 1, d, hour, min).toISOString()
 }
 
-const set = (weightKg: number, reps: number, done = true, warmup = false): SetLog => ({ weightKg, reps, done, warmup })
+const set = (weightKg: number, reps: number, done = true, warmup = false): SetLog => ({
+  weightKg,
+  reps,
+  done,
+  warmup,
+})
 
 const session = (id: string, date: string, sets: SetLog[], finished = true): WorkoutSession => ({
   id,
   name: 'Тренировка',
   startedAt: at(date, 18),
   finishedAt: finished ? at(date, 19) : undefined,
-  exercises: [{ exerciseId: 'Barbell_Squat', name: 'Присед', targetSets: sets.length, targetReps: '5', sets }],
+  exercises: [
+    { exerciseId: 'Barbell_Squat', name: 'Присед', targetSets: sets.length, targetReps: '5', sets },
+  ],
 })
 
 const WEEK = '2026-09-28' // Monday; the week runs to 2026-10-04
@@ -53,9 +60,30 @@ async function fill(d: FormaDB) {
     { id: 'a4', type: 'run', date: '2026-09-27', durationMin: 60, distanceKm: 10 },
   ])
   await d.sleep.bulkPut([
-    { id: 'sl1', date: '2026-09-29', bedtime: at('2026-09-28', 23), wakeTime: at('2026-09-29', 6), durationMin: 420, quality: 3 },
-    { id: 'sl2', date: '2026-09-30', bedtime: at('2026-09-29', 22), wakeTime: at('2026-09-30', 6), durationMin: 480, quality: 4 },
-    { id: 'sl3', date: '2026-10-01', bedtime: at('2026-09-30', 23, 45), wakeTime: at('2026-10-01', 7), durationMin: 450, quality: 4 },
+    {
+      id: 'sl1',
+      date: '2026-09-29',
+      bedtime: at('2026-09-28', 23),
+      wakeTime: at('2026-09-29', 6),
+      durationMin: 420,
+      quality: 3,
+    },
+    {
+      id: 'sl2',
+      date: '2026-09-30',
+      bedtime: at('2026-09-29', 22),
+      wakeTime: at('2026-09-30', 6),
+      durationMin: 480,
+      quality: 4,
+    },
+    {
+      id: 'sl3',
+      date: '2026-10-01',
+      bedtime: at('2026-09-30', 23, 45),
+      wakeTime: at('2026-10-01', 7),
+      durationMin: 450,
+      quality: 4,
+    },
   ])
   const food = (id: string, date: string, kcal: number) => ({
     id,
@@ -87,9 +115,40 @@ async function fill(d: FormaDB) {
     { id: 'wt2', date: '2026-10-04', weightKg: 87.6 },
   ])
   await d.habits.bulkPut([
-    { id: 'h1', name: 'Без сахара', icon: '🍬', color: 'danger', frequency: 'daily', autoRule: null, sort: 0, archived: false, createdAt },
-    { id: 'h2', name: 'Кардио', icon: '🏃', color: 'info', frequency: 'weekly', targetPerWeek: 3, autoRule: 'cardio', sort: 1, archived: false, createdAt },
-    { id: 'h3', name: 'Старое', icon: '•', color: 'info', frequency: 'daily', autoRule: null, sort: 2, archived: true, createdAt },
+    {
+      id: 'h1',
+      name: 'Без сахара',
+      icon: '🍬',
+      color: 'danger',
+      frequency: 'daily',
+      autoRule: null,
+      sort: 0,
+      archived: false,
+      createdAt,
+    },
+    {
+      id: 'h2',
+      name: 'Кардио',
+      icon: '🏃',
+      color: 'info',
+      frequency: 'weekly',
+      targetPerWeek: 3,
+      autoRule: 'cardio',
+      sort: 1,
+      archived: false,
+      createdAt,
+    },
+    {
+      id: 'h3',
+      name: 'Старое',
+      icon: '•',
+      color: 'info',
+      frequency: 'daily',
+      autoRule: null,
+      sort: 2,
+      archived: true,
+      createdAt,
+    },
   ])
   // h1: 5 of 7 days; h2: auto from cardio on 2 days → 2 of 3
   await d.habitLogs.bulkPut(
@@ -120,10 +179,38 @@ async function fill(d: FormaDB) {
     { id: 'j4', date: '2026-10-01', kind: 'reflection', text: 'x', createdAt },
   ])
   await d.transactions.bulkPut([
-    { id: 't1', kind: 'expense', amount: 5000, categoryId: 'cat-food', date: '2026-09-29', createdAt },
-    { id: 't2', kind: 'expense', amount: 3000, categoryId: 'cat-transport', date: '2026-10-01', createdAt },
-    { id: 't3', kind: 'income', amount: 100000, categoryId: 'cat-salary', date: '2026-10-02', createdAt },
-    { id: 't4', kind: 'expense', amount: 9999, categoryId: 'cat-food', date: '2026-09-27', createdAt },
+    {
+      id: 't1',
+      kind: 'expense',
+      amount: 5000,
+      categoryId: 'cat-food',
+      date: '2026-09-29',
+      createdAt,
+    },
+    {
+      id: 't2',
+      kind: 'expense',
+      amount: 3000,
+      categoryId: 'cat-transport',
+      date: '2026-10-01',
+      createdAt,
+    },
+    {
+      id: 't3',
+      kind: 'income',
+      amount: 100000,
+      categoryId: 'cat-salary',
+      date: '2026-10-02',
+      createdAt,
+    },
+    {
+      id: 't4',
+      kind: 'expense',
+      amount: 9999,
+      categoryId: 'cat-food',
+      date: '2026-09-27',
+      createdAt,
+    },
   ])
   // 52 000 / month → 12 000 / week; 5 000 spent in the budgeted category → 42 %
   await d.budgets.put({ id: 'bud1', categoryId: 'cat-food', monthlyLimit: 52000 })
@@ -137,7 +224,11 @@ async function fill(d: FormaDB) {
     kind: 'gym' as const,
     importedAt: createdAt,
   })
-  await d.calendarEvents.bulkPut([ev('e1', '2026-09-28'), ev('e2', '2026-10-04'), ev('e3', '2026-10-05')])
+  await d.calendarEvents.bulkPut([
+    ev('e1', '2026-09-28'),
+    ev('e2', '2026-10-04'),
+    ev('e3', '2026-10-05'),
+  ])
 }
 
 describe('collectWeekStats', () => {

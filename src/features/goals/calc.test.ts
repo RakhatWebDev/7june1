@@ -19,7 +19,12 @@ import {
 } from './calc'
 import { METRICS } from './metrics'
 
-const kr = (start: number, current: number, target: number, extra: Partial<GoalKeyResult> = {}): GoalKeyResult => ({
+const kr = (
+  start: number,
+  current: number,
+  target: number,
+  extra: Partial<GoalKeyResult> = {},
+): GoalKeyResult => ({
   id: `kr-${Math.random()}`,
   title: 'KR',
   start,
@@ -28,7 +33,11 @@ const kr = (start: number, current: number, target: number, extra: Partial<GoalK
   ...extra,
 })
 
-const goal = (area: LifeGoal['area'], status: LifeGoal['status'], keyResults: GoalKeyResult[]): LifeGoal => ({
+const goal = (
+  area: LifeGoal['area'],
+  status: LifeGoal['status'],
+  keyResults: GoalKeyResult[],
+): LifeGoal => ({
   id: `g-${Math.random()}`,
   area,
   title: 'Goal',
@@ -66,7 +75,9 @@ describe('krProgress', () => {
 
 describe('goalProgress', () => {
   it('averages KR progress', () => {
-    expect(goalProgress(goal('body', 'active', [kr(88, 85, 82), kr(0, 5, 5), kr(0, 0, 8)]))).toBe(50)
+    expect(goalProgress(goal('body', 'active', [kr(88, 85, 82), kr(0, 5, 5), kr(0, 0, 8)]))).toBe(
+      50,
+    )
   })
 
   it('is 0 without KRs unless the goal is done', () => {
@@ -85,9 +96,25 @@ describe('wheelValues', () => {
       goal('mind', 'paused', [kr(0, 4, 4)]), // ignored
     ]
     const wheel = wheelValues(goals)
-    expect(wheel.map((w) => w.area)).toEqual(['body', 'mind', 'finance', 'career', 'relationships', 'spirit', 'learning'])
+    expect(wheel.map((w) => w.area)).toEqual([
+      'body',
+      'mind',
+      'finance',
+      'career',
+      'relationships',
+      'spirit',
+      'learning',
+    ])
     const by = Object.fromEntries(wheel.map((w) => [w.area, w.value]))
-    expect(by).toEqual({ body: 50, mind: 0, finance: 25, career: 0, relationships: 0, spirit: 0, learning: 0 })
+    expect(by).toEqual({
+      body: 50,
+      mind: 0,
+      finance: 25,
+      career: 0,
+      relationships: 0,
+      spirit: 0,
+      learning: 0,
+    })
     expect(wheel.find((w) => w.area === 'body')?.goals).toBe(2)
   })
 
@@ -101,7 +128,13 @@ describe('weekDeltas', () => {
     const current = { workouts: 4, spent: 12000, avgKcal: 2400, habitsPct: 70, moodAvg: 3.8 }
     const previous = { workouts: 3, spent: 15000, avgKcal: 2600, habitsPct: 70, moodAvg: 4.1 }
     const by = Object.fromEntries(weekDeltas(current, previous).map((d) => [d.key, d]))
-    expect(by.workouts).toMatchObject({ current: 4, previous: 3, diff: 1, direction: 'up', tone: 'good' })
+    expect(by.workouts).toMatchObject({
+      current: 4,
+      previous: 3,
+      diff: 1,
+      direction: 'up',
+      tone: 'good',
+    })
     expect(by.spent).toMatchObject({ diff: -3000, direction: 'down', tone: 'good' })
     expect(by.avgKcal).toMatchObject({ diff: -200, direction: 'down', tone: 'neutral' })
     expect(by.habitsPct).toMatchObject({ diff: 0, direction: 'flat', tone: 'neutral' })
@@ -111,7 +144,11 @@ describe('weekDeltas', () => {
   it('treats a missing previous week as zeros and covers every metric', () => {
     const deltas = weekDeltas({ cardioMin: 90 }, undefined)
     expect(deltas).toHaveLength(METRICS.length)
-    expect(deltas.find((d) => d.key === 'cardioMin')).toMatchObject({ diff: 90, direction: 'up', tone: 'good' })
+    expect(deltas.find((d) => d.key === 'cardioMin')).toMatchObject({
+      diff: 90,
+      direction: 'up',
+      tone: 'good',
+    })
     expect(deltas.find((d) => d.key === 'workouts')).toMatchObject({ diff: 0, direction: 'flat' })
   })
 

@@ -7,7 +7,14 @@ export const STARTER_GOAL_ID = 'goal-aesthetic-body'
 
 const starterKeyResults: GoalKeyResult[] = [
   { id: 'kr-weight', title: 'Вес', start: 88, current: 88, target: 82, unit: 'кг' },
-  { id: 'kr-workouts', title: 'Тренировок в неделю', start: 0, current: 0, target: 5, unit: 'трен.' },
+  {
+    id: 'kr-workouts',
+    title: 'Тренировок в неделю',
+    start: 0,
+    current: 0,
+    target: 5,
+    unit: 'трен.',
+  },
   { id: 'kr-sleep', title: 'Сон', start: 0, current: 0, target: 8, unit: 'ч' },
 ]
 
