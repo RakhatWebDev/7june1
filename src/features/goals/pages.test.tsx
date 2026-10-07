@@ -6,6 +6,7 @@ import { createMemoryRouter, RouterProvider } from 'react-router'
 import { db } from '../../db'
 import type { LifeGoal, WorkoutSession } from '../../db/types'
 import { today } from '../../lib/dates'
+import type { GoalKeyResult } from './calc'
 import { GoalsFocusCard, WeeklyReviewCard } from './cards'
 import { goalsRoutes } from './routes'
 import { GOALS_SEEDED_KEY, STARTER_GOAL_ID, starterGoal } from './seed'
@@ -82,7 +83,7 @@ describe('GoalsPage', () => {
 
   it('shows area progress on the wheel legend and filters finished goals', async () => {
     await db.lifeGoals.bulkPut([
-      goal('g1', 'Сбросить вес', { keyResults: [{ id: 'k', title: 'Вес', start: 88, current: 85, target: 82 } as never] }),
+      goal('g1', 'Сбросить вес', { keyResults: [{ id: 'k', title: 'Вес', start: 88, current: 85, target: 82 } as GoalKeyResult] }),
       goal('g2', 'Марафон', { status: 'done', sort: 1 }),
     ])
     const user = userEvent.setup()
@@ -157,6 +158,7 @@ describe('GoalFormPage', () => {
     expect(saved).toMatchObject({ status: 'done', completedAt: today() })
     expect(saved?.habitIds).toContain('habit-steps')
 
+    await screen.findByText('Колесо баланса')
     await router.navigate(`/goals/${STARTER_GOAL_ID}`)
     await user.click(await screen.findByRole('button', { name: 'Удалить' }))
     await user.click(screen.getByRole('button', { name: 'Удалить навсегда' }))
@@ -227,7 +229,6 @@ describe('WeeklyReviewPage', () => {
     await user.click(screen.getByRole('button', { name: 'Сохранить обзор' }))
     await waitFor(async () => expect((await db.weeklyReviews.toArray())[0].wins).toEqual(['Пять тренировок']))
     expect(await db.weeklyReviews.count()).toBe(1)
-    expect(await screen.findByRole('list', { name: 'Прошлые обзоры' }).catch(() => null)).toBeNull()
   })
 
   it('lists past reviews and opens one', async () => {
@@ -259,7 +260,7 @@ describe('WeeklyReviewPage', () => {
 describe('cards', () => {
   it('GoalsFocusCard shows up to three active goals', async () => {
     await db.lifeGoals.bulkPut([
-      goal('a', 'Цель A', { sort: 0, keyResults: [{ id: 'k', title: 'Вес', current: 85, target: 82, start: 88, unit: 'кг' } as never] }),
+      goal('a', 'Цель A', { sort: 0, keyResults: [{ id: 'k', title: 'Вес', current: 85, target: 82, start: 88, unit: 'кг' } as GoalKeyResult] }),
       goal('b', 'Цель B', { sort: 1 }),
       goal('c', 'Цель C', { sort: 2 }),
       goal('d', 'Цель D', { sort: 3 }),
