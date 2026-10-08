@@ -22,15 +22,23 @@ export const DEFAULT_PROFILE: Profile = {
   updatedAt: new Date().toISOString(),
 }
 
+/** settings key of a program's cycle state (same as features/workouts/schedule `cycleKey`) */
+const cycleKey = (programId: string) => `program.cycle:${programId}`
+
 /**
  * Idempotent: creates the profile if missing and upserts built-in programs
  * (user-created programs are never touched); seeds lift maxes and the default active program if absent.
+ * When a stored built-in program has a different `version`, its cycle state (week, rotation) is reset.
  */
 export async function ensureSeeded(database = db): Promise<void> {
-  await database.transaction('rw', database.profile, database.programs, async () => {
+  await database.transaction('rw', database.profile, database.programs, database.settings, async () => {
     const profile = await database.profile.get(1)
     if (!profile) await database.profile.put(DEFAULT_PROFILE)
-    for (const p of builtInPrograms) await database.programs.put(p)
+    for (const p of builtInPrograms) {
+      const stored = await database.programs.get(p.id)
+      if (stored && stored.version !== p.version) await database.settings.delete(cycleKey(p.id))
+      await database.programs.put(p)
+    }
   })
   await ensureProgramSettingsSeeded(database)
   await ensureFinanceSeeded(database)

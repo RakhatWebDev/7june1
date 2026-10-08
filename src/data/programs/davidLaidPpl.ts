@@ -1,9 +1,22 @@
-import type { ProgramExercise, Program } from '../../db/types'
-import { DAVID_LAID_PCT_TABLE, cyc, singlePlus, staticHold, straight, times } from './build'
+import type { ProgramExercise, ProgramExerciseWeek, Program } from '../../db/types'
+import {
+  DAVID_LAID_PCT_TABLE,
+  PROGRAM_WEEKS,
+  SESSIONS_PER_WEEK,
+  cyc as cyc4,
+  davidLaidBlocks,
+  singlePlus,
+  staticHold,
+  straight,
+  times,
+  twelveWeeks,
+} from './build'
 
 /*
  * David Laid — "Push_Pull_Legs_Split" (the user's Word document, see docs/source/david-laid-programs.txt).
- * 4-week cycle, 6 days rotating in order. Main lifts progress 4×10 → 5×8 → 6×5 → 7×3 (% of max from the
+ * The document has 6 sessions per week × 4 weeks; laid out as 12 program weeks of 3 sessions with a rotation of
+ * 6 sessions (= 2 program weeks): weeks 1–8 = document weeks 1–4 (each twice), week 9 = test week,
+ * weeks 10–12 = document weeks 1–3. Main lifts progress 4×10 → 5×8 → 6×5 → 7×3 (% of max from the
  * Program 1 table); variations (pause/Spoto bench, block/deficit/pause deadlift, behind-the-neck press)
  * have no % — weight is picked by feel and auto-regulated from the previous session.
  */
@@ -12,6 +25,14 @@ const SQUAT = 'Barbell_Squat'
 const BENCH = 'Barbell_Bench_Press_-_Medium_Grip'
 const DEADLIFT = 'Barbell_Deadlift'
 const CORE_REST = 180
+
+/** Exercise defined by its 4 document weeks, expanded to the 12-week layout. */
+const cyc = (
+  exerciseId: string,
+  name: string,
+  doc: ProgramExerciseWeek[],
+  opts?: Parameters<typeof cyc4>[3],
+): ProgramExercise => cyc4(exerciseId, name, twelveWeeks(doc), opts)
 
 const s = straight
 const core = (sets: number, reps: number) => straight(sets, reps, true)
@@ -32,19 +53,24 @@ const legAccessories = (): ProgramExercise[] => [
 
 export const davidLaidPpl: Program = {
   id: 'david-laid-ppl',
-  name: 'David Laid — Push/Pull/Legs (4 недели)',
+  name: 'David Laid — Push/Pull/Legs (12 недель, 3×/нед)',
   description:
-    '6 тренировок по кругу: Ноги 1 → Жим 1 → Тяга 1 → Ноги 2 → Жим 2 → Тяга 2. Основные упражнения: ' +
-    '4×10 → 5×8 → 6×5 → 7×3 за 4 недели, тяжёлые синглы на первой неделе, статические удержания приседа на 120 %.',
+    '3 тренировки в неделю, 12 недель. По кругу из 6 тренировок: Ноги 1 → Жим 1 → Тяга 1 → Ноги 2 → Жим 2 → Тяга 2. ' +
+    'Основные упражнения блоками по 2 недели: 4×10 → 5×8 → 6×5 → 7×3, тяжёлые синглы в первом блоке, ' +
+    'статические удержания приседа на 120 %; затем тестовая неделя и повтор первых трёх блоков.',
   source:
     'Документ David Laid «Push_Pull_Legs_Split» (присланный пользователем файл). Процентов в документе нет — ' +
     'для основных упражнений взята таблица из «Программы 1», авторегуляция поправит тренировочный максимум.',
-  daysPerWeek: 6,
+  daysPerWeek: SESSIONS_PER_WEEK,
+  sessionsPerWeek: SESSIONS_PER_WEEK,
   schedule: 'sequential',
-  weeks: 4,
+  weeks: PROGRAM_WEEKS,
+  version: 2,
+  blocks: davidLaidBlocks(['4×10', '5×8', '6×5', '7×3']),
   cycleNotes:
-    'После 4 недель — неделя проверки максимумов, затем цикл заново. Статические удержания — только в силовой раме ' +
-    'со страховочными упорами.',
+    'Неделя программы = 3 тренировки. Недели 1–8 = недели документа 1–4 (каждая по 2 недели), неделя 9 — тест ' +
+    'новых максимумов (без статических удержаний), недели 10–12 — недели 1–3 документа. 4-я тренировка за ' +
+    'календарную неделю просто продолжает круг. Статические удержания — только в силовой раме со страховочными упорами.',
   maxLifts: [
     { exerciseId: SQUAT, label: 'Присед' },
     { exerciseId: BENCH, label: 'Жим лёжа' },

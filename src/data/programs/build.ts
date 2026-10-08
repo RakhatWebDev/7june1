@@ -1,4 +1,4 @@
-import type { ProgramExercise, ProgramExerciseWeek, SetTarget } from '../../db/types'
+import type { Program, ProgramExercise, ProgramExerciseWeek, SetTarget } from '../../db/types'
 
 /**
  * Builders for cyclic programs (David Laid's documents). A week is encoded as
@@ -107,6 +107,74 @@ export function skip(): ProgramExerciseWeek {
 
 export const times = (w: ProgramExerciseWeek, n = 4): ProgramExerciseWeek[] =>
   Array.from({ length: n }, () => ({ ...w }))
+
+/* --------------------------- 3 sessions × 12 weeks --------------------------- */
+
+/** Program length of the restructured built-ins (the owner trains 3×/week for ~3 months). */
+export const PROGRAM_WEEKS = 12
+export const SESSIONS_PER_WEEK = 3
+/** Program week (0-based) of the test week in the David Laid layouts */
+export const TEST_WEEK = 8
+
+export const TEST_NOTE = 'тестовая неделя: разминка и подход к новому максимуму (шаг до 10 кг при >80 %)'
+
+const numericReps = (reps: string) => /^\s*\d+(\s*[-–]\s*\d+)?\s*$/.test(reps)
+
+/** Test week: work up to a new 1RM on %-lifts, light 2×10 on accessories, no static holds. */
+export function testWeekFor(doc: ProgramExerciseWeek[]): ProgramExerciseWeek {
+  const pctSets = doc.flatMap((w) => w.scheme ?? []).filter((t) => t.pct != null)
+  if (pctSets.some((t) => numericReps(t.reps)))
+    return {
+      sets: 1,
+      reps: '1',
+      intensity: 'ТЕСТ 1RM',
+      scheme: [{ reps: '1', pct: 1, note: TEST_NOTE }],
+      notes: `Тест: ${TEST_NOTE}`,
+    }
+  if (pctSets.length > 0) return { sets: 0, reps: '—', notes: 'Тестовая неделя — без удержаний' }
+  const base = doc.find((w) => w.sets > 0) ?? doc[0]
+  const firstReps = base.scheme?.[0]?.reps ?? base.reps
+  const light = numericReps(firstReps) ? straight(2, 10) : straight(2, firstReps)
+  return { ...light, notes: 'Тестовая неделя: лёгко, без отказа' }
+}
+
+/**
+ * Document weeks (4) → 12 program weeks of 3 sessions. A rotation of 6 sessions takes two program weeks,
+ * so weeks 1–2 = document week 1, 3–4 = week 2, 5–6 = week 3, 7–8 = week 4, week 9 = test week,
+ * weeks 10–12 = document weeks 1–3 again (with the new maxes).
+ */
+export function twelveWeeks(
+  doc: ProgramExerciseWeek[],
+  test: ProgramExerciseWeek = testWeekFor(doc),
+): ProgramExerciseWeek[] {
+  if (doc.length !== 4) throw new Error('twelveWeeks expects the 4 document weeks')
+  const [w1, w2, w3, w4] = doc
+  return [w1, w1, w2, w2, w3, w3, w4, w4, test, w1, w2, w3].map((w) => ({
+    ...w,
+    ...(w.scheme ? { scheme: w.scheme.map((t) => ({ ...t })) } : {}),
+  }))
+}
+
+/** Deload week: sets −35 % (rounded, at least 2), same reps. */
+export function deload(w: ProgramExerciseWeek): ProgramExerciseWeek {
+  const sets = Math.max(2, Math.round(w.sets * 0.65))
+  const scheme = Array.from({ length: sets }, (_, i) => ({ ...(w.scheme?.[i] ?? { reps: w.reps }) }))
+  return { ...w, sets, scheme, notes: 'разгрузка: −35 % подходов' }
+}
+
+/** Week ranges of the David Laid 12-week layout, labelled by document week. */
+export function davidLaidBlocks(docLabels: [string, string, string, string]): NonNullable<Program['blocks']> {
+  return [
+    { label: `Блок 1 · ${docLabels[0]}`, fromWeek: 0, toWeek: 1 },
+    { label: `Блок 2 · ${docLabels[1]}`, fromWeek: 2, toWeek: 3 },
+    { label: `Блок 3 · ${docLabels[2]}`, fromWeek: 4, toWeek: 5 },
+    { label: `Блок 4 · ${docLabels[3]}`, fromWeek: 6, toWeek: 7 },
+    { label: 'Тест · новые максимумы', fromWeek: TEST_WEEK, toWeek: TEST_WEEK, test: true },
+    { label: `Повтор · ${docLabels[0]}`, fromWeek: 9, toWeek: 9 },
+    { label: `Повтор · ${docLabels[1]}`, fromWeek: 10, toWeek: 10 },
+    { label: `Повтор · ${docLabels[2]}`, fromWeek: 11, toWeek: 11 },
+  ]
+}
 
 /** A cyclic program exercise; the base fields mirror the first week that has sets. */
 export function cyc(

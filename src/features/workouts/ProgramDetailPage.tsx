@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Button, Card, EmptyState, Input, PageHeader, SegmentedControl, Stepper } from '../../components/ui'
+import { Button, Card, EmptyState, Input, PageHeader, Stepper } from '../../components/ui'
 import { Icon } from '../../components/icons'
 import { db } from '../../db'
 import type { Program, ProgramDay } from '../../db/types'
@@ -12,10 +12,11 @@ import { prescriptionSets } from './autoreg'
 import { fmtKg, isStartableDay, weekPrescription } from './calc'
 import { ConfirmSheet } from './ConfirmSheet'
 import { useActiveProgram } from './hooks'
-import { DAY_TYPE_RU, restLabel } from './labels'
+import { DAY_TYPE_RU, programSubtitle, restLabel } from './labels'
 import { primaryLink } from './linkStyles'
 import {
   asTargetPerWeek,
+  blockFor,
   getScheduledDay,
   restartCycle,
   scheduleLabel,
@@ -46,9 +47,7 @@ export function ProgramDetailPage() {
   const sequential = program.schedule === 'sequential'
   const todayIdx = weekdayIndex()
   const viewWeek = schedule?.prescriptionWeek
-  const subtitle = sequential
-    ? `${program.days.length} дн. по кругу${program.weeks ? ` · цикл ${program.weeks} нед.` : ''}`
-    : `${program.daysPerWeek} дн./нед.`
+  const subtitle = programSubtitle(program)
   return (
     <>
       <PageHeader title={program.name} subtitle={subtitle} back="/workouts" />
@@ -100,6 +99,7 @@ function FrequencyRow() {
     <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
       <span className="text-sm">
         Тренировок в неделю: <span className="font-semibold tabular-nums">{target}</span>
+        <span className="block text-xs text-muted">цель для счётчика «На этой неделе»</span>
       </span>
       <div className="[&_input]:w-12">
         <Stepper
@@ -118,32 +118,74 @@ function CycleCard({ program, schedule }: { program: Program; schedule: Schedule
   const [confirm, setConfirm] = useState(false)
   const weeks = program.weeks ?? 0
   const label = scheduleLabel(schedule)
-  const options = Array.from({ length: weeks }, (_, i) => ({
-    value: String(i),
-    label: String(i + 1),
-  }))
+  const current = schedule.isComplete ? -1 : (schedule.prescriptionWeek ?? 0)
+  const blocks = program.blocks ?? []
+  const block = blockFor(program, current)
   return (
     <Card className="mt-4">
       <p className="flex items-center gap-1.5 text-xs font-medium tracking-wide text-accent uppercase">
         <Icon name="calendar" size={14} />
-        Цикл
+        План · {weeks} нед.
       </p>
       {label && <h2 className="mt-1 text-lg font-semibold tracking-tight tabular-nums">{label}</h2>}
+      {block && <p className="text-sm text-muted">{block.label}</p>}
+      <p className="mt-1 text-xs text-muted" data-testid="week-hint">
+        Неделя программы = {schedule.sessionsPerWeek} тренировки: недели считаются по выполненным тренировкам, а не по
+        календарю.
+      </p>
       {schedule.isTestWeek && (
         <p className="mt-2 rounded-2xl border border-warn/30 bg-warn/10 p-3 text-sm" data-testid="test-week">
-          Цикл из {weeks} недель пройден. Тестовая неделя: проверь новые максимумы, обнови «Мои максимумы» и начни цикл
-          заново.
+          Тестовая неделя: в базовых подойди к новому максимуму, аксессуары — легко. Новый максимум предложит сохранить
+          итог тренировки — дальше веса посчитаются от него.
+        </p>
+      )}
+      {schedule.isComplete && (
+        <p className="mt-2 rounded-2xl border border-accent/30 bg-accent/10 p-3 text-sm" data-testid="program-complete">
+          Все {weeks} недель пройдены. По желанию — неделя MAX (проверь максимумы), затем «Начать цикл заново».
         </p>
       )}
       <div className="mt-3">
         <p className="mb-1.5 text-xs text-muted">Неделя (можно выбрать вручную)</p>
-        <SegmentedControl
-          aria-label="Неделя цикла"
-          size="sm"
-          options={options}
-          value={String(schedule.isTestWeek ? -1 : (schedule.prescriptionWeek ?? 0))}
-          onChange={(v) => void setCycleWeek(db, program, Number(v))}
-        />
+        <div role="radiogroup" aria-label="Неделя программы" className="grid grid-cols-6 gap-1.5">
+          {Array.from({ length: weeks }, (_, i) => {
+            const b = blockFor(program, i)
+            const active = i === current
+            return (
+              <button
+                key={i}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                aria-label={`Неделя ${i + 1}${b ? `: ${b.label}` : ''}`}
+                title={b?.label}
+                onClick={() => void setCycleWeek(db, program, i)}
+                className={`h-9 rounded-xl text-sm font-semibold tabular-nums transition-colors ${
+                  active
+                    ? 'bg-accent text-bg'
+                    : b?.test
+                      ? 'bg-warn/15 text-warn hover:bg-warn/25'
+                      : 'bg-surface-2 text-text hover:bg-surface-3'
+                }`}
+              >
+                {i + 1}
+              </button>
+            )
+          })}
+        </div>
+        {blocks.length > 0 && (
+          <ul className="mt-3 space-y-1 text-xs" data-testid="blocks">
+            {blocks.map((b, i) => {
+              const on = current >= b.fromWeek && current <= b.toWeek
+              const range = b.fromWeek === b.toWeek ? `${b.fromWeek + 1}` : `${b.fromWeek + 1}–${b.toWeek + 1}`
+              return (
+                <li key={i} className={`flex gap-2 ${on ? 'font-medium text-accent' : 'text-muted'}`}>
+                  <span className="w-10 shrink-0 tabular-nums">нед. {range}</span>
+                  <span className="min-w-0">{b.label}</span>
+                </li>
+              )
+            })}
+          </ul>
+        )}
       </div>
       <Button className="mt-3 w-full" size="sm" variant="secondary" icon="history" onClick={() => setConfirm(true)}>
         Начать цикл заново
@@ -151,7 +193,7 @@ function CycleCard({ program, schedule }: { program: Program; schedule: Schedule
       <ConfirmSheet
         open={confirm}
         title="Начать цикл заново?"
-        text="Неделя 1, первый день программы."
+        text="Неделя 1, первая тренировка программы."
         confirmLabel="Начать заново"
         onConfirm={() => void restartCycle(db, program.id)}
         onClose={() => setConfirm(false)}

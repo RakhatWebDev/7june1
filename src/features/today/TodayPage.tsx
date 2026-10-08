@@ -29,7 +29,7 @@ import { FinanceTodayCard } from '../finance/cards'
 import { GoalsFocusCard, WeeklyReviewCard } from '../goals/cards'
 import { MorningBriefCard } from '../coach/cards'
 import { AskCoachCard } from '../assistant/cards'
-import { getScheduledDay, getWeeklyProgress, scheduleLabel } from '../workouts/schedule'
+import { getScheduledDay, getWeeklyProgress, todayLabel } from '../workouts/schedule'
 import { weekPrescription } from '../workouts/calc'
 import {
   ACTIVITY_LABEL_RU,
@@ -75,7 +75,7 @@ async function loadDashboard(day: string) {
   ])
   const finishedToday = recentSessions.filter((s) => s.finishedAt && sessionLocalDate(s) === day)
   const program = pickProgram(programs, activeSetting?.value)
-  // Weekday programs: today's day; sequential ones: the next day in the rotation (+ cycle week)
+  // Weekday programs: today's day; sequential ones: the next day in the rotation (+ program week)
   const [schedule, weekly] = await Promise.all([
     program ? getScheduledDay(db, program) : Promise.resolve(undefined),
     getWeeklyProgress(db),
@@ -313,7 +313,7 @@ function MacroLine({
 function WorkoutCard({ data }: { data: Dashboard }) {
   const { program, activeSession, finishedToday, schedule, weekly } = data
   const day = schedule?.day
-  const cycle = schedule ? scheduleLabel(schedule) : undefined
+  const cycle = schedule ? todayLabel(schedule) : undefined
   const progress = weeklyProgress(weekly.done, weekly.target)
   const progressLine = program ? (
     <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted tabular-nums">

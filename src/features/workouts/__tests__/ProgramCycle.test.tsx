@@ -12,11 +12,11 @@ beforeEach(async () => {
 })
 
 describe('Program 1 on /workouts', () => {
-  it('shows the next day in the rotation with its cycle week and weekly progress', async () => {
+  it('shows the next session of the rotation with its program week and weekly progress', async () => {
     renderRoute('/workouts')
     expect(await screen.findByText('Следующая тренировка')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Ноги' })).toBeInTheDocument()
-    expect(screen.getByText(/Неделя 1 · день 1 из 5/)).toBeInTheDocument()
+    expect(screen.getByText(/Неделя 1 из 12 · тренировка 1 из 3/)).toBeInTheDocument()
     expect(screen.getByTestId('weekly-progress')).toHaveTextContent('На этой неделе 0 из 3')
     expect(screen.getByRole('link', { name: 'Начать тренировку' })).toHaveAttribute(
       'href',
@@ -29,7 +29,9 @@ describe('ProgramDetailPage — cycle, maxes, frequency', () => {
   it('shows week targets in kg, the %-table and edits maxes', async () => {
     renderRoute('/workouts/programs/david-laid-program-1')
     expect(await screen.findByText('Мои максимумы')).toBeInTheDocument()
-    expect(await screen.findByText('Неделя 1 · день 1 из 5')).toBeInTheDocument()
+    expect(await screen.findByText('Неделя 1 из 12 · тренировка 1 из 3')).toBeInTheDocument()
+    expect(screen.getByTestId('week-hint')).toHaveTextContent('Неделя программы = 3 тренировки')
+    expect(screen.getByText('3 трен./нед. · 12 нед. · круг из 6 тренировок')).toBeInTheDocument()
     expect(screen.getByTestId('pct-table')).toHaveTextContent('10 → 60 %')
     const squat = screen.getAllByRole('link', { name: /^Присед/ })[0]
     expect(squat).toHaveTextContent('10-8-6')
@@ -47,30 +49,42 @@ describe('ProgramDetailPage — cycle, maxes, frequency', () => {
     )
   })
 
-  it('switches the week manually, restarts the cycle and sets the weekly frequency', async () => {
+  it('shows the 12-week plan, switches the week manually, restarts and sets the weekly frequency', async () => {
     renderRoute('/workouts/programs/david-laid-program-1')
-    const weeks = await screen.findByRole('radiogroup', { name: 'Неделя цикла' })
-    fireEvent.click(within(weeks).getByRole('radio', { name: '4' }))
-    await waitFor(() => expect(screen.getByText('Неделя 4 · день 1 из 5')).toBeInTheDocument())
+    const weeks = await screen.findByRole('radiogroup', { name: 'Неделя программы' })
+    expect(within(weeks).getAllByRole('radio')).toHaveLength(12)
+    expect(screen.getByTestId('blocks')).toHaveTextContent('Блок 1 · 10-8-6')
+    expect(screen.getByTestId('blocks')).toHaveTextContent('Тест · новые максимумы')
+    fireEvent.click(within(weeks).getByRole('radio', { name: 'Неделя 7: Блок 4 · MAX' }))
+    await waitFor(() => expect(screen.getByText('Неделя 7 из 12 · тренировка 1 из 3')).toBeInTheDocument())
+    expect(within(weeks).getByRole('radio', { name: /Неделя 7/ })).toHaveAttribute('aria-checked', 'true')
     expect(screen.getAllByRole('link', { name: /^Присед/ })[0]).toHaveTextContent('1 × 1')
 
     fireEvent.click(screen.getByRole('button', { name: 'Начать цикл заново' }))
     const confirm = await screen.findByRole('dialog', { name: 'Начать цикл заново?' })
     fireEvent.click(within(confirm).getByRole('button', { name: 'Начать заново' }))
-    await waitFor(() => expect(screen.getByText('Неделя 1 · день 1 из 5')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Неделя 1 из 12 · тренировка 1 из 3')).toBeInTheDocument())
 
     const stepper = screen.getByLabelText('Тренировок в неделю').parentElement!
     fireEvent.click(within(stepper).getByRole('button', { name: 'Больше' }))
     await waitFor(async () => expect((await db.settings.get('training.targetPerWeek'))?.value).toBe(4))
   })
 
-  it('suggests a test week after the 4th week', async () => {
+  it('marks the test week (week 9) and the end of the program', async () => {
     await db.settings.put({
       key: 'program.cycle:david-laid-program-1',
-      value: { startDate: '2026-09-01', week: 4, nextDayIndex: 0 },
+      value: { startDate: '2026-09-01', completedSessions: 25, nextDayIndex: 1 },
+    })
+    const { unmount } = renderRoute('/workouts/programs/david-laid-program-1')
+    expect(await screen.findByTestId('test-week')).toHaveTextContent('Тестовая неделя')
+    expect(screen.getByText('Неделя 9 из 12 (тест) · тренировка 2 из 3')).toBeInTheDocument()
+    unmount()
+    await db.settings.put({
+      key: 'program.cycle:david-laid-program-1',
+      value: { startDate: '2026-09-01', completedSessions: 36, nextDayIndex: 0 },
     })
     renderRoute('/workouts/programs/david-laid-program-1')
-    expect(await screen.findByTestId('test-week')).toHaveTextContent('Тестовая неделя')
+    expect(await screen.findByTestId('program-complete')).toHaveTextContent('неделя MAX')
   })
 })
 
@@ -85,6 +99,7 @@ describe('Session targets and max prompt', () => {
         programId: 'david-laid-program-1',
         programDayId: 'p1-legs',
         programWeek: 0,
+        programSession: 0,
         exercises: [
           {
             exerciseId: 'Barbell_Squat',
@@ -104,7 +119,7 @@ describe('Session targets and max prompt', () => {
     )
     renderRoute('/workouts/session/cur')
     expect(await screen.findByText('цель 8 × 45 кг')).toBeInTheDocument()
-    expect(await screen.findByText('Неделя 1 · день 1 из 5')).toBeInTheDocument()
+    expect(await screen.findByText('Неделя 1 из 12 · тренировка 1 из 3')).toBeInTheDocument()
     expect(screen.getByTestId('exercise-hint')).toHaveTextContent('Тренировочный макс. 62,5 кг')
     expect(screen.getByTestId('exercise-hint')).toHaveClass('text-accent')
     fireEvent.click(screen.getByRole('button', { name: 'Взять цель, подход 2' }))

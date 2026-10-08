@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { davidLaidDup } from '../../data/programs/davidLaidDup'
 import type { Program } from '../../db/types'
+import { weekdayProgram } from '../workouts/__tests__/fixtures'
 import { greeting, pickProgram, scheduledDay, sessionVolume, weeklyProgress } from './calc'
 
 const custom: Program = { ...davidLaidDup, id: 'custom', name: 'Моя', isBuiltIn: false }
@@ -23,8 +24,8 @@ describe('today calc', () => {
   })
 
   it('finds the scheduled day by Monday-based weekday', () => {
-    expect(scheduledDay(davidLaidDup, 0)?.id).toBe('legs-1')
-    expect(scheduledDay(davidLaidDup, 6)?.type).toBe('rest')
+    expect(scheduledDay(weekdayProgram, 0)?.id).toBe('legs-1')
+    expect(scheduledDay(weekdayProgram, 6)?.type).toBe('rest')
     expect(scheduledDay(undefined, 0)).toBeUndefined()
   })
 

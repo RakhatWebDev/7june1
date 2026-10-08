@@ -113,7 +113,7 @@ export function buildSessionFromDay(
   day: ProgramDay,
   id: string,
   now: Date = new Date(),
-  opts: { week?: number; extras?: ExerciseExtras } = {},
+  opts: { week?: number; programSession?: number; extras?: ExerciseExtras } = {},
 ): WorkoutSession {
   const cyclic = program.weeks != null && opts.week != null
   const exercises: SessionExercise[] = []
@@ -139,6 +139,7 @@ export function buildSessionFromDay(
     programId: program.id,
     programDayId: day.id,
     ...(cyclic ? { programWeek: opts.week } : {}),
+    ...(cyclic && opts.programSession != null ? { programSession: opts.programSession } : {}),
     name: day.name,
     startedAt: now.toISOString(),
     exercises,

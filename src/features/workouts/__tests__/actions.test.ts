@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { FormaDB } from '../../../db'
 import { ensureSeeded } from '../../../db/seed'
 import { davidLaidDup } from '../../../data/programs/davidLaidDup'
+import { weekdayProgram } from './fixtures'
 import {
   addExercise,
   addSet,
@@ -54,7 +55,8 @@ describe('startSession', () => {
   })
 
   it('refuses rest days and unknown programs', async () => {
-    await expect(startSession('david-laid-dup', 'rest', database)).rejects.toThrow(/отдыха/)
+    await database.programs.put(weekdayProgram)
+    await expect(startSession(weekdayProgram.id, 'rest', database)).rejects.toThrow(/отдыха/)
     await expect(startSession('nope', 'legs-1', database)).rejects.toThrow(/не найдена/)
     expect(await database.sessions.count()).toBe(0)
   })
@@ -91,10 +93,10 @@ describe('startSession — cyclic programs and auto-regulation', () => {
   const P1 = 'david-laid-program-1'
   const tms = async () => ((await database.settings.get('lifts.trainingMaxes'))?.value ?? {}) as Record<string, number>
 
-  it('resolves per-set targets from % × max and stores the cycle week', async () => {
+  it('resolves per-set targets from % × max and stores the program week and session index', async () => {
     const id = await startSession(P1, 'p1-legs', database)
     const s = (await database.sessions.get(id))!
-    expect(s.programWeek).toBe(0)
+    expect(s).toMatchObject({ programWeek: 0, programSession: 0 })
     const squat = s.exercises[0]
     expect(squat).toMatchObject({
       exerciseId: 'Barbell_Squat',
@@ -112,14 +114,15 @@ describe('startSession — cyclic programs and auto-regulation', () => {
     expect((await tms()).Barbell_Squat).toBe(60)
   })
 
-  it('uses the week prescription and skips exercises that are off this week', async () => {
+  it('uses the program-week prescription and skips exercises that are off this week', async () => {
+    // 21 finished sessions → program week 8 = document week 4
     await database.settings.put({
       key: `program.cycle:${P1}`,
-      value: { startDate: '2026-10-01', week: 3, nextDayIndex: 4 },
+      value: { startDate: '2026-10-01', completedSessions: 21, nextDayIndex: 5 },
     })
     const id = await startSession(P1, 'p1-pull-2', database)
     const s = (await database.sessions.get(id))!
-    expect(s.programWeek).toBe(3)
+    expect(s).toMatchObject({ programWeek: 7, programSession: 21 })
     expect(s.exercises.map((e) => e.exerciseId)).not.toContain('Front_Barbell_Squat')
     expect(s.exercises[0]).toMatchObject({ exerciseId: 'Sumo_Deadlift', targetReps: '10-8-6' })
     // no sumo max yet → % only, with a hint to enter the max
@@ -138,12 +141,8 @@ describe('startSession — cyclic programs and auto-regulation', () => {
     expect((await tms()).Barbell_Squat).toBe(60) // squat not in this day — nothing moves
     await deleteSession(second, database)
 
-    // Squat comes back (pretend it is the legs day again): the training max moves 60 → 62,5
-    await database.settings.put({
-      key: `program.cycle:${P1}`,
-      value: { startDate: '2026-10-05', week: 0, nextDayIndex: 0 },
-    })
-    const third = await startSession(P1, 'p1-legs', database, new Date('2026-10-09T09:00:00'))
+    // Squat comes back on the second legs day of the rotation: the training max moves 60 → 62,5
+    const third = await startSession(P1, 'p1-legs-2', database, new Date('2026-10-09T09:00:00'))
     let s = (await database.sessions.get(third))!
     expect(s.exercises[0].targets?.map((t) => t.weightKg)).toEqual([37.5, 45, 50])
     expect(s.exercises[0].hint).toMatch(/^↑ Тренировочный макс\. 62,5 кг/)
@@ -151,7 +150,7 @@ describe('startSession — cyclic programs and auto-regulation', () => {
 
     // Starting again from the same evidence does not raise it twice
     await deleteSession(third, database)
-    const fourth = await startSession(P1, 'p1-legs', database, new Date('2026-10-09T09:05:00'))
+    const fourth = await startSession(P1, 'p1-legs-2', database, new Date('2026-10-09T09:05:00'))
     s = (await database.sessions.get(fourth))!
     expect(s.exercises[0].targets?.map((t) => t.weightKg)).toEqual([37.5, 45, 50])
     expect((await tms()).Barbell_Squat).toBe(62.5)
@@ -169,5 +168,21 @@ describe('startSession — cyclic programs and auto-regulation', () => {
     expect(s.exercises.find((e) => e.exerciseId === 'Leg_Press')?.hint).toBe('Тренер: ноги ниже на платформе')
     await finishSession(id, database, new Date('2026-10-05T10:00:00'))
     expect((await database.settings.get('coach.nextNotes'))?.value).toEqual({})
+  })
+})
+
+describe('startSession — test week', () => {
+  it('week 9 asks for a new max on main lifts (1 × 1 at 100 %) and keeps accessories light', async () => {
+    await database.settings.put({
+      key: 'program.cycle:david-laid-program-1',
+      value: { startDate: '2026-10-01', completedSessions: 24, nextDayIndex: 0 },
+    })
+    const id = await startSession('david-laid-program-1', 'p1-legs', database)
+    const s = (await database.sessions.get(id))!
+    expect(s.programWeek).toBe(8)
+    expect(s.exercises[0]).toMatchObject({ exerciseId: 'Barbell_Squat', targetSets: 1, targetReps: '1' })
+    expect(s.exercises[0].targets).toEqual([{ reps: '1', pct: 1, weightKg: 60 }])
+    expect(s.exercises[0].notes).toContain('тестовая неделя')
+    expect(s.exercises[1]).toMatchObject({ exerciseId: 'Leg_Press', targetSets: 2, targetReps: '10' })
   })
 })
