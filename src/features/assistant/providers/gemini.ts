@@ -152,7 +152,8 @@ export function geminiErrorMessage(status: number, apiMessage = ''): string {
     return 'Ключ Gemini недействителен. Проверь его в настройках ИИ-тренера.'
   if (status === 401 || status === 403)
     return 'Gemini отклонил ключ (доступ запрещён). Проверь ключ в настройках или создай новый в aistudio.google.com.'
-  if (status === 404) return 'Модель Gemini не найдена. Проверь название модели в настройках.'
+  if (status === 404)
+    return `Модель Gemini не найдена${apiMessage ? `: ${apiMessage.replace(/\.\s*$/, '')}` : ''}. Выбери модель из списка в настройках.`
   if (status === 400) return `Gemini не принял запрос: ${apiMessage || 'неверный формат'}.`
   if (status >= 500) return 'Сервис Gemini временно недоступен. Попробуй позже.'
   return `Ошибка Gemini (${status}). ${apiMessage}`.trim()
@@ -310,16 +311,86 @@ function networkMessage(e: unknown): string {
     : 'Не удалось связаться с Gemini. Проверь интернет-соединение.'
 }
 
-/** Cheap connectivity check: fetches the model metadata (no tokens spent). */
+/** Appends Google's own error text to a friendly message unless it is already there. */
+function withApiMessage(friendly: string, apiMessage: string): string {
+  return apiMessage && !friendly.includes(apiMessage) ? `${friendly}\nОтвет Google: ${apiMessage}` : friendly
+}
+
+/**
+ * Connectivity check that exercises the real generation path: a 1-token
+ * `generateContent` call on the selected model (metadata GET can succeed for models
+ * the key can't generate with). Throws a ProviderError with Google's message on failure.
+ */
 export async function checkGemini(apiKey: string, model: string, fetchImpl: typeof fetch = fetch): Promise<string> {
   const m = model.trim() || GEMINI_DEFAULT_MODEL
   let res: Response
   try {
-    res = await fetchImpl(`${GEMINI_BASE}/models/${encodeURIComponent(m)}?key=${encodeURIComponent(apiKey.trim())}`)
+    res = await fetchImpl(`${GEMINI_BASE}/models/${encodeURIComponent(m)}:generateContent?key=${encodeURIComponent(apiKey.trim())}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: 'ping' }] }],
+        generationConfig: { maxOutputTokens: 1 },
+      }),
+    })
   } catch {
     throw new ProviderError('Не удалось связаться с Gemini. Проверь интернет-соединение.')
   }
-  if (!res.ok) throw new ProviderError(geminiErrorMessage(res.status, await readError(res)), res.status)
-  const info = (await res.json().catch(() => ({}))) as { displayName?: string }
-  return info.displayName ?? m
+  if (!res.ok) {
+    const apiMessage = await readError(res)
+    throw new ProviderError(withApiMessage(geminiErrorMessage(res.status, apiMessage), apiMessage), res.status)
+  }
+  return m
+}
+
+export interface GeminiModelInfo {
+  /** Model id without the `models/` prefix, e.g. `gemini-2.5-flash` */
+  id: string
+  displayName: string
+}
+
+interface GeminiModelsPage {
+  models?: { name?: string; displayName?: string; supportedGenerationMethods?: string[] }[]
+  nextPageToken?: string
+}
+
+/** Lists models usable for chat with this key (`supportedGenerationMethods` ∋ generateContent). */
+export async function listGeminiModels(apiKey: string, fetchImpl: typeof fetch = fetch): Promise<GeminiModelInfo[]> {
+  const out: GeminiModelInfo[] = []
+  let pageToken = ''
+  for (let page = 0; page < 10; page++) {
+    const url =
+      `${GEMINI_BASE}/models?key=${encodeURIComponent(apiKey.trim())}&pageSize=100` +
+      (pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : '')
+    let res: Response
+    try {
+      res = await fetchImpl(url)
+    } catch {
+      throw new ProviderError('Не удалось связаться с Gemini. Проверь интернет-соединение.')
+    }
+    if (!res.ok) {
+      const apiMessage = await readError(res)
+      throw new ProviderError(withApiMessage(geminiErrorMessage(res.status, apiMessage), apiMessage), res.status)
+    }
+    const data = (await res.json().catch(() => ({}))) as GeminiModelsPage
+    for (const m of data.models ?? []) {
+      if (!m.name || !m.supportedGenerationMethods?.includes('generateContent')) continue
+      const id = m.name.replace(/^models\//, '')
+      out.push({ id, displayName: m.displayName || id })
+    }
+    if (!data.nextPageToken) break
+    pageToken = data.nextPageToken
+  }
+  return out
+}
+
+/**
+ * Model to pre-select once the list is known: the current one if available, else the
+ * default `gemini-2.5-flash`, else the first `*flash*` model, else the first model.
+ */
+export function pickGeminiModel(models: GeminiModelInfo[], current: string): string {
+  const ids = models.map((m) => m.id)
+  if (ids.includes(current)) return current
+  if (ids.includes(GEMINI_DEFAULT_MODEL)) return GEMINI_DEFAULT_MODEL
+  return ids.find((id) => id.includes('flash')) ?? ids[0] ?? current
 }

@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useCallback, useState, type FormEvent } from 'react'
 import {
   Button,
   Card,
@@ -17,6 +17,7 @@ import { checkGemini, GEMINI_DEFAULT_MODEL } from './providers/gemini'
 import type { AiSettings } from './providers/types'
 import { claudeCostRange, formatUsd } from './costs'
 import { saveAiSettings, useAiSettings } from './settings'
+import { GeminiModelField } from './GeminiModelField'
 
 const PROVIDERS: SegmentOption<AiSettings['provider']>[] = [
   { value: 'off', label: 'Выключен' },
@@ -48,6 +49,12 @@ function SettingsForm({ initial }: { initial: AiSettings }) {
     setCheck({ state: 'idle' })
   }
 
+  const setModel = useCallback((model: string) => {
+    setValues((v) => ({ ...v, geminiModel: model }))
+    setSaved(false)
+    setCheck({ state: 'idle' })
+  }, [])
+
   const normalized = (): AiSettings => ({
     provider: values.provider,
     geminiKey: values.geminiKey.trim(),
@@ -70,8 +77,8 @@ function SettingsForm({ initial }: { initial: AiSettings }) {
     try {
       if (next.provider === 'gemini') {
         if (!next.geminiKey) throw new Error('Вставь ключ Gemini.')
-        const name = await checkGemini(next.geminiKey, next.geminiModel)
-        setCheck({ state: 'ok', text: `Подключено: ${name}` })
+        const model = await checkGemini(next.geminiKey, next.geminiModel)
+        setCheck({ state: 'ok', text: `Подключено: ${model} отвечает` })
       } else if (next.provider === 'claude') {
         const model = await checkClaudeProxy(next.claudeProxyUrl)
         setCheck({ state: 'ok', text: `Прокси работает: ${model}` })
@@ -130,14 +137,7 @@ function SettingsForm({ initial }: { initial: AiSettings }) {
                 </Button>
               </div>
             </div>
-            <Field label="Модель" hint={`По умолчанию ${GEMINI_DEFAULT_MODEL}. Можно указать, например, gemini-2.5-pro.`}>
-              <Input
-                value={values.geminiModel}
-                onChange={(e) => set('geminiModel', e.target.value)}
-                spellCheck={false}
-                placeholder={GEMINI_DEFAULT_MODEL}
-              />
-            </Field>
+            <GeminiModelField apiKey={values.geminiKey} value={values.geminiModel} onChange={setModel} />
           </div>
         </Card>
       )}
@@ -182,7 +182,7 @@ function SettingsForm({ initial }: { initial: AiSettings }) {
       {(check.state === 'ok' || check.state === 'error') && (
         <p role="status" className={`flex items-start gap-2 text-sm ${check.state === 'ok' ? 'text-accent' : 'text-danger'}`}>
           <Icon name={check.state === 'ok' ? 'check' : 'info'} size={16} className="mt-0.5 shrink-0" />
-          <span className="min-w-0">{check.text}</span>
+          <span className="min-w-0 break-words whitespace-pre-line [overflow-wrap:anywhere]">{check.text}</span>
         </p>
       )}
 

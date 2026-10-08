@@ -2,7 +2,10 @@ import { describe, expect, it, vi } from 'vitest'
 import type { CoachTool } from '../../coach/tools'
 import { streamFromChunks } from './sse'
 import {
+  checkGemini,
   createGeminiProvider,
+  listGeminiModels,
+  pickGeminiModel,
   geminiErrorMessage,
   readGeminiStream,
   toGeminiContents,
@@ -153,5 +156,71 @@ describe('gemini adapter', () => {
     expect((ev as { message: string }).message).toMatch(/Лимит бесплатного тарифа/)
     expect(geminiErrorMessage(400, 'API key not valid. Please pass a valid API key.')).toMatch(/Ключ Gemini недействителен/)
     expect(geminiErrorMessage(403, 'forbidden')).toMatch(/ключ/)
+  })
+
+  it('404 names the API reason and points to the model list', () => {
+    expect(geminiErrorMessage(404, 'models/gemini-2.5-pro is not found for API version v1beta, or is not supported for generateContent.')).toBe(
+      'Модель Gemini не найдена: models/gemini-2.5-pro is not found for API version v1beta, or is not supported for generateContent. Выбери модель из списка в настройках.',
+    )
+  })
+})
+
+describe('gemini connection check and model list', () => {
+  it('checks with a 1-token generateContent call on the selected model', async () => {
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ candidates: [] }), { status: 200 }))
+    await expect(checkGemini(' KEY ', 'gemini-2.5-flash', fetchImpl as unknown as typeof fetch)).resolves.toBe('gemini-2.5-flash')
+    const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit]
+    expect(url).toBe('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=KEY')
+    expect(init.method).toBe('POST')
+    expect(JSON.parse(String(init.body))).toEqual({
+      contents: [{ role: 'user', parts: [{ text: 'ping' }] }],
+      generationConfig: { maxOutputTokens: 1 },
+    })
+  })
+
+  it('fails the check with Google\'s own message when generation is not available', async () => {
+    const apiMessage = 'models/gemini-2.5-pro is not found for API version v1beta, or is not supported for generateContent.'
+    const fetchImpl = async () => new Response(JSON.stringify({ error: { code: 404, message: apiMessage, status: 'NOT_FOUND' } }), { status: 404 })
+    await expect(checkGemini('k', 'gemini-2.5-pro', fetchImpl as unknown as typeof fetch)).rejects.toThrow(apiMessage)
+    const quota = async () =>
+      new Response(JSON.stringify({ error: { code: 429, message: 'Quota exceeded for metric generate_content_free_tier_requests' } }), { status: 429 })
+    await expect(checkGemini('k', 'gemini-2.5-flash', quota as unknown as typeof fetch)).rejects.toThrow(
+      /Лимит бесплатного тарифа[\s\S]*Ответ Google: Quota exceeded/,
+    )
+  })
+
+  it('lists generateContent models across pages', async () => {
+    const pages: Record<string, unknown> = {
+      '': {
+        models: [
+          { name: 'models/gemini-2.5-pro', displayName: 'Gemini 2.5 Pro', supportedGenerationMethods: ['generateContent', 'countTokens'] },
+          { name: 'models/text-embedding-004', displayName: 'Embedding', supportedGenerationMethods: ['embedContent'] },
+        ],
+        nextPageToken: 'P2',
+      },
+      P2: { models: [{ name: 'models/gemini-2.0-flash-lite', displayName: 'Gemini 2.0 Flash-Lite', supportedGenerationMethods: ['generateContent'] }] },
+    }
+    const fetchImpl = vi.fn(async (url: string) => {
+      const token = new URL(url).searchParams.get('pageToken') ?? ''
+      return new Response(JSON.stringify(pages[token]), { status: 200 })
+    })
+    const models = await listGeminiModels('KEY', fetchImpl as unknown as typeof fetch)
+    expect(models).toEqual([
+      { id: 'gemini-2.5-pro', displayName: 'Gemini 2.5 Pro' },
+      { id: 'gemini-2.0-flash-lite', displayName: 'Gemini 2.0 Flash-Lite' },
+    ])
+    expect(fetchImpl).toHaveBeenCalledTimes(2)
+    const first = new URL(fetchImpl.mock.calls[0][0])
+    expect(first.pathname).toBe('/v1beta/models')
+    expect(first.searchParams.get('pageSize')).toBe('100')
+    expect(first.searchParams.get('key')).toBe('KEY')
+  })
+
+  it('pre-selects the default, else the first flash model', () => {
+    const m = (id: string) => ({ id, displayName: id })
+    expect(pickGeminiModel([m('gemini-2.5-pro'), m('gemini-2.5-flash')], 'gemini-2.5-pro')).toBe('gemini-2.5-pro')
+    expect(pickGeminiModel([m('gemini-2.5-pro'), m('gemini-2.5-flash')], 'gone')).toBe('gemini-2.5-flash')
+    expect(pickGeminiModel([m('gemini-2.5-pro'), m('gemini-2.0-flash-lite')], 'gemini-2.5-flash')).toBe('gemini-2.0-flash-lite')
+    expect(pickGeminiModel([], 'x')).toBe('x')
   })
 })

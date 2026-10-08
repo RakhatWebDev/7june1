@@ -178,14 +178,21 @@ export function useCoachChat({
       const text = raw.trim() || (image ? PHOTO_DEFAULT_PROMPT : '')
       if (!text || busyRef.current) return
       busyRef.current = true
-      const id = newId()
-      await database.chatMessages.add({
-        id,
-        threadId: COACH_THREAD,
-        role: 'user',
-        text: image ? `[Фото еды] ${text}` : text,
-        createdAt: new Date().toISOString(),
-      })
+      const storedText = image ? `[Фото еды] ${text}` : text
+      const stored = await threadMessages(database)
+      const last = stored[stored.length - 1]
+      // The same question right after a failed turn re-runs it instead of adding a duplicate bubble.
+      const reuse = last?.role === 'user' && last.text === storedText
+      const id = reuse ? last.id : newId()
+      if (!reuse) {
+        await database.chatMessages.add({
+          id,
+          threadId: COACH_THREAD,
+          role: 'user',
+          text: storedText,
+          createdAt: new Date().toISOString(),
+        })
+      }
       if (image) setImages((m) => ({ ...m, [id]: image.dataUrl }))
       lastImageRef.current = image ?? null
       await run(image ?? null)
@@ -193,6 +200,7 @@ export function useCoachChat({
     [database, run],
   )
 
+  // Re-runs the last user message as-is; never writes a new ChatMessage.
   const retry = useCallback(async () => {
     if (busyRef.current) return
     await run(lastImageRef.current)
