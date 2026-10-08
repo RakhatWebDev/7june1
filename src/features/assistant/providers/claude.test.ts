@@ -65,6 +65,60 @@ describe('claude adapter', () => {
     expect(events.at(-1)).toMatchObject({ type: 'done', stopReason: 'max_tokens' })
   })
 
+  it('handles a server-side fallback: ignores the marker, runs only post-boundary tools, echoes per API rules', async () => {
+    const FB = { type: 'fallback', from: { model: 'claude-opus-5-5' }, to: { model: 'claude-opus-4-8' }, trigger: { type: 'refusal', category: 'cyber' } }
+    const stream = [
+      ev({ type: 'message_start', message: { id: 'm', model: 'claude-opus-5-5', usage: { input_tokens: 10, output_tokens: 1 } } }),
+      ev({ type: 'content_block_start', index: 0, content_block: { type: 'thinking', thinking: '', signature: '' } }),
+      ev({ type: 'content_block_delta', index: 0, delta: { type: 'signature_delta', signature: 'DECLINED' } }),
+      ev({ type: 'content_block_stop', index: 0 }),
+      ev({ type: 'content_block_start', index: 1, content_block: { type: 'text', text: '' } }),
+      ev({ type: 'content_block_delta', index: 1, delta: { type: 'text_delta', text: 'Смотрю ' } }),
+      ev({ type: 'content_block_stop', index: 1 }),
+      ev({ type: 'content_block_start', index: 2, content_block: { type: 'tool_use', id: 'toolu_old', name: 'get_sleep_summary', input: {} } }),
+      ev({ type: 'content_block_stop', index: 2 }),
+      ev({ type: 'content_block_start', index: 3, content_block: FB }),
+      ev({ type: 'content_block_stop', index: 3 }),
+      ev({ type: 'content_block_start', index: 4, content_block: { type: 'text', text: '' } }),
+      ev({ type: 'content_block_delta', index: 4, delta: { type: 'text_delta', text: 'данные.' } }),
+      ev({ type: 'content_block_stop', index: 4 }),
+      ev({ type: 'content_block_start', index: 5, content_block: { type: 'tool_use', id: 'toolu_new', name: 'get_sleep_summary', input: {} } }),
+      ev({ type: 'content_block_delta', index: 5, delta: { type: 'input_json_delta', partial_json: '{"days":7}' } }),
+      ev({ type: 'content_block_stop', index: 5 }),
+      ev({
+        type: 'message_delta',
+        delta: { stop_reason: 'tool_use' },
+        usage: { output_tokens: 20, iterations: [{ type: 'message' }, { type: 'fallback_message', model: 'claude-opus-4-8' }] },
+      }),
+      ev({ type: 'message_stop' }),
+    ]
+    const events = await collect(readClaudeStream(streamFromChunks(stream)))
+    expect(events.filter((e) => e.type === 'text_delta').map((e) => (e as { text: string }).text).join('')).toBe('Смотрю данные.')
+    expect(events.filter((e) => e.type === 'tool_call')).toEqual([
+      { type: 'tool_call', id: 'toolu_new', name: 'get_sleep_summary', input: { days: 7 } },
+    ])
+    const done = events.at(-1) as Extract<ChatEvent, { type: 'done' }>
+    expect(done.stopReason).toBe('tool_use')
+    expect(done.raw?.content).toEqual([
+      { type: 'text', text: 'Смотрю ' },
+      FB,
+      { type: 'text', text: 'данные.' },
+      { type: 'tool_use', id: 'toolu_new', name: 'get_sleep_summary', input: { days: 7 } },
+    ])
+
+    // The whole chain declined: still a refusal for the loop's notice.
+    const refused = await collect(
+      readClaudeStream(
+        streamFromChunks([
+          ev({ type: 'content_block_start', index: 0, content_block: FB }),
+          ev({ type: 'content_block_stop', index: 0 }),
+          ev({ type: 'message_delta', delta: { stop_reason: 'refusal' }, usage: { output_tokens: 0, iterations: [{ type: 'fallback_message' }] } }),
+        ]),
+      ),
+    )
+    expect(refused.at(-1)).toMatchObject({ type: 'done', stopReason: 'refusal' })
+  })
+
   it('maps refusal and mid-stream errors', async () => {
     const refusal = await collect(
       readClaudeStream(streamFromChunks([ev({ type: 'message_delta', delta: { stop_reason: 'refusal' }, usage: { output_tokens: 0 } })])),

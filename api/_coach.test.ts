@@ -4,7 +4,9 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import Anthropic from '@anthropic-ai/sdk'
 import { describe, expect, it } from 'vitest'
 import {
+  FALLBACK_BETA,
   MODEL,
+  type BetaStreamParams,
   buildParams,
   checkOrigin,
   createCoachHandler,
@@ -52,6 +54,15 @@ describe('api/coach helpers', () => {
       description: 'Profile',
       input_schema: { type: 'object', properties: {} },
     })
+    const echoed = validateBody({
+      ...goodBody,
+      messages: [
+        goodBody.messages[0],
+        { role: 'assistant', content: [{ type: 'fallback', from: { model: 'claude-opus-5-5' }, to: { model: 'claude-opus-4-8' } }, { type: 'text', text: 'ok' }] },
+        { role: 'user', content: 'ещё' },
+      ],
+    })
+    expect(echoed.ok).toBe(true)
     expect(validateBody({ ...goodBody, messages: [] }).ok).toBe(false)
     expect(validateBody({ ...goodBody, messages: [{ role: 'assistant', content: 'prefill' }] }).ok).toBe(false)
     expect(
@@ -60,11 +71,14 @@ describe('api/coach helpers', () => {
     expect(validateBody({ ...goodBody, tools: [{ name: 'bad name!', input_schema: { type: 'object' } }] }).ok).toBe(false)
   })
 
-  it('builds Opus 5.5 params with adaptive thinking, medium effort, cached system and auto tool choice', () => {
+  it('builds Opus 5.5 params: refusal fallback, adaptive thinking, medium effort, cached system, auto tools', () => {
     const v = validateBody(goodBody)
     if (!v.ok) throw new Error(v.error)
     const p = buildParams(v.value)
+    expect(FALLBACK_BETA).toBe('server-side-fallback-2026-07-01')
     expect(p).toMatchObject({
+      betas: ['server-side-fallback-2026-07-01'],
+      fallbacks: 'default',
       model: 'claude-opus-5-5',
       max_tokens: 4000,
       thinking: { type: 'adaptive' },
@@ -111,15 +125,15 @@ describe('api/coach handler', () => {
   })
 
   it('forwards Messages API stream events as SSE', async () => {
-    let seen: Anthropic.MessageStreamParams | undefined
+    let seen: BetaStreamParams | undefined
     const handler = createCoachHandler({
       env,
       stream: (params) => {
         seen = params
         return (async function* () {
-          yield { type: 'message_start', message: { id: 'm' } } as unknown as Anthropic.MessageStreamEvent
-          yield { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'Привет' } } as Anthropic.MessageStreamEvent
-          yield { type: 'message_stop' } as Anthropic.MessageStreamEvent
+          yield { type: 'message_start', message: { id: 'm' } } as unknown as Anthropic.Beta.BetaRawMessageStreamEvent
+          yield { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'Привет' } } as unknown as Anthropic.Beta.BetaRawMessageStreamEvent
+          yield { type: 'message_stop' } as unknown as Anthropic.Beta.BetaRawMessageStreamEvent
         })()
       },
     })
@@ -130,7 +144,7 @@ describe('api/coach handler', () => {
     expect(res.headers['access-control-allow-origin']).toBe('https://forma.vercel.app')
     expect(res.body).toContain('event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Привет"}}\n\n')
     expect(res.writableEnded).toBe(true)
-    expect(seen?.model).toBe('claude-opus-5-5')
+    expect(seen).toMatchObject({ model: 'claude-opus-5-5', fallbacks: 'default', betas: [FALLBACK_BETA] })
   })
 
   it('returns JSON errors before streaming starts and rejects foreign origins', async () => {

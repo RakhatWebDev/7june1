@@ -18,21 +18,21 @@ export const CLAUDE_DEFAULT_PROXY = '/api/coach'
 /** Body the browser posts to the stateless proxy (`api/coach.ts`). */
 export interface ClaudeProxyRequest {
   system: string
-  messages: Anthropic.MessageParam[]
-  tools: Anthropic.Tool[]
+  messages: Anthropic.Beta.BetaMessageParam[]
+  tools: Anthropic.Beta.BetaTool[]
 }
 
 /* ------------------------------ Conversion ------------------------------ */
 
-export function toClaudeTools(tools: CoachTool[]): Anthropic.Tool[] {
+export function toClaudeTools(tools: CoachTool[]): Anthropic.Beta.BetaTool[] {
   return tools.map((t) => ({
     name: t.name,
     description: t.description,
-    input_schema: { ...t.inputSchema, type: 'object' } as Anthropic.Tool.InputSchema,
+    input_schema: { ...t.inputSchema, type: 'object' } as Anthropic.Beta.BetaTool.InputSchema,
   }))
 }
 
-function partToBlock(p: ChatPart): Anthropic.ContentBlockParam | null {
+function partToBlock(p: ChatPart): Anthropic.Beta.BetaContentBlockParam | null {
   switch (p.type) {
     case 'text':
       return p.text.trim() ? { type: 'text', text: p.text } : null
@@ -55,14 +55,14 @@ function partToBlock(p: ChatPart): Anthropic.ContentBlockParam | null {
  * this loop are replayed verbatim (thinking blocks + signatures must come back unchanged);
  * tool_result blocks are placed first in their user message as the API requires.
  */
-export function toClaudeMessages(turns: ChatTurn[]): Anthropic.MessageParam[] {
-  const out: Anthropic.MessageParam[] = []
+export function toClaudeMessages(turns: ChatTurn[]): Anthropic.Beta.BetaMessageParam[] {
+  const out: Anthropic.Beta.BetaMessageParam[] = []
   for (const turn of turns) {
-    let blocks: Anthropic.ContentBlockParam[]
+    let blocks: Anthropic.Beta.BetaContentBlockParam[]
     if (turn.role === 'assistant' && turn.raw?.provider === 'claude' && Array.isArray(turn.raw.content)) {
-      blocks = turn.raw.content as Anthropic.ContentBlockParam[]
+      blocks = turn.raw.content as Anthropic.Beta.BetaContentBlockParam[]
     } else {
-      blocks = turn.parts.map(partToBlock).filter((b): b is Anthropic.ContentBlockParam => b !== null)
+      blocks = turn.parts.map(partToBlock).filter((b): b is Anthropic.Beta.BetaContentBlockParam => b !== null)
     }
     if (blocks.length === 0) continue
     if (out.length === 0 && turn.role === 'assistant') continue
@@ -129,7 +129,9 @@ type Block = Record<string, unknown> & { type: string }
 /**
  * Turns a Messages API SSE stream (as forwarded by the proxy) into neutral events.
  * Accumulates every content block — text, thinking (+ signature), redacted thinking,
- * tool_use (+ partial JSON) — so the assistant turn can be replayed exactly.
+ * tool_use (+ partial JSON), server-side `fallback` markers — so the assistant turn can
+ * be replayed. `fallback` blocks and `usage.iterations` (incl. `fallback_message`
+ * entries) are not rendered; a final `refusal` still ends the turn with a notice.
  */
 export async function* readClaudeStream(
   body: ReadableStream<Uint8Array>,
@@ -198,11 +200,14 @@ export async function* readClaudeStream(
   if (signal?.aborted) return
 
   const stopReason = mapStop(stop)
+  const content = blocks.filter(Boolean)
+  const boundary = lastFallbackIndex(content)
   // Tool calls are emitted only for a completed tool_use turn — a call cut off by
-  // max_tokens may carry truncated input and must not run.
+  // max_tokens may carry truncated input and must not run. Calls made by a model
+  // that then declined (before a `fallback` boundary) are never run either.
   if (stopReason === 'tool_use') {
-    for (const b of blocks) {
-      if (b?.type === 'tool_use') {
+    for (const b of content.slice(boundary + 1)) {
+      if (b.type === 'tool_use') {
         yield {
           type: 'tool_call',
           id: String(b.id),
@@ -216,8 +221,25 @@ export async function* readClaudeStream(
     type: 'done',
     stopReason,
     usage,
-    raw: { provider: 'claude', content: blocks.filter(Boolean) },
+    raw: { provider: 'claude', content: replayContent(content, boundary) },
   }
+}
+
+/** Index of the last server-side `fallback` block (a refusal hop), or -1. */
+function lastFallbackIndex(content: Block[]): number {
+  for (let i = content.length - 1; i >= 0; i--) if (content[i].type === 'fallback') return i
+  return -1
+}
+
+/**
+ * Assistant content to echo back on the next request. After a mid-output fallback,
+ * only `text` blocks survive from before the final `fallback` boundary (the declined
+ * model's thinking / tool_use / other internal blocks are dropped, per the API's echo
+ * rules); the boundary block and everything after it are kept verbatim.
+ */
+export function replayContent(content: Block[], boundary = lastFallbackIndex(content)): Block[] {
+  if (boundary < 0) return content
+  return [...content.slice(0, boundary).filter((b) => b.type === 'text'), ...content.slice(boundary)]
 }
 
 export interface ClaudeOptions {

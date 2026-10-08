@@ -2,8 +2,9 @@
  * POST /api/coach — stateless Claude proxy for the FORMA AI coach (Vercel Node function).
  *
  * The browser runs the tool loop: it posts `{ system, messages, tools }`, this function
- * calls the Messages API with the server-side key and forwards the raw stream events as
- * SSE (`event: <type>` / `data: <json>`). Tools are client tools; nothing is stored here.
+ * calls the Messages API (beta endpoint, server-side refusal fallback enabled) with the
+ * server-side key and forwards the raw stream events as SSE (`event: <type>` /
+ * `data: <json>`). Tools are client tools; nothing is stored here.
  *
  * GET /api/coach — health check `{ ok, model, configured }` (no tokens spent).
  *
@@ -13,6 +14,9 @@
 import Anthropic from '@anthropic-ai/sdk'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 
+/** Params accepted by `client.beta.messages.stream` (the SDK's BetaMessageStreamParams). */
+export type BetaStreamParams = Parameters<Anthropic['beta']['messages']['stream']>[0]
+
 export const MODEL = 'claude-opus-5-5'
 export const MAX_TOKENS = 4000
 const RATE_LIMIT = 20
@@ -21,7 +25,10 @@ const MAX_SYSTEM_CHARS = 30_000
 const MAX_MESSAGES = 80
 const MAX_TOOLS = 40
 const MAX_BODY_CHARS = 4_000_000
-const ALLOWED_BLOCKS = new Set(['text', 'image', 'tool_use', 'tool_result', 'thinking', 'redacted_thinking'])
+/** Server-side refusal fallback (scalar "default" form routes by refusal category). */
+export const FALLBACK_BETA = 'server-side-fallback-2026-07-01'
+// `fallback` blocks are echoed back verbatim from prior responses (audit marker of a fallback hop).
+const ALLOWED_BLOCKS = new Set(['text', 'image', 'tool_use', 'tool_result', 'thinking', 'redacted_thinking', 'fallback'])
 
 /* --------------------------------- Helpers -------------------------------- */
 
@@ -73,8 +80,8 @@ export function checkOrigin(origin: string | undefined, host: string | undefined
 
 export interface CoachRequestBody {
   system: string
-  messages: Anthropic.MessageParam[]
-  tools: Anthropic.Tool[]
+  messages: Anthropic.Beta.BetaMessageParam[]
+  tools: Anthropic.Beta.BetaTool[]
 }
 
 type Validation = { ok: true; value: CoachRequestBody } | { ok: false; error: string }
@@ -110,7 +117,7 @@ export function validateBody(raw: unknown): Validation {
   if (messages[messages.length - 1].role !== 'user') return { ok: false, error: 'Last message must be from the user' }
   if (JSON.stringify(messages).length > MAX_BODY_CHARS) return { ok: false, error: 'Request too large' }
 
-  const cleanTools: Anthropic.Tool[] = []
+  const cleanTools: Anthropic.Beta.BetaTool[] = []
   if (tools !== undefined) {
     if (!Array.isArray(tools) || tools.length > MAX_TOOLS) return { ok: false, error: 'Invalid tools' }
     for (const t of tools) {
@@ -120,16 +127,22 @@ export function validateBody(raw: unknown): Validation {
       cleanTools.push({
         name: t.name,
         description: typeof t.description === 'string' ? t.description.slice(0, 4000) : '',
-        input_schema: t.input_schema as Anthropic.Tool.InputSchema,
+        input_schema: t.input_schema as Anthropic.Beta.BetaTool.InputSchema,
       })
     }
   }
-  return { ok: true, value: { system, messages: messages as Anthropic.MessageParam[], tools: cleanTools } }
+  return { ok: true, value: { system, messages: messages as Anthropic.Beta.BetaMessageParam[], tools: cleanTools } }
 }
 
-/** Builds the Messages API request (model, thinking and effort are fixed server-side). */
-export function buildParams(body: CoachRequestBody): Anthropic.MessageStreamParams {
+/**
+ * Builds the Messages API request (model, thinking and effort are fixed server-side).
+ * Uses the beta endpoint for the server-side refusal fallback: on a policy decline the
+ * API re-runs the request on a fallback model inside the same stream.
+ */
+export function buildParams(body: CoachRequestBody): BetaStreamParams {
   return {
+    betas: [FALLBACK_BETA],
+    fallbacks: 'default',
     model: MODEL,
     max_tokens: MAX_TOKENS,
     thinking: { type: 'adaptive' },
@@ -164,13 +177,13 @@ function sendJson(res: ServerResponse, status: number, data: unknown) {
 /* --------------------------------- Handler -------------------------------- */
 
 type StreamFn = (
-  params: Anthropic.MessageStreamParams,
+  params: BetaStreamParams,
   opts: { signal: AbortSignal },
-) => AsyncIterable<Anthropic.MessageStreamEvent>
+) => AsyncIterable<Anthropic.Beta.BetaRawMessageStreamEvent>
 
 export interface HandlerDeps {
   env?: Record<string, string | undefined>
-  /** Injected in tests; defaults to `client.messages.stream` */
+  /** Injected in tests; defaults to `client.beta.messages.stream` */
   stream?: StreamFn
   limiter?: (key: string) => { ok: boolean; retryAfterSec: number }
 }
@@ -183,7 +196,7 @@ export function createCoachHandler(deps: HandlerDeps = {}) {
     deps.stream ??
     ((params, opts) => {
       client ??= new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, maxRetries: 2 })
-      return client.messages.stream(params, { signal: opts.signal })
+      return client.beta.messages.stream(params, { signal: opts.signal })
     })
 
   return async function handler(req: IncomingMessage & { body?: unknown }, res: ServerResponse) {
