@@ -6,7 +6,7 @@ export const HABITS_SEEDED_KEY = 'habitsSeeded'
 type SeedHabit = Omit<Habit, 'createdAt' | 'archived'>
 
 export const DEFAULT_HABITS: SeedHabit[] = [
-  { id: 'habit-workout', name: 'Тренировка', icon: '🏋', color: 'accent', frequency: 'daily', autoRule: 'workout', sort: 0 },
+  { id: 'habit-workout', name: 'Тренировка', icon: '🏋', color: 'accent', frequency: 'weekly', targetPerWeek: 3, autoRule: 'workout', sort: 0 },
   { id: 'habit-cardio', name: 'Кардио', icon: '🏃', color: 'info', frequency: 'weekly', targetPerWeek: 3, autoRule: 'cardio', sort: 1 },
   { id: 'habit-water', name: '3 л воды', icon: '💧', color: 'info', frequency: 'daily', autoRule: 'water', sort: 2 },
   { id: 'habit-sleep', name: 'Сон до 23:30', icon: '🌙', color: 'violet', frequency: 'daily', autoRule: 'sleep', sort: 3 },

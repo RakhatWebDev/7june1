@@ -10,9 +10,9 @@ const starterKeyResults: GoalKeyResult[] = [
   {
     id: 'kr-workouts',
     title: 'Тренировок в неделю',
-    start: 0,
-    current: 0,
-    target: 5,
+    start: 2,
+    current: 2,
+    target: 3,
     unit: 'трен.',
   },
   { id: 'kr-sleep', title: 'Сон', start: 0, current: 0, target: 8, unit: 'ч' },
