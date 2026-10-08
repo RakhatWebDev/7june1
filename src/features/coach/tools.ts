@@ -131,6 +131,8 @@ export async function getProfileAndTargets(db: FormaDB, now: Date = new Date()) 
           id: s.activeProgram.id,
           name: s.activeProgram.name,
           daysPerWeek: s.activeProgram.daysPerWeek,
+          schedule: s.sequential ? 'sequential' : 'weekday',
+          ...(s.scheduleLabel ? { progress: s.scheduleLabel } : {}),
           days: s.activeProgram.days.map((d) => strip({ id: d.id, name: d.name, type: d.type, weekday: d.weekday })),
         }
       : null,
@@ -155,9 +157,13 @@ export async function getTodaysPlan(db: FormaDB, now: Date = new Date()) {
   return {
     date,
     weekday: weekdayIndex(now),
+    /** «Неделя 3 из 12 · тренировка 2 из 3» for cyclic programs */
+    programLabel: s.scheduleLabel ?? null,
     programDay: day
       ? {
           programId: s.activeProgram?.id,
+          /** rotation: next day of a sequential program (any weekday); weekday: the day fixed to today */
+          resolvedBy: s.sequential ? 'rotation' : 'weekday',
           id: day.id,
           name: day.name,
           type: day.type,
@@ -638,7 +644,7 @@ export const COACH_TOOLS: CoachTool[] = [
   {
     name: 'get_todays_plan',
     description:
-      "Today's plan: the scheduled program day with exercises, prescribed sets/reps, what the user lifted last time and any coach note; workouts and activities already logged today; calendar events today; calories/protein eaten so far vs target; water so far vs target.",
+      "Today's plan: programLabel (cyclic programs: program week and session number, e.g. «Неделя 3 из 12 · тренировка 2 из 3»), the program day to do (next day of the rotation for sequential programs, or the day fixed to today's weekday) with exercises, prescribed sets/reps, what the user lifted last time and any coach note; workouts and activities already logged today; calendar events today; calories/protein eaten so far vs target; water so far vs target.",
     inputSchema: obj(),
     run: (_i, db) => getTodaysPlan(db),
   },
