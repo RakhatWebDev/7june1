@@ -4,7 +4,7 @@ import { Link } from 'react-router'
 import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
 import { db } from '../../db'
-import { formatMinutes, today, weekdayIndex } from '../../lib/dates'
+import { formatMinutes, today } from '../../lib/dates'
 import { int, kg, km } from '../../lib/format'
 import { newId } from '../../lib/id'
 import {
@@ -27,13 +27,17 @@ import { HabitsTodayCard, ReadingTodayCard } from '../growth/cards'
 import { MoodCheckinCard, MindTodayCard } from '../mind/cards'
 import { FinanceTodayCard } from '../finance/cards'
 import { GoalsFocusCard, WeeklyReviewCard } from '../goals/cards'
+import { MorningBriefCard } from '../coach/cards'
+import { AskCoachCard } from '../assistant/cards'
+import { getScheduledDay, getWeeklyProgress, scheduleLabel } from '../workouts/schedule'
+import { weekPrescription } from '../workouts/calc'
 import {
   ACTIVITY_LABEL_RU,
   greeting,
   pickProgram,
-  scheduledDay,
   sessionLocalDate,
   sessionVolume,
+  weeklyProgress,
 } from './calc'
 
 const linkPrimary =
@@ -70,9 +74,17 @@ async function loadDashboard(day: string) {
     db.weights.orderBy('date').last(),
   ])
   const finishedToday = recentSessions.filter((s) => s.finishedAt && sessionLocalDate(s) === day)
+  const program = pickProgram(programs, activeSetting?.value)
+  // Weekday programs: today's day; sequential ones: the next day in the rotation (+ cycle week)
+  const [schedule, weekly] = await Promise.all([
+    program ? getScheduledDay(db, program) : Promise.resolve(undefined),
+    getWeeklyProgress(db),
+  ])
   return {
     profile,
-    program: pickProgram(programs, activeSetting?.value),
+    program,
+    schedule,
+    weekly,
     activeSession,
     finishedToday,
     foodEntries,
@@ -133,10 +145,12 @@ export function TodayPage() {
             <MindTodayCard key="mind" compact />
             <ReadingTodayCard key="reading" compact />
           </StaggerList>
+          <MorningBriefCard key="brief" />
           <HabitsTodayCard key="habits" layout="bubbles" />
           <GoalsFocusCard key="goals" />
           <WeeklyReviewCard key="review" />
           <UpcomingCard key="upcoming" />
+          <AskCoachCard key="ask-coach" />
         </StaggerList>
       )}
     </>
@@ -297,8 +311,20 @@ function MacroLine({
 /* ---------------------------- Workout ----------------------------- */
 
 function WorkoutCard({ data }: { data: Dashboard }) {
-  const { program, activeSession, finishedToday } = data
-  const day = scheduledDay(program, weekdayIndex())
+  const { program, activeSession, finishedToday, schedule, weekly } = data
+  const day = schedule?.day
+  const cycle = schedule ? scheduleLabel(schedule) : undefined
+  const progress = weeklyProgress(weekly.done, weekly.target)
+  const progressLine = program ? (
+    <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted tabular-nums">
+      {progress.text}
+      {progress.extra && !activeSession && day && day.type !== 'rest' && (
+        <span className="rounded-full bg-accent/15 px-2 py-0.5 font-medium text-accent">
+          Сверх плана
+        </span>
+      )}
+    </p>
+  ) : null
 
   let title: ReactNode = null
   let meta: ReactNode = null
@@ -353,10 +379,16 @@ function WorkoutCard({ data }: { data: Dashboard }) {
       tone = 'violet'
       meta = <p className="text-sm text-muted">{day.notes ?? 'День отдыха.'}</p>
     } else {
+      const count = day.exercises.filter(
+        (e) => weekPrescription(e, program.weeks ? schedule?.prescriptionWeek : undefined).sets > 0,
+      ).length
       meta = (
-        <p className="text-sm text-muted">
-          {program.name} · {day.exercises.length} упр.
-        </p>
+        <>
+          {cycle && <p className="text-sm font-medium text-accent tabular-nums">{cycle}</p>}
+          <p className="text-sm text-muted">
+            {program.name} · {count} упр.
+          </p>
+        </>
       )
       cta = (
         <Link
@@ -401,6 +433,7 @@ function WorkoutCard({ data }: { data: Dashboard }) {
       </div>
       {title && <p className="text-2xl leading-tight font-bold tracking-tight">{title}</p>}
       <div className="mt-1">{meta}</div>
+      {progressLine}
       {cta && <div className="mt-3.5">{cta}</div>}
     </Card>
   )

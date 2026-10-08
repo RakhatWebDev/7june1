@@ -1,5 +1,6 @@
 import { db } from './index'
 import { builtInPrograms } from '../data/programs'
+import { ensureProgramSettingsSeeded } from '../data/programs/maxes'
 import type { Profile } from './types'
 import { ensureFinanceSeeded } from '../features/finance/seed'
 import { ensureHabitsSeeded } from '../features/growth/habits/seed'
@@ -23,7 +24,7 @@ export const DEFAULT_PROFILE: Profile = {
 
 /**
  * Idempotent: creates the profile if missing and upserts built-in programs
- * (user-created programs are never touched).
+ * (user-created programs are never touched); seeds lift maxes and the default active program if absent.
  */
 export async function ensureSeeded(database = db): Promise<void> {
   await database.transaction('rw', database.profile, database.programs, async () => {
@@ -31,6 +32,7 @@ export async function ensureSeeded(database = db): Promise<void> {
     if (!profile) await database.profile.put(DEFAULT_PROFILE)
     for (const p of builtInPrograms) await database.programs.put(p)
   })
+  await ensureProgramSettingsSeeded(database)
   await ensureFinanceSeeded(database)
   await ensureHabitsSeeded(database)
   await ensureGoalsSeeded(database)

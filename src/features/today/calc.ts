@@ -26,6 +26,11 @@ export function scheduledDay(program: Program | undefined, weekday: number): Pro
   return program?.days.find((d) => d.weekday === weekday)
 }
 
+/** «На этой неделе 1 из 3»; `extra` when the weekly target is already met (a session now is «Сверх плана»). */
+export function weeklyProgress(done: number, target: number): { text: string; extra: boolean } {
+  return { text: `На этой неделе ${done} из ${target}`, extra: done >= target }
+}
+
 /** Volume of a session: weight × reps of done, non-warm-up sets (see contract in TASKS.md). */
 export function sessionVolume(session: Pick<WorkoutSession, 'exercises'>): number {
   let total = 0

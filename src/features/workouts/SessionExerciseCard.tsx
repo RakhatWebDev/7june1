@@ -6,6 +6,7 @@ import { ExerciseMedia } from '../../components/ExerciseMedia'
 import { exerciseImageUrl } from '../../data/exercises'
 import type { Exercise, SessionExercise, SetLog } from '../../db/types'
 import { addSet, applyPreviousWeights, removeSet, updateSet } from './actions'
+import { hintTrend } from './autoreg'
 import { formatPerformance, type PastPerformance } from './calc'
 import { restLabel } from './labels'
 import { ExerciseTechniqueSheet } from './ExerciseTechniqueSheet'
@@ -82,6 +83,7 @@ export function SessionExerciseCard({
               · выполнено {doneCount}/{exercise.sets.length}
             </span>
           </p>
+          {exercise.hint && <ExerciseHint hint={exercise.hint} />}
           {exercise.notes && <p className="mt-0.5 text-xs text-muted">{exercise.notes}</p>}
         </div>
         <Link
@@ -165,6 +167,7 @@ export function SessionExerciseCard({
             key={i}
             index={i}
             set={set}
+            target={exercise.targets?.[i]}
             onChange={(patch) => changeSet(i, patch)}
             onDelete={() => void removeSet(sessionId, exIdx, i)}
           />
@@ -187,5 +190,19 @@ export function SessionExerciseCard({
         />
       )}
     </Card>
+  )
+}
+
+/** Auto-regulation explanation under the exercise title: accent for ↑, warn for ↓. */
+function ExerciseHint({ hint }: { hint: string }) {
+  const trend = hintTrend(hint)
+  const text = trend === 'none' ? hint : hint.slice(1).trimStart()
+  const tone = trend === 'up' ? 'text-accent' : trend === 'down' ? 'text-warn' : 'text-muted'
+  const icon = trend === 'up' ? 'arrow-up' : trend === 'down' ? 'arrow-down' : trend === 'same' ? 'minus' : 'target'
+  return (
+    <p className={`mt-1 flex items-start gap-1 text-xs ${tone}`} data-testid="exercise-hint">
+      <Icon name={icon} size={13} className="mt-px shrink-0" />
+      <span className="min-w-0">{text}</span>
+    </p>
   )
 }

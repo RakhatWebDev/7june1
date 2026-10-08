@@ -1,6 +1,8 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { useParams } from 'react-router'
 import { Button, Card, Chip, EmptyState, LinkButton, PageHeader, Sheet, Skeleton, Toast } from '../../components/ui'
+import { useLiveQuery } from 'dexie-react-hooks'
+import { db } from '../../db'
 import type { WorkoutSession } from '../../db/types'
 import { int, plural } from '../../lib/format'
 import { addExercise, finishSession, removeExercise, setHideMedia } from './actions'
@@ -10,6 +12,7 @@ import { ExercisePickerSheet } from './ExercisePickerSheet'
 import { useExerciseMap, useHideMedia, useNow, useSession, useSessions } from './hooks'
 import { formatSessionDateTime } from './labels'
 import { RestTimer } from './RestTimer'
+import { sessionCycleLabel } from './schedule'
 import { SessionExerciseCard } from './SessionExerciseCard'
 import { SessionSummary } from './SessionSummary'
 
@@ -49,6 +52,11 @@ function SessionView({ session, allSessions }: { session: WorkoutSession; allSes
   const [summaryOpen, setSummaryOpen] = useState(false)
   const [prCount, setPrCount] = useState(0)
   const isActive = !session.finishedAt
+  const program = useLiveQuery(
+    async () => (session.programId ? ((await db.programs.get(session.programId)) ?? null) : null),
+    [session.programId],
+  )
+  const cycle = sessionCycleLabel(program ?? undefined, session.programDayId, session.programWeek)
 
   const lasts = useMemo(
     () =>
@@ -82,7 +90,11 @@ function SessionView({ session, allSessions }: { session: WorkoutSession; allSes
       <PageHeader
         title={session.name}
         eyebrow={isActive ? 'Идёт тренировка' : undefined}
-        subtitle={isActive ? undefined : `Завершена · ${formatSessionDateTime(session.startedAt)}`}
+        subtitle={
+          isActive
+            ? cycle
+            : [cycle, `Завершена · ${formatSessionDateTime(session.startedAt)}`].filter(Boolean).join(' · ')
+        }
         back={isActive ? '/workouts' : '/workouts/history'}
         action={
           isActive ? undefined : (
@@ -97,7 +109,9 @@ function SessionView({ session, allSessions }: { session: WorkoutSession; allSes
       ) : (
         <Card variant="elevated" className="mb-4">
           <SessionSummary session={session} allSessions={allSessions} />
-          <p className="mt-3 flex items-center gap-1.5 text-xs text-muted">Режим просмотра: подходы можно редактировать.</p>
+          <p className="mt-3 flex items-center gap-1.5 text-xs text-muted">
+            Режим просмотра: подходы можно редактировать.
+          </p>
         </Card>
       )}
 
@@ -105,11 +119,7 @@ function SessionView({ session, allSessions }: { session: WorkoutSession; allSes
         <p className="text-sm text-muted tabular-nums">
           {exCount} {plural(exCount, ['упражнение', 'упражнения', 'упражнений'])}
         </p>
-        <Chip
-          active={hideMedia}
-          icon={hideMedia ? 'check' : undefined}
-          onClick={() => void setHideMedia(!hideMedia)}
-        >
+        <Chip active={hideMedia} icon={hideMedia ? 'check' : undefined} onClick={() => void setHideMedia(!hideMedia)}>
           Скрывать технику
         </Chip>
       </div>
@@ -165,7 +175,7 @@ function SessionView({ session, allSessions }: { session: WorkoutSession; allSes
         onClose={() => setConfirmFinish(false)}
       />
       <Sheet open={summaryOpen} onClose={() => setSummaryOpen(false)} title="Тренировка завершена">
-        <SessionSummary session={session} allSessions={allSessions} />
+        <SessionSummary session={session} allSessions={allSessions} showNext />
         <div className="mt-4 grid grid-cols-2 gap-2">
           <LinkButton to="/workouts/history" icon="history">
             К истории

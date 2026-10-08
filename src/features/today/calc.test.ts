@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { davidLaidDup } from '../../data/programs/davidLaidDup'
 import type { Program } from '../../db/types'
-import { greeting, pickProgram, scheduledDay, sessionVolume } from './calc'
+import { greeting, pickProgram, scheduledDay, sessionVolume, weeklyProgress } from './calc'
 
 const custom: Program = { ...davidLaidDup, id: 'custom', name: 'Моя', isBuiltIn: false }
 
@@ -26,6 +26,11 @@ describe('today calc', () => {
     expect(scheduledDay(davidLaidDup, 0)?.id).toBe('legs-1')
     expect(scheduledDay(davidLaidDup, 6)?.type).toBe('rest')
     expect(scheduledDay(undefined, 0)).toBeUndefined()
+  })
+
+  it('formats the weekly progress and flags extra sessions', () => {
+    expect(weeklyProgress(1, 3)).toEqual({ text: 'На этой неделе 1 из 3', extra: false })
+    expect(weeklyProgress(3, 3).extra).toBe(true)
   })
 
   it('computes session volume from done working sets', () => {

@@ -63,7 +63,8 @@ describe('rule 1 — progression', () => {
     expect(adviseNext(pctEx, null, { ...applied, sessionId: 's', tmLog: { Barbell_Squat: { sessionId: 's', prevKg: 100 } } })).toMatchObject({
       trainingMax: { from: 100, to: 102.5 },
     })
-    expect(adviseNext(pctEx, null, applied)?.action).toBe('hold')
+    // Without the training-max log the beat rule raises again (capped +5 % per session)
+    expect(adviseNext(pctEx, null, applied)?.action).toBe('increase')
   })
 
   it('ruleProgression summarises the last session', () => {

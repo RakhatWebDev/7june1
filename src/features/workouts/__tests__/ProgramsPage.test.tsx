@@ -15,8 +15,11 @@ const at = (iso: string) => {
   vi.setSystemTime(new Date(iso))
 }
 
+const useDup = () => db.settings.put({ key: 'activeProgramId', value: 'david-laid-dup' })
+
 describe('ProgramsPage (/workouts)', () => {
-  it('shows today\'s day of David Laid DUP and a start link', async () => {
+  it("shows today's day of David Laid DUP and a start link", async () => {
+    await useDup()
     at('2026-10-05T09:00:00') // Monday
     renderRoute('/workouts')
     expect(await screen.findByText('Ноги 1 — сила')).toBeInTheDocument()
@@ -29,6 +32,7 @@ describe('ProgramsPage (/workouts)', () => {
   })
 
   it('shows the note and no start button on a rest day', async () => {
+    await useDup()
     at('2026-10-11T09:00:00') // Sunday
     renderRoute('/workouts')
     expect(await screen.findByText(/Прогулка 30–60 мин/)).toBeInTheDocument()
