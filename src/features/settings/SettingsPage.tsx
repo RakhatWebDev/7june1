@@ -10,6 +10,7 @@ import {
   Icon,
   IconBadge,
   Input,
+  LinkButton,
   PageHeader,
   SectionHeader,
   Select,
@@ -206,6 +207,14 @@ function ActiveProgramCard() {
 
   return (
     <>
+      <SectionHeader title="Тренер" icon="brain" tone="violet" />
+      <Card className="mb-4">
+        <p className="text-sm text-muted">Советы по правилам уже работают офлайн. ИИ-чат подключается ключом Gemini (бесплатно) или Claude.</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <LinkButton to="/coach" variant="secondary" size="sm" icon="sparkles">Советы тренера</LinkButton>
+          <LinkButton to="/assistant/settings" variant="secondary" size="sm" icon="settings">ИИ-тренер</LinkButton>
+        </div>
+      </Card>
       <SectionHeader title="Тренировки" icon="dumbbell" tone="accent" />
       <Card>
         <Field label="Программа на дашборде «Сегодня»">

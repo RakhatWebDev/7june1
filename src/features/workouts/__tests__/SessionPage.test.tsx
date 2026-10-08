@@ -95,7 +95,8 @@ describe('SessionPage', () => {
     const sheet = await screen.findByRole('dialog', { name: 'Добавить упражнение' })
     fireEvent.change(within(sheet).getByLabelText('Поиск упражнения'), { target: { value: 'PUSH' } })
     fireEvent.click(within(sheet).getByRole('button', { name: /Pushups/ }))
-    expect(await screen.findByRole('heading', { name: 'Pushups' })).toBeInTheDocument()
+    // Russian alias from the built-in programs (David Laid — Program 1)
+    expect(await screen.findByRole('heading', { name: 'Отжимания' })).toBeInTheDocument()
     await waitFor(async () => expect((await db.sessions.get('cur'))?.exercises).toHaveLength(2))
 
     fireEvent.click(screen.getAllByRole('button', { name: 'Удалить упражнение' })[0])

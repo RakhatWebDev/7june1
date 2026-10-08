@@ -1,11 +1,34 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { EmptyState, LinkButton, PageHeader, Skeleton } from '../../components/ui'
-import { startSession } from './actions'
+import { db } from '../../db'
+import type { Exercise } from '../../db/types'
+import { loadExercises } from '../../data/exercises'
+import { startSession, StartSessionError } from './actions'
+import { getScheduledDay } from './schedule'
+
+/** Library by id for auto-regulation; never blocks the start for long (offline / slow network). */
+async function libraryMap(timeoutMs = 1500): Promise<Map<string, Exercise>> {
+  const list = await Promise.race([
+    loadExercises().catch(() => [] as Exercise[]),
+    new Promise<Exercise[]>((resolve) => setTimeout(() => resolve([]), timeoutMs)),
+  ])
+  return new Map(list.map((e) => [e.id, e]))
+}
+
+/** `dayId === 'next'` resolves the scheduled day (weekday or next in the rotation). */
+async function resolveDayId(programId: string, dayId: string): Promise<string> {
+  if (dayId !== 'next') return dayId
+  const program = await db.programs.get(programId)
+  if (!program) throw new StartSessionError('Программа не найдена')
+  const s = await getScheduledDay(db, program)
+  if (!s.day) throw new StartSessionError('На сегодня в программе нет дня')
+  return s.day.id
+}
 
 /**
  * /workouts/start/:programId/:dayId — creates a session from the program day (or reuses the
- * active one) and redirects to it. startSession() is transactional, so StrictMode's double
+ * active one) and redirects to it. `:dayId` may be `next` (the scheduled day). startSession() is transactional, so StrictMode's double
  * effect cannot create two sessions.
  */
 export function StartSessionPage() {
@@ -15,7 +38,8 @@ export function StartSessionPage() {
 
   useEffect(() => {
     let alive = true
-    startSession(programId, dayId)
+    Promise.all([resolveDayId(programId, dayId), libraryMap()])
+      .then(([id, library]) => startSession(programId, id, undefined, undefined, library))
       .then((id) => {
         if (alive) void navigate(`/workouts/session/${id}`, { replace: true })
       })

@@ -2,6 +2,8 @@ import type {
   Exercise,
   Program,
   ProgramDay,
+  ProgramExercise,
+  ProgramExerciseWeek,
   SessionExercise,
   SetLog,
   WorkoutSession,
@@ -80,28 +82,66 @@ export function emptySets(n: number): SetLog[] {
   return Array.from({ length: Math.max(0, n) }, () => ({ weightKg: null, reps: null, done: false }))
 }
 
-/** Builds a new session from a program day: copies the plan and creates `sets` empty set logs. */
+/**
+ * The prescription of a program exercise for a 0-based cycle week: `weekly[week]` when the program is
+ * cyclic, else the base fields. `week` beyond the cycle uses the last week.
+ */
+export function weekPrescription(e: ProgramExercise, week?: number): ProgramExerciseWeek {
+  if (e.weekly && e.weekly.length > 0 && week != null) {
+    const w = e.weekly[Math.min(Math.max(0, week), e.weekly.length - 1)]
+    if (w) return w
+  }
+  const base: ProgramExerciseWeek = { sets: e.sets, reps: e.reps }
+  if (e.intensity) base.intensity = e.intensity
+  if (e.scheme) base.scheme = e.scheme
+  return base
+}
+
+/** Extra per-exercise fields (targets, hint) resolved by the caller, e.g. auto-regulation. */
+export type ExerciseExtras = (
+  e: ProgramExercise,
+  prescription: ProgramExerciseWeek,
+  index: number,
+) => Partial<Pick<SessionExercise, 'targets' | 'hint'>> | undefined
+
+/**
+ * Builds a new session from a program day: copies the plan (for `week` of a cyclic program) and creates
+ * empty set logs. Exercises with 0 sets this week are skipped.
+ */
 export function buildSessionFromDay(
   program: Program,
   day: ProgramDay,
   id: string,
   now: Date = new Date(),
+  opts: { week?: number; extras?: ExerciseExtras } = {},
 ): WorkoutSession {
+  const cyclic = program.weeks != null && opts.week != null
+  const exercises: SessionExercise[] = []
+  day.exercises.forEach((e, i) => {
+    const w = weekPrescription(e, cyclic ? opts.week : undefined)
+    if (w.sets <= 0) return
+    const notes = [e.notes, w.notes].filter(Boolean).join(' ')
+    const extra = opts.extras?.(e, w, i) ?? {}
+    exercises.push({
+      exerciseId: e.exerciseId,
+      name: e.name,
+      targetSets: w.sets,
+      targetReps: w.reps,
+      restSec: e.restSec,
+      sets: emptySets(w.sets),
+      ...(notes ? { notes } : {}),
+      ...(extra.targets ? { targets: extra.targets } : {}),
+      ...(extra.hint ? { hint: extra.hint } : {}),
+    })
+  })
   return {
     id,
     programId: program.id,
     programDayId: day.id,
+    ...(cyclic ? { programWeek: opts.week } : {}),
     name: day.name,
     startedAt: now.toISOString(),
-    exercises: day.exercises.map((e) => ({
-      exerciseId: e.exerciseId,
-      name: e.name,
-      targetSets: e.sets,
-      targetReps: e.reps,
-      restSec: e.restSec,
-      sets: emptySets(e.sets),
-      ...(e.notes ? { notes: e.notes } : {}),
-    })),
+    exercises,
   }
 }
 
@@ -153,9 +193,7 @@ export function formatPerformance(sets: { weightKg: number; reps: number }[]): s
     if (last && last.w === s.weightKg) last.reps.push(s.reps)
     else groups.push({ w: s.weightKg, reps: [s.reps] })
   }
-  return groups
-    .map((g) => `${g.w > 0 ? `${fmtKg(g.w)} кг` : 'б/в'} × ${g.reps.join(', ')}`)
-    .join(' · ')
+  return groups.map((g) => `${g.w > 0 ? `${fmtKg(g.w)} кг` : 'б/в'} × ${g.reps.join(', ')}`).join(' · ')
 }
 
 /** Which entry (0-based) among same-exercise entries the given index is. */
@@ -180,7 +218,12 @@ export function bestByExercise(sessions: WorkoutSession[]): Map<string, Exercise
     for (const e of s.exercises) {
       for (const set of e.sets) {
         if (!isWorkingSet(set) || !set.weightKg || !set.reps || set.reps <= 0) continue
-        const cur = out.get(e.exerciseId) ?? { maxWeightKg: 0, maxWeightDate: null, best1RM: 0, best1RMDate: null }
+        const cur = out.get(e.exerciseId) ?? {
+          maxWeightKg: 0,
+          maxWeightDate: null,
+          best1RM: 0,
+          best1RMDate: null,
+        }
         if (set.weightKg > cur.maxWeightKg) {
           cur.maxWeightKg = set.weightKg
           cur.maxWeightDate = s.startedAt
@@ -235,11 +278,7 @@ export interface ExerciseHistoryItem {
 }
 
 /** Latest `limit` sessions (newest first) in which the exercise has completed working sets. */
-export function exerciseHistory(
-  sessions: WorkoutSession[],
-  exerciseId: string,
-  limit = 10,
-): ExerciseHistoryItem[] {
+export function exerciseHistory(sessions: WorkoutSession[], exerciseId: string, limit = 10): ExerciseHistoryItem[] {
   return [...sessions]
     .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
     .map((s) => ({

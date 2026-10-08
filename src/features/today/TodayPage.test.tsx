@@ -55,8 +55,40 @@ describe('TodayPage', () => {
     expect(screen.getByRole('link', { name: 'профиль' })).toBeInTheDocument()
   })
 
-  it('offers the scheduled day of the built-in program after seeding', async () => {
+  it('offers the next day of the default program (David Laid — Program 1) with its cycle week', async () => {
     await ensureSeeded(db)
+    renderPage()
+    expect(await screen.findByText('Ноги')).toBeInTheDocument()
+    expect(screen.getByText('Неделя 1 · день 1 из 5')).toBeInTheDocument()
+    expect(screen.getByText('На этой неделе 0 из 3')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Начать' })).toHaveAttribute(
+      'href',
+      '/workouts/start/david-laid-program-1/p1-legs',
+    )
+  })
+
+  it('marks an extra session once the weekly target is met', async () => {
+    await ensureSeeded(db)
+    await db.settings.put({ key: 'training.targetPerWeek', value: 1 })
+    await db.sessions.put(
+      session({
+        id: 'done-1',
+        finishedAt: new Date().toISOString(),
+        startedAt: new Date().toISOString(),
+      }),
+    )
+    await db.settings.put({
+      key: 'program.cycle:david-laid-program-1',
+      value: { startDate: today(), week: 1, nextDayIndex: 2 },
+    })
+    renderPage()
+    expect(await screen.findByText(/На этой неделе 1 из 1/)).toBeInTheDocument()
+    expect(screen.getByText('Сверх плана')).toBeInTheDocument()
+  })
+
+  it('offers the scheduled weekday of the DUP program', async () => {
+    await ensureSeeded(db)
+    await db.settings.put({ key: 'activeProgramId', value: 'david-laid-dup' })
     renderPage()
     const day = davidLaidDup.days.find((d) => d.weekday === weekdayIndex())!
     expect(await screen.findByText(day.name)).toBeInTheDocument()

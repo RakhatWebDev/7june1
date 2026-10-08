@@ -34,6 +34,7 @@ import {
 import { RatingInput, StatGrid, Stars } from './components'
 import { useCurrencySign, useReviews, useWeekStats } from './hooks'
 import { collectWeekStats } from './stats'
+import { WeekNarrativeCard } from '../coach/cards'
 import { staggerItem } from './styles'
 
 const STEPS = ['Цифры недели', 'Итоги', 'Ключевые результаты'] as const
@@ -249,7 +250,10 @@ function ReviewWizard({
       >
       {step === 0 &&
         (stats ? (
-          <StatGrid current={stats} previous={prevStats} currency={currency} />
+          <div className="space-y-3">
+            <WeekNarrativeCard weekStart={week} />
+            <StatGrid current={stats} previous={prevStats} currency={currency} />
+          </div>
         ) : (
           <div className="grid grid-cols-2 gap-2.5" aria-busy="true">
             {[0, 1, 2, 3].map((i) => (

@@ -6,6 +6,7 @@ import {
   addExercise,
   addSet,
   applyPreviousWeights,
+  deleteSession,
   findActiveSession,
   finishSession,
   removeExercise,
@@ -83,5 +84,90 @@ describe('session edits', () => {
     await finishSession(id, database)
     expect((await database.sessions.get(id))?.finishedAt).toBeTruthy()
     expect(await findActiveSession(database)).toBeUndefined()
+  })
+})
+
+describe('startSession — cyclic programs and auto-regulation', () => {
+  const P1 = 'david-laid-program-1'
+  const tms = async () => ((await database.settings.get('lifts.trainingMaxes'))?.value ?? {}) as Record<string, number>
+
+  it('resolves per-set targets from % × max and stores the cycle week', async () => {
+    const id = await startSession(P1, 'p1-legs', database)
+    const s = (await database.sessions.get(id))!
+    expect(s.programWeek).toBe(0)
+    const squat = s.exercises[0]
+    expect(squat).toMatchObject({
+      exerciseId: 'Barbell_Squat',
+      targetSets: 3,
+      targetReps: '10-8-6',
+    })
+    expect(squat.targets).toEqual([
+      { reps: '10', pct: 0.6, weightKg: 35 },
+      { reps: '8', pct: 0.7, weightKg: 42.5 },
+      { reps: '6', pct: 0.8, weightKg: 47.5 },
+    ])
+    expect(squat.hint).toBe('Тренировочный макс. 60 кг')
+    expect(s.exercises[1].targets).toEqual([{ reps: '10' }, { reps: '10' }, { reps: '10' }])
+    // the training max is seeded from the tested max
+    expect((await tms()).Barbell_Squat).toBe(60)
+  })
+
+  it('uses the week prescription and skips exercises that are off this week', async () => {
+    await database.settings.put({
+      key: `program.cycle:${P1}`,
+      value: { startDate: '2026-10-01', week: 3, nextDayIndex: 4 },
+    })
+    const id = await startSession(P1, 'p1-pull-2', database)
+    const s = (await database.sessions.get(id))!
+    expect(s.programWeek).toBe(3)
+    expect(s.exercises.map((e) => e.exerciseId)).not.toContain('Front_Barbell_Squat')
+    expect(s.exercises[0]).toMatchObject({ exerciseId: 'Sumo_Deadlift', targetReps: '10-8-6' })
+    // no sumo max yet → % only, with a hint to enter the max
+    expect(s.exercises[0].targets?.[0]).toEqual({ reps: '10', pct: 0.6 })
+    expect(s.exercises[0].hint).toContain('Мои максимумы')
+  })
+
+  it('beating the plan raises the training max once; the next session gets heavier targets', async () => {
+    const first = await startSession(P1, 'p1-legs', database, new Date('2026-10-05T09:00:00'))
+    await updateSet(first, 0, 0, { weightKg: 35, reps: 10, done: true }, database)
+    await updateSet(first, 0, 1, { weightKg: 42.5, reps: 8, done: true }, database)
+    await updateSet(first, 0, 2, { weightKg: 47.5, reps: 9, done: true }, database)
+    await finishSession(first, database, new Date('2026-10-05T10:00:00'))
+
+    const second = await startSession(P1, 'p1-push-1', database, new Date('2026-10-07T09:00:00'))
+    expect((await tms()).Barbell_Squat).toBe(60) // squat not in this day — nothing moves
+    await deleteSession(second, database)
+
+    // Squat comes back (pretend it is the legs day again): the training max moves 60 → 62,5
+    await database.settings.put({
+      key: `program.cycle:${P1}`,
+      value: { startDate: '2026-10-05', week: 0, nextDayIndex: 0 },
+    })
+    const third = await startSession(P1, 'p1-legs', database, new Date('2026-10-09T09:00:00'))
+    let s = (await database.sessions.get(third))!
+    expect(s.exercises[0].targets?.map((t) => t.weightKg)).toEqual([37.5, 45, 50])
+    expect(s.exercises[0].hint).toMatch(/^↑ Тренировочный макс\. 62,5 кг/)
+    expect((await tms()).Barbell_Squat).toBe(62.5)
+
+    // Starting again from the same evidence does not raise it twice
+    await deleteSession(third, database)
+    const fourth = await startSession(P1, 'p1-legs', database, new Date('2026-10-09T09:05:00'))
+    s = (await database.sessions.get(fourth))!
+    expect(s.exercises[0].targets?.map((t) => t.weightKg)).toEqual([37.5, 45, 50])
+    expect((await tms()).Barbell_Squat).toBe(62.5)
+  })
+
+  it('appends coach notes to the hint and clears them when the session is finished', async () => {
+    await database.settings.put({
+      key: 'coach.nextNotes',
+      value: {
+        Leg_Press: { note: 'ноги ниже на платформе', createdAt: '2026-10-01T00:00:00.000Z' },
+      },
+    })
+    const id = await startSession(P1, 'p1-legs', database, new Date('2026-10-05T09:00:00'))
+    const s = (await database.sessions.get(id))!
+    expect(s.exercises.find((e) => e.exerciseId === 'Leg_Press')?.hint).toBe('Тренер: ноги ниже на платформе')
+    await finishSession(id, database, new Date('2026-10-05T10:00:00'))
+    expect((await database.settings.get('coach.nextNotes'))?.value).toEqual({})
   })
 })

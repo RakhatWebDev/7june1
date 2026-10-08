@@ -56,6 +56,25 @@ export interface Exercise {
 
 export type DayType = 'push' | 'pull' | 'legs' | 'upper' | 'lower' | 'full' | 'arms' | 'rest'
 
+/** One prescribed set: reps text plus an optional % of the lift's 1RM (0..1.5). */
+export interface SetTarget {
+  /** "10", "AMRAP", "1 (heavy)", "45-60 с" */
+  reps: string
+  /** Fraction of the current max for the lift in `maxLiftId` / the exercise itself, e.g. 0.8 */
+  pct?: number
+  note?: string
+}
+
+/** Prescription for one week of a cycle. Index in `ProgramExercise.weekly` = week (0-based). */
+export interface ProgramExerciseWeek {
+  sets: number
+  reps: string
+  intensity?: string
+  /** Explicit per-set targets (length === sets) — e.g. 10-8-6 at 60/70/80 % */
+  scheme?: SetTarget[]
+  notes?: string
+}
+
 export interface ProgramExercise {
   exerciseId: string
   /** Display name; may differ from the library name (e.g. "Yates Row") */
@@ -67,6 +86,12 @@ export interface ProgramExercise {
   /** Target intensity, e.g. "85% 1RM", "RPE 8" */
   intensity?: string
   notes?: string
+  /** Explicit per-set targets for the base prescription (length === sets) */
+  scheme?: SetTarget[]
+  /** Week-by-week prescriptions for cyclic programs; overrides the base fields for that week */
+  weekly?: ProgramExerciseWeek[]
+  /** Exercise id whose max the % targets refer to (defaults to `exerciseId`), e.g. pause squat → squat */
+  maxLiftId?: string
 }
 
 export interface ProgramDay {
@@ -89,6 +114,25 @@ export interface Program {
   days: ProgramDay[]
   isBuiltIn: boolean
   createdAt: ISODateTime
+  /** 'weekday' — each day has a fixed weekday; 'sequential' — days rotate in order regardless of weekday */
+  schedule?: 'weekday' | 'sequential'
+  /** Cycle length in weeks for programs with `weekly` prescriptions */
+  weeks?: number
+  /** How to run the cycle (e.g. "run twice with a test week in between") */
+  cycleNotes?: string
+  /** Lifts whose 1RM the program's percentages are based on */
+  maxLifts?: { exerciseId: string; label: string }[]
+  /** Recommended %-of-max per rep count, e.g. { "10": 0.6, "8": 0.7 } */
+  pctTable?: Record<string, number>
+}
+
+/** Where the user is in a cyclic program (settings key `program.cycle:<programId>`). */
+export interface ProgramCycleState {
+  startDate: ISODate
+  /** 0-based week override; when absent the week is derived from startDate */
+  week?: number
+  /** Index of the next day to do for `sequential` programs */
+  nextDayIndex?: number
 }
 
 export interface SetLog {
@@ -108,12 +152,18 @@ export interface SessionExercise {
   restSec?: number
   sets: SetLog[]
   notes?: string
+  /** Per-set targets resolved at session start (reps + suggested kg from % of max), length === targetSets */
+  targets?: { reps: string; weightKg?: number; pct?: number }[]
+  /** Hint text for this exercise, e.g. "+2.5 кг" from the coach or the program notes */
+  hint?: string
 }
 
 export interface WorkoutSession {
   id: string
   programId?: string
   programDayId?: string
+  /** 0-based cycle week the session was started in (cyclic programs) */
+  programWeek?: number
   name: string
   startedAt: ISODateTime
   finishedAt?: ISODateTime
@@ -448,6 +498,22 @@ export interface WeeklyReview {
   nextFocus: string[]
   /** Overall week rating 1–5 */
   rating?: 1 | 2 | 3 | 4 | 5
+  createdAt: ISODateTime
+}
+
+/* ------------------------------------ Coach / AI ------------------------------------ */
+
+export interface ChatMessage {
+  id: string
+  /** Conversation id; 'coach' for the main trainer chat */
+  threadId: string
+  role: 'user' | 'assistant' | 'tool'
+  /** Plain text (markdown allowed) */
+  text: string
+  /** Provider that produced an assistant message */
+  provider?: 'gemini' | 'claude' | 'rules'
+  /** Tool calls made while producing this message, for transparency */
+  toolCalls?: { name: string; input: unknown; output: unknown }[]
   createdAt: ISODateTime
 }
 

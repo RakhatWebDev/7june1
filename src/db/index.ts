@@ -1,6 +1,7 @@
 import Dexie, { type EntityTable } from 'dexie'
 import type {
   Activity,
+  ChatMessage,
   Budget,
   JournalEntry,
   LifeGoal,
@@ -57,6 +58,7 @@ export class FormaDB extends Dexie {
   mindSessions!: EntityTable<MindSession, 'id'>
   lifeGoals!: EntityTable<LifeGoal, 'id'>
   weeklyReviews!: EntityTable<WeeklyReview, 'id'>
+  chatMessages!: EntityTable<ChatMessage, 'id'>
 
   constructor(name = 'forma') {
     super(name)
@@ -95,6 +97,9 @@ export class FormaDB extends Dexie {
       mindSessions: 'id, date, kind',
       lifeGoals: 'id, area, status, sort',
       weeklyReviews: 'id, weekStart',
+    })
+    this.version(5).stores({
+      chatMessages: 'id, threadId, createdAt',
     })
   }
 }

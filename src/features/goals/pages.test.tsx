@@ -215,7 +215,7 @@ describe('WeeklyReviewPage', () => {
 
     // Step 3 — KR steppers
     await step(user, 'Вес: текущее', 'Меньше', 2) // 88 → 87
-    await step(user, 'Тренировок в неделю: текущее', 'Больше', 2) // 0 → 2
+    await step(user, 'Тренировок в неделю: текущее', 'Больше', 1) // 2 → 3
     await user.click(screen.getByRole('button', { name: 'Сохранить обзор' }))
 
     await waitFor(() => expect(router.state.location.pathname).toBe(`/goals/review/${W}`))
@@ -233,7 +233,7 @@ describe('WeeklyReviewPage', () => {
     })
     expect(reviews[0].stats.workouts).toBe(2)
     const g = await db.lifeGoals.get(STARTER_GOAL_ID)
-    expect(g?.keyResults.map((k) => k.current)).toEqual([87, 2, 0])
+    expect(g?.keyResults.map((k) => k.current)).toEqual([87, 3, 0])
     unmount()
 
     // Re-opening the same week edits the existing review.
