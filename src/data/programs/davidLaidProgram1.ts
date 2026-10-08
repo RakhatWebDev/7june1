@@ -1,9 +1,27 @@
 import type { Program } from '../../db/types'
-import { DAVID_LAID_PCT_TABLE, cyc, heavySingle, maxTest, pyramid, skip, straight, times, toFailure } from './build'
+import type { ProgramDay, ProgramExercise, ProgramExerciseWeek } from '../../db/types'
+import {
+  DAVID_LAID_PCT_TABLE,
+  PROGRAM_WEEKS,
+  SESSIONS_PER_WEEK,
+  cyc as cyc4,
+  davidLaidBlocks,
+  heavySingle,
+  maxTest,
+  pyramid,
+  skip,
+  straight,
+  times,
+  toFailure,
+  twelveWeeks,
+} from './build'
 
 /*
  * David Laid — "Workout_Program_1" (the user's Word document, see docs/source/david-laid-programs.txt).
- * 4-week cycle, 5 days rotating in order (Legs → Push 1 → Pull 1 → Push 2 → Pull 2).
+ * The document has 5 sessions per week × 4 weeks; the owner trains 3×/week for ~3 months, so it is laid out
+ * as 12 program weeks of 3 sessions. Rotation of 6 sessions (= 2 program weeks):
+ * Ноги → Жим 1 → Тяга 1 → Ноги → Жим 2 → Тяга 2. Weeks 1–8 = document weeks 1–4 (each twice), week 9 = test
+ * week, weeks 10–12 = document weeks 1–3 again. Each exercise lists the 4 document weeks; `twelveWeeks` expands.
  * Russian names follow the user's personalised copy ("David_Laid.docx") where it is correct.
  */
 
@@ -13,6 +31,14 @@ const DEADLIFT = 'Barbell_Deadlift'
 const CORE_REST = 180
 const MAX_REST = 240
 
+/** Exercise defined by its 4 document weeks, expanded to the 12-week layout. */
+const cyc = (
+  exerciseId: string,
+  name: string,
+  doc: ProgramExerciseWeek[],
+  opts?: Parameters<typeof cyc4>[3],
+): ProgramExercise => cyc4(exerciseId, name, twelveWeeks(doc), opts)
+
 const p = pyramid
 const core = (reps: number[]) => pyramid(reps, true)
 const x3x10 = () => times(straight(3, 10))
@@ -21,20 +47,57 @@ const CALF_NOTE =
   'Последние 10 повторений каждого подхода — пауза в верхней точке 2–3 с, последнее повторение — 5–10 с. ' +
   'Держи икры в напряжении весь подход.'
 
+/** The legs day comes twice per rotation (sessions 1 and 4). */
+const legsDay = (id: string): ProgramDay => ({
+  id,
+  name: 'Ноги',
+  type: 'legs',
+  notes:
+    'Подъёмы на икры: последние 10 повторений с паузой 2–3 с наверху, последнее — 5–10 с. ' +
+    'На неделе MAX в приседе, как и в становой, шаг до 10 кг между синглами нормален, когда вес выше 80 % прошлого максимума.',
+  exercises: [
+    cyc(SQUAT, 'Присед', [core([10, 8, 6]), core([4, 4, 2]), core([5, 3, 1]), maxTest()], {
+      restSec: CORE_REST,
+    }),
+    cyc('Leg_Press', 'Жим ногами', x3x10()),
+    cyc('Leg_Extensions', 'Разгибания ног', x3x10()),
+    cyc('Lying_Leg_Curls', 'Сгибания ног', x3x10()),
+    cyc('Smith_Machine_Calf_Raise', 'Подъёмы на икры в Смите', times(p([40, 30, 20])), {
+      restSec: 60,
+      notes: CALF_NOTE,
+    }),
+    cyc('Seated_Calf_Raise', 'Подъёмы на икры сидя', times(p([30, 20, 10])), {
+      restSec: 60,
+      notes: CALF_NOTE,
+    }),
+    cyc('Bodyweight_Squat', 'Стенка (удержание у стены)', times(toFailure(2)), {
+      restSec: 120,
+      notes: 'Удержание у стены до отказа, отдых 2 мин. В «повторы» записывай секунды.',
+    }),
+  ],
+})
+
 export const davidLaidProgram1: Program = {
   id: 'david-laid-program-1',
-  name: 'David Laid — Программа 1 (4 недели)',
+  name: 'David Laid — Программа 1 (12 недель, 3×/нед)',
   description:
-    '5 тренировок по кругу: Ноги → Жим 1 → Тяга 1 → Жим 2 → Тяга 2. Цикл 4 недели: схемы 10-8-6, 4-4-2, 5-3-1 ' +
-    'и неделя максимумов (MAX). Веса базовых упражнений — % от твоего максимума, аксессуары — по самочувствию.',
+    '3 тренировки в неделю, 12 недель. По кругу из 6 тренировок: Ноги → Жим 1 → Тяга 1 → Ноги → Жим 2 → Тяга 2. ' +
+    'Блоки по 2 недели: 10-8-6, 4-4-2, 5-3-1, MAX, затем тестовая неделя и повтор первых трёх блоков. ' +
+    'Веса базовых упражнений — % от твоего максимума, аксессуары — по самочувствию.',
   source:
     'Документ David Laid «Workout_Program_1» (личная переписка, присланный пользователем файл). ' +
     'Проценты точнее всего для приседа — для становой и особенно жима лёжа вес может понадобиться увеличить.',
-  daysPerWeek: 5,
+  daysPerWeek: SESSIONS_PER_WEEK,
+  sessionsPerWeek: SESSIONS_PER_WEEK,
   schedule: 'sequential',
-  weeks: 4,
+  weeks: PROGRAM_WEEKS,
+  version: 2,
+  blocks: davidLaidBlocks(['10-8-6', '4-4-2', '5-3-1', 'MAX']),
   cycleNotes:
-    'Программу проходят дважды: 2 цикла по 4 недели, а между ними — неделя на проверку новых максимумов. ' +
+    'Неделя программы = 3 тренировки (считаются завершённые тренировки, не календарь). Документ: 5 тренировок × 4 ' +
+    'недели, «прогнать дважды с неделей проверки максимумов между циклами» → недели 1–8 = недели документа 1–4 ' +
+    '(каждая по 2 недели), неделя 9 — тест новых максимумов, недели 10–12 — недели 1–3 документа с новыми ' +
+    'максимумами (неделя 13 «MAX» — по желанию). 4-я тренировка за календарную неделю просто продолжает круг. ' +
     'Для аксессуаров бери комфортный вес, для базовых упражнений — % от максимума по таблице.',
   maxLifts: [
     { exerciseId: SQUAT, label: 'Присед' },
@@ -50,34 +113,7 @@ export const davidLaidProgram1: Program = {
   isBuiltIn: true,
   createdAt: '2026-10-08T00:00:00.000Z',
   days: [
-    {
-      id: 'p1-legs',
-      name: 'Ноги',
-      type: 'legs',
-      notes:
-        'Подъёмы на икры: последние 10 повторений с паузой 2–3 с наверху, последнее — 5–10 с. ' +
-        'На неделе MAX в приседе, как и в становой, шаг до 10 кг между синглами нормален, когда вес выше 80 % прошлого максимума.',
-      exercises: [
-        cyc(SQUAT, 'Присед', [core([10, 8, 6]), core([4, 4, 2]), core([5, 3, 1]), maxTest()], {
-          restSec: CORE_REST,
-        }),
-        cyc('Leg_Press', 'Жим ногами', x3x10()),
-        cyc('Leg_Extensions', 'Разгибания ног', x3x10()),
-        cyc('Lying_Leg_Curls', 'Сгибания ног', x3x10()),
-        cyc('Smith_Machine_Calf_Raise', 'Подъёмы на икры в Смите', times(p([40, 30, 20])), {
-          restSec: 60,
-          notes: CALF_NOTE,
-        }),
-        cyc('Seated_Calf_Raise', 'Подъёмы на икры сидя', times(p([30, 20, 10])), {
-          restSec: 60,
-          notes: CALF_NOTE,
-        }),
-        cyc('Bodyweight_Squat', 'Стенка (удержание у стены)', times(toFailure(2)), {
-          restSec: 120,
-          notes: 'Удержание у стены до отказа, отдых 2 мин. В «повторы» записывай секунды.',
-        }),
-      ],
-    },
+    legsDay('p1-legs'),
     {
       id: 'p1-push-1',
       name: 'Жим 1',
@@ -136,6 +172,7 @@ export const davidLaidProgram1: Program = {
         cyc('Pullups', 'Подтягивания', times(toFailure(2)), { restSec: 120, notes: 'До отказа.' }),
       ],
     },
+    legsDay('p1-legs-2'),
     {
       id: 'p1-push-2',
       name: 'Жим 2',

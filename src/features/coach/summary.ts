@@ -1,7 +1,8 @@
 import type { FormaDB } from '../../db'
 import type { Habit, HabitAutoRule, ISODate, Profile, Program, ProgramDay } from '../../db/types'
-import { toISODate, weekdayIndex } from '../../lib/dates'
+import { toISODate } from '../../lib/dates'
 import { computeTargets, type Targets } from '../nutrition/calc'
+import { getScheduledDay, scheduleLabel, todayLabel, type ScheduledDay } from '../workouts/schedule'
 import { localDay, shiftDate } from './util'
 
 /* DB readers shared by tools, insights and UI. */
@@ -15,8 +16,19 @@ export interface ProfileSummary {
   targets: Targets | null
   currentWeightKg: number | null
   activeProgram: Program | null
-  /** Program day scheduled for today's weekday (may be a rest day), if any */
+  /**
+   * The program day to do today: for `sequential` programs the next day of the rotation,
+   * for weekday programs the day fixed to today's weekday (may be a rest day).
+   */
   todayDay: ProgramDay | null
+  /** True when the active program rotates days regardless of the weekday */
+  sequential: boolean
+  /** Resolved schedule of the active program (cycle week, session in week) */
+  schedule: ScheduledDay | null
+  /** «Неделя 3 из 12 · тренировка 2 из 3»; undefined for programs without weeks */
+  scheduleLabel?: string
+  /** «Неделя 3 из 12 · Жим 1» */
+  todayLabel?: string
 }
 
 /** Active program: `settings.activeProgramId`, else the first built-in, else the first program. */
@@ -43,23 +55,18 @@ export async function summarizeProfile(db: FormaDB, now: Date = new Date()): Pro
   ])
   const currentWeightKg = weight ?? profile?.weightKg ?? null
   const targets = profile && currentWeightKg ? computeTargets(profile, currentWeightKg, now) : null
-  const todayDay = activeProgram?.days.find((d) => d.weekday === weekdayIndex(now)) ?? null
-  return { profile: profile ?? null, targets, currentWeightKg, activeProgram, todayDay }
-}
-
-/** Next startable day of the program after today (by weekday), with how many days ahead it is. */
-export function nextTrainingDay(
-  program: Program | null,
-  now: Date,
-  includeToday = false,
-): { day: ProgramDay; inDays: number } | null {
-  if (!program) return null
-  const wd = weekdayIndex(now)
-  for (let i = includeToday ? 0 : 1; i <= 7; i++) {
-    const day = program.days.find((d) => d.weekday === (wd + i) % 7)
-    if (day && day.type !== 'rest' && day.exercises.length > 0) return { day, inDays: i }
+  const schedule = activeProgram ? await getScheduledDay(db, activeProgram, now) : null
+  return {
+    profile: profile ?? null,
+    targets,
+    currentWeightKg,
+    activeProgram,
+    todayDay: schedule?.day ?? null,
+    sequential: !!schedule?.sequential,
+    schedule,
+    ...(schedule && scheduleLabel(schedule) ? { scheduleLabel: scheduleLabel(schedule) } : {}),
+    ...(schedule && todayLabel(schedule) ? { todayLabel: todayLabel(schedule) } : {}),
   }
-  return null
 }
 
 /* ------------------------------- habits ------------------------------- */

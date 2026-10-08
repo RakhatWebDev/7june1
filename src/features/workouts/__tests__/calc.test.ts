@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { davidLaidDup } from '../../../data/programs/davidLaidDup'
+import { weekdayProgram } from './fixtures'
 import {
   buildAliasMap,
   buildSessionFromDay,
@@ -54,11 +55,11 @@ describe('volume and 1RM', () => {
 
 describe('program days', () => {
   it('finds the scheduled day and builds a session with empty sets', () => {
-    const monday = scheduledDay(davidLaidDup, 0)!
+    const monday = scheduledDay(weekdayProgram, 0)!
     expect(monday.id).toBe('legs-1')
-    const sunday = scheduledDay(davidLaidDup, 6)!
+    const sunday = scheduledDay(weekdayProgram, 6)!
     expect(isStartableDay(sunday)).toBe(false)
-    const s = buildSessionFromDay(davidLaidDup, monday, 'x', new Date('2026-10-05T08:00:00Z'))
+    const s = buildSessionFromDay(weekdayProgram, monday, 'x', new Date('2026-10-05T08:00:00Z'))
     expect(s.exercises).toHaveLength(monday.exercises.length)
     s.exercises.forEach((e, i) => {
       expect(e.targetSets).toBe(monday.exercises[i].sets)
@@ -68,6 +69,17 @@ describe('program days', () => {
       expect(e.sets.every((x) => !x.done && x.weightKg === null && x.reps === null)).toBe(true)
     })
     expect(s.finishedAt).toBeUndefined()
+  })
+
+  it('uses the program-week prescription of a 12-week program (DUP deload in week 6)', () => {
+    const day = davidLaidDup.days[0]
+    const normal = buildSessionFromDay(davidLaidDup, day, 'a', new Date(), { week: 0, programSession: 2 })
+    const deload = buildSessionFromDay(davidLaidDup, day, 'b', new Date(), { week: 5 })
+    expect(normal).toMatchObject({ programWeek: 0, programSession: 2 })
+    expect(normal.exercises[0].targetSets).toBe(5)
+    expect(deload.exercises[0].targetSets).toBe(3) // 5 × 0.65 → 3
+    expect(deload.exercises.every((e) => e.targetSets >= 2)).toBe(true)
+    expect(deload.exercises[0].notes).toContain('разгрузка')
   })
 })
 

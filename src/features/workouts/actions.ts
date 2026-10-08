@@ -111,6 +111,7 @@ export async function startSession(
 
     const session = buildSessionFromDay(program, day, newId(), now, {
       week,
+      programSession: schedule.sequential ? schedule.completedSessions : undefined,
       extras: (e, prescription) => {
         const occurrence = seen.get(e.exerciseId) ?? 0
         seen.set(e.exerciseId, occurrence + 1)

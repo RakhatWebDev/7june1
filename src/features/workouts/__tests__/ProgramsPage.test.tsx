@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { screen } from '@testing-library/react'
 import { db } from '../../../db'
 import { ensureSeeded } from '../../../db/seed'
+import { weekdayProgram } from './fixtures'
 import { clearDb, makeSession, renderRoute } from './helpers'
 
 beforeEach(async () => {
@@ -15,24 +16,40 @@ const at = (iso: string) => {
   vi.setSystemTime(new Date(iso))
 }
 
-const useDup = () => db.settings.put({ key: 'activeProgramId', value: 'david-laid-dup' })
+const activate = (id: string) => db.settings.put({ key: 'activeProgramId', value: id })
+const activateWeekdayProgram = async () => {
+  await db.programs.put(weekdayProgram)
+  await activate(weekdayProgram.id)
+}
 
 describe('ProgramsPage (/workouts)', () => {
-  it("shows today's day of David Laid DUP and a start link", async () => {
-    await useDup()
-    at('2026-10-05T09:00:00') // Monday
+  it('shows the next session of the DUP rotation with its program week', async () => {
+    await activate('david-laid-dup')
     renderRoute('/workouts')
-    expect(await screen.findByText('Ноги 1 — сила')).toBeInTheDocument()
-    expect(screen.getByText(/Сегодня по плану · Понедельник/)).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Ноги 1 — сила' })).toBeInTheDocument()
+    expect(screen.getByText(/Неделя 1 из 12 · тренировка 1 из 3/)).toBeInTheDocument()
     expect(screen.getAllByText(/David Laid — DUP/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/3 трен\./).length).toBeGreaterThan(0)
     expect(screen.getByRole('link', { name: 'Начать тренировку' })).toHaveAttribute(
       'href',
       '/workouts/start/david-laid-dup/legs-1',
     )
   })
 
+  it("shows today's day of a weekday program and a start link", async () => {
+    await activateWeekdayProgram()
+    at('2026-10-05T09:00:00') // Monday
+    renderRoute('/workouts')
+    expect(await screen.findByRole('heading', { name: 'Ноги 1 — сила' })).toBeInTheDocument()
+    expect(screen.getByText(/Сегодня по плану · Понедельник/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Начать тренировку' })).toHaveAttribute(
+      'href',
+      '/workouts/start/custom-weekday/legs-1',
+    )
+  })
+
   it('shows the note and no start button on a rest day', async () => {
-    await useDup()
+    await activateWeekdayProgram()
     at('2026-10-11T09:00:00') // Sunday
     renderRoute('/workouts')
     expect(await screen.findByText(/Прогулка 30–60 мин/)).toBeInTheDocument()

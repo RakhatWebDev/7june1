@@ -83,6 +83,28 @@ export const program = (patch: Partial<Program> = {}): Program => ({
   ...patch,
 })
 
+/** Built-in style rotation: 6 sessions, 3 per week, 12 program weeks, no weekdays. */
+export const seqProgram = (patch: Partial<Program> = {}): Program => ({
+  id: 'seq',
+  name: 'Ротация',
+  description: '',
+  daysPerWeek: 3,
+  sessionsPerWeek: 3,
+  weeks: 12,
+  schedule: 'sequential',
+  isBuiltIn: true,
+  createdAt: '2026-01-01T00:00:00.000Z',
+  days: [
+    { id: 'push1', name: 'Жим 1', type: 'push', exercises: [{ exerciseId: 'Barbell_Bench_Press_-_Medium_Grip', name: 'Жим лёжа', sets: 3, reps: '6-8' }] },
+    { id: 'pull1', name: 'Тяга 1', type: 'pull', exercises: [{ exerciseId: 'Barbell_Deadlift', name: 'Становая', sets: 3, reps: '5' }] },
+    { id: 'legs1', name: 'Ноги 1', type: 'legs', exercises: [{ exerciseId: 'Barbell_Squat', name: 'Присед', sets: 3, reps: '5' }] },
+    { id: 'push2', name: 'Жим 2', type: 'push', exercises: [{ exerciseId: 'Dumbbell_Bench_Press', name: 'Жим гантелей', sets: 3, reps: '8-10' }] },
+    { id: 'pull2', name: 'Тяга 2', type: 'pull', exercises: [{ exerciseId: 'Pullups', name: 'Подтягивания', sets: 3, reps: '6-10' }] },
+    { id: 'legs2', name: 'Ноги 2', type: 'legs', exercises: [{ exerciseId: 'Leg_Press', name: 'Жим ногами', sets: 3, reps: '10-12' }] },
+  ],
+  ...patch,
+})
+
 export const session = (
   id: string,
   date: string,
@@ -115,7 +137,9 @@ export function coachData(patch: Partial<CoachData> = {}): CoachData {
     profile: prof,
     targets: prof ? computeTargets(prof, prof.weightKg, now) : null,
     program: prog,
-    todayDay: prog?.days.find((d) => d.weekday === weekdayIndex(now)) ?? null,
+    todayDay:
+      prog?.schedule === 'sequential' ? (prog.days[0] ?? null) : (prog?.days.find((d) => d.weekday === weekdayIndex(now)) ?? null),
+    sequential: prog?.schedule === 'sequential',
     targetPerWeek: 3,
     sessions: [],
     activities: [],

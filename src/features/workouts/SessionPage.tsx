@@ -56,7 +56,7 @@ function SessionView({ session, allSessions }: { session: WorkoutSession; allSes
     async () => (session.programId ? ((await db.programs.get(session.programId)) ?? null) : null),
     [session.programId],
   )
-  const cycle = sessionCycleLabel(program ?? undefined, session.programDayId, session.programWeek)
+  const cycle = sessionCycleLabel(program ?? undefined, session)
 
   const lasts = useMemo(
     () =>

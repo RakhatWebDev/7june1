@@ -2,7 +2,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import type { FormaDB } from '../../db'
 import { COACH_TOOLS, getCoachTool, NEXT_NOTES_KEY } from './tools'
 import { summarizeProfile } from './summary'
-import { at, freshDb, localDate, profile, program, session, set } from './testUtils'
+import { at, freshDb, localDate, profile, program, seqProgram, session, set } from './testUtils'
 
 const NOW = localDate('2026-10-07', 10) // Wednesday
 let db: FormaDB
@@ -75,6 +75,22 @@ describe('read tools', () => {
     expect(s.targets?.proteinG).toBe(167)
     expect(s.activeProgram?.id).toBe('p1')
     expect(s.todayDay?.id).toBe('push')
+  })
+
+  it('sequential programs resolve the day by rotation, with the program week label', async () => {
+    await db.programs.put(seqProgram())
+    await db.settings.bulkPut([
+      { key: 'activeProgramId', value: 'seq' },
+      { key: 'program.cycle:seq', value: { startDate: '2026-09-01', completedSessions: 7, nextDayIndex: 1 } },
+    ])
+    const s = await summarizeProfile(db, NOW)
+    expect(s).toMatchObject({ sequential: true, scheduleLabel: 'Неделя 3 из 12 · тренировка 2 из 3', todayLabel: 'Неделя 3 из 12 · Тяга 1' })
+    expect(s.todayDay?.id).toBe('pull1')
+    const plan = await run('get_todays_plan')
+    expect(plan.programLabel).toBe('Неделя 3 из 12 · тренировка 2 из 3')
+    expect(plan.programDay).toMatchObject({ id: 'pull1', programId: 'seq', resolvedBy: 'rotation' })
+    const prof = await run('get_profile_and_targets')
+    expect(prof.activeProgram).toMatchObject({ schedule: 'sequential', progress: 'Неделя 3 из 12 · тренировка 2 из 3' })
   })
 
   it('get_profile_and_targets', async () => {

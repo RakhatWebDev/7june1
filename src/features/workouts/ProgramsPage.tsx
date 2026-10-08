@@ -9,7 +9,7 @@ import { WEEKDAY_RU, weekdayIndex } from '../../lib/dates'
 import { isStartableDay, weekPrescription } from './calc'
 import { getScheduledDay, getWeeklyProgress, scheduleLabel } from './schedule'
 import { useActiveProgram, useActiveSession, usePrograms } from './hooks'
-import { DAY_TYPE_RU } from './labels'
+import { DAY_TYPE_RU, programSubtitle } from './labels'
 import { primaryLink, secondaryLink } from './linkStyles'
 
 /** /workouts — today's planned day, active session, program list. */
@@ -52,11 +52,7 @@ export function ProgramsPage() {
                     </span>
                   )}
                 </div>
-                <p className="mt-0.5 text-xs text-muted tabular-nums">
-                  {p.schedule === 'sequential'
-                    ? `${p.days.length} дн. по кругу${p.weeks ? ` · ${p.weeks} нед.` : ''}`
-                    : `${p.daysPerWeek} дн./нед.`}
-                </p>
+                <p className="mt-0.5 text-xs text-muted tabular-nums">{programSubtitle(p)}</p>
                 <p className="mt-1.5 line-clamp-2 text-sm text-muted">{p.description}</p>
               </div>
               <Icon name="chevron-right" size={18} className="mt-2.5 text-muted" />
@@ -103,8 +99,11 @@ function TodayCard({ program, active }: { program: Program | null; active: Worko
             {[cycle, program.name, DAY_TYPE_RU[day.type]].filter(Boolean).join(' · ')}
           </p>
           {schedule?.isTestWeek && (
-            <p className="mt-2 text-sm text-warn">
-              Цикл пройден — тестовая неделя: проверь максимумы и начни цикл заново.
+            <p className="mt-2 text-sm text-warn">Тестовая неделя: в базовых подойди к новому максимуму.</p>
+          )}
+          {schedule?.isComplete && (
+            <p className="mt-2 text-sm text-accent">
+              Программа пройдена — по желанию неделя MAX, затем начни цикл заново на странице программы.
             </p>
           )}
           {day.notes && <p className="mt-2 text-sm">{day.notes}</p>}

@@ -5,7 +5,7 @@ import { MemoryRouter } from 'react-router'
 import { db } from '../../db'
 import { ensureSeeded } from '../../db/seed'
 import type { WorkoutSession } from '../../db/types'
-import { davidLaidDup } from '../../data/programs/davidLaidDup'
+import { weekdayProgram } from '../workouts/__tests__/fixtures'
 import { today, weekdayIndex } from '../../lib/dates'
 import { TodayPage } from './TodayPage'
 
@@ -59,7 +59,7 @@ describe('TodayPage', () => {
     await ensureSeeded(db)
     renderPage()
     expect(await screen.findByText('Ноги')).toBeInTheDocument()
-    expect(screen.getByText('Неделя 1 · день 1 из 5')).toBeInTheDocument()
+    expect(screen.getByText('Неделя 1 из 12 · Ноги')).toBeInTheDocument()
     expect(screen.getByText('На этой неделе 0 из 3')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Начать' })).toHaveAttribute(
       'href',
@@ -86,18 +86,34 @@ describe('TodayPage', () => {
     expect(screen.getByText('Сверх плана')).toBeInTheDocument()
   })
 
-  it('offers the scheduled weekday of the DUP program', async () => {
+  it('shows the program week and the next session of the DUP rotation', async () => {
     await ensureSeeded(db)
     await db.settings.put({ key: 'activeProgramId', value: 'david-laid-dup' })
+    await db.settings.put({
+      key: 'program.cycle:david-laid-dup',
+      value: { startDate: today(), completedSessions: 4, nextDayIndex: 4 },
+    })
     renderPage()
-    const day = davidLaidDup.days.find((d) => d.weekday === weekdayIndex())!
+    expect(await screen.findByText('Неделя 2 из 12 · Жим 2 — гипертрофия')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Начать' })).toHaveAttribute(
+      'href',
+      '/workouts/start/david-laid-dup/push-2',
+    )
+  })
+
+  it('offers the scheduled weekday of a weekday program', async () => {
+    await ensureSeeded(db)
+    await db.programs.put(weekdayProgram)
+    await db.settings.put({ key: 'activeProgramId', value: weekdayProgram.id })
+    renderPage()
+    const day = weekdayProgram.days.find((d) => d.weekday === weekdayIndex())!
     expect(await screen.findByText(day.name)).toBeInTheDocument()
     if (day.type === 'rest') {
       expect(screen.queryByRole('link', { name: 'Начать' })).not.toBeInTheDocument()
     } else {
       expect(screen.getByRole('link', { name: 'Начать' })).toHaveAttribute(
         'href',
-        `/workouts/start/david-laid-dup/${day.id}`,
+        `/workouts/start/${weekdayProgram.id}/${day.id}`,
       )
     }
     // Nutrition targets from computeTargets (default profile: 88 kg × 2 g protein)

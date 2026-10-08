@@ -88,8 +88,12 @@ export interface CoachData {
   profile: Profile | null
   targets: Targets | null
   program: Program | null
-  /** Program day scheduled for today (may be a rest day) */
+  /** Program day to do today: next rotation day (sequential programs) or the weekday's day (may be rest) */
   todayDay: ProgramDay | null
+  /** Active program rotates its days regardless of the weekday */
+  sequential: boolean
+  /** «Неделя 3 из 12 · тренировка 2 из 3» */
+  scheduleLabel?: string
   /** Weekly training target (settings 'training.targetPerWeek', default 3) */
   targetPerWeek: number
   /** All finished sessions, newest first */
@@ -145,6 +149,8 @@ export async function loadCoachData(db: FormaDB, now: Date = new Date()): Promis
     targets: summary.targets,
     program: summary.activeProgram,
     todayDay: summary.todayDay,
+    sequential: summary.sequential,
+    ...(summary.scheduleLabel ? { scheduleLabel: summary.scheduleLabel } : {}),
     targetPerWeek: typeof perWeek?.value === 'number' && perWeek.value > 0 ? Math.min(7, Math.round(perWeek.value)) : DEFAULT_TARGET_PER_WEEK,
     sessions: sessions.filter((s) => s.finishedAt).sort((a, b) => b.startedAt.localeCompare(a.startedAt)),
     activities,
@@ -169,6 +175,13 @@ const isTrainingDay = (d: ProgramDay | null | undefined): d is ProgramDay => !!d
 const dayAt = (program: Program | null, weekday: number) => program?.days.find((d) => d.weekday === weekday) ?? null
 const isLegDay = (d: ProgramDay | null | undefined) =>
   !!d && (d.type === 'legs' || d.type === 'lower' || d.exercises.some((e) => /squat|присед/i.test(e.exerciseId + e.name)))
+/** Sequential programs: the day `offset` steps from today's (next) day in the rotation. */
+const rotationDay = (d: Pick<CoachData, 'program' | 'todayDay'>, offset: number): ProgramDay | null => {
+  const days = d.program?.days ?? []
+  const idx = d.todayDay ? days.findIndex((x) => x.id === d.todayDay?.id) : -1
+  if (idx < 0 || days.length === 0) return null
+  return days[(((idx + offset) % days.length) + days.length) % days.length]
+}
 const startLink = (program: Program | null, day: ProgramDay) =>
   program ? `/workouts/start/${program.id}/${day.id}` : '/workouts'
 const pct = (n: number) => `${Math.round(n * 100)} %`
@@ -276,7 +289,7 @@ export function ruleSleepVolume(d: CoachData): Insight[] {
       body:
         `Сегодня убери по одному подходу во вспомогательных${accessories.length ? ` (${accessories.slice(0, 3).join(', ')})` : ''}.` +
         (heavy ? ' Тяжёлый день — не иди на рекорд, работай с запасом 2–3 повтора.' : ''),
-      evidence: [...evidence, `По плану: ${day.name}`],
+      evidence: [...evidence, d.sequential ? `Следующая тренировка: ${day.name}` : `По плану: ${day.name}`],
       action: { label: 'Начать тренировку', to: startLink(d.program, day) },
     },
   ]
@@ -386,17 +399,31 @@ export function ruleCardio(d: CoachData): Insight[] {
   const from = windowStart(d.today, 7)
   const cardio = d.activities.filter((a) => a.type !== 'stretch' && a.date >= from && a.date <= d.today)
   if (cardio.length >= 2) return []
-  const wd = weekdayIndex(d.now)
-  let pick: number | null = null
-  for (let i = d.hour < 20 ? 0 : 1; i < 7 && pick == null; i++) {
-    const w = (wd + i) % 7
-    const day = dayAt(d.program, w)
-    if (isTrainingDay(day) || isLegDay(dayAt(d.program, (w + 1) % 7))) continue
-    if (i === 0 && d.sessions.some((s) => localDay(s.startedAt) === d.today)) continue
-    pick = i
+  const trainedToday = d.sessions.some((s) => localDay(s.startedAt) === d.today)
+  let when: string
+  let legDays: string[] = []
+  if (d.sequential) {
+    // No fixed weekdays: look at the rotation. Keep the day before a leg session free of cardio.
+    const next = d.todayDay
+    when = isLegDay(next)
+      ? `в день отдыха после «${next!.name}»`
+      : trainedToday || d.hour >= 20
+        ? 'завтра'
+        : 'сегодня, если не идёшь в зал'
+    legDays = d.program?.days.filter(isLegDay).map((x) => x.name) ?? []
+  } else {
+    const wd = weekdayIndex(d.now)
+    let pick: number | null = null
+    for (let i = d.hour < 20 ? 0 : 1; i < 7 && pick == null; i++) {
+      const w = (wd + i) % 7
+      const day = dayAt(d.program, w)
+      if (isTrainingDay(day) || isLegDay(dayAt(d.program, (w + 1) % 7))) continue
+      if (i === 0 && trainedToday) continue
+      pick = i
+    }
+    when = pick == null ? 'в ближайший свободный день' : pick === 0 ? 'сегодня' : pick === 1 ? 'завтра' : WEEKDAY_ACC[(wd + pick) % 7]
+    legDays = d.program?.days.filter((x) => isLegDay(x) && x.weekday != null).map((x) => WEEKDAY_SHORT[x.weekday!]) ?? []
   }
-  const when = pick == null ? 'в ближайший свободный день' : pick === 0 ? 'сегодня' : pick === 1 ? 'завтра' : WEEKDAY_ACC[(wd + pick) % 7]
-  const legDays = d.program?.days.filter((x) => isLegDay(x) && x.weekday != null).map((x) => WEEKDAY_SHORT[x.weekday!]) ?? []
   return [
     {
       id: 'cardio',
@@ -409,6 +436,7 @@ export function ruleCardio(d: CoachData): Insight[] {
         `Кардио за 7 дней: ${cardio.length} из 2`,
         'Цель: сушка',
         ...(legDays.length ? [`Дни ног: ${legDays.join(', ')}`] : []),
+        ...(d.sequential && d.todayDay ? [`Следующая тренировка: ${d.todayDay.name}`] : []),
       ],
       action: { label: 'Записать прогулку', to: '/cardio/new?type=walk' },
     },
@@ -444,12 +472,20 @@ export function ruleDeload(d: CoachData): Insight[] {
 const weekWorkouts = (sessions: WorkoutSession[], weekStart: ISODate) => weekVolume(sessions, weekStart).workouts
 
 /**
- * The program day to do next: today's scheduled training day, else the day after the
- * last session's day in program order (rotation), else the first training day.
+ * The program day to do next: today's day (sequential programs: the next rotation day; weekday
+ * programs: the day fixed to today), else the next training day of the rotation / the day after
+ * the last session's day in program order, else the first training day.
  */
 export function nextProgramDay(d: CoachData): ProgramDay | null {
   if (!d.program) return null
   if (isTrainingDay(d.todayDay)) return d.todayDay
+  if (d.sequential) {
+    for (let i = 1; i <= d.program.days.length; i++) {
+      const x = rotationDay(d, i)
+      if (isTrainingDay(x)) return x
+    }
+    return null
+  }
   const training = d.program.days.filter(isTrainingDay)
   if (training.length === 0) return null
   const lastDayId = d.sessions.find((s) => s.programId === d.program?.id && s.programDayId)?.programDayId
@@ -494,6 +530,7 @@ export function ruleFrequency(d: CoachData): Insight[] {
   const day = nextProgramDay(d)
   const evidence = [
     `Тренировок на этой неделе: ${doneLabel}`,
+    ...(d.scheduleLabel ? [`Программа: ${d.scheduleLabel}`] : []),
     `Дней до конца недели: ${available}`,
     ...(d.sessions[0] ? [`Последняя тренировка: ${localDay(d.sessions[0].startedAt)}`] : []),
   ]

@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { FormaDB } from '../../../db'
 import { ensureSeeded } from '../../../db/seed'
-import { davidLaidDup } from '../../../data/programs/davidLaidDup'
 import { davidLaidProgram1 } from '../../../data/programs/davidLaidProgram1'
 import { finishSession, startSession } from '../actions'
 import {
@@ -15,56 +14,73 @@ import {
   sessionCycleLabel,
   setCycleWeek,
   setTargetPerWeek,
+  todayLabel,
 } from '../schedule'
+import { weekdayProgram } from './fixtures'
 
 const P1 = davidLaidProgram1
 const mon = new Date('2026-10-05T09:00:00')
 const wed = new Date('2026-10-07T09:00:00')
+const state = (completedSessions: number, nextDayIndex = completedSessions % 6) => ({
+  startDate: '2026-10-01',
+  completedSessions,
+  nextDayIndex,
+})
 
 describe('resolveSchedule (pure)', () => {
-  it('sequential: starts at day 1 of week 1 and follows nextDayIndex', () => {
+  it('a program week is 3 finished sessions; days rotate independently', () => {
     const s = resolveSchedule(P1, undefined, wed)
-    expect(s.day?.id).toBe('p1-legs')
-    expect(s.week).toBe(0)
-    expect(scheduleLabel(s)).toBe('Неделя 1 · день 1 из 5')
-    const s2 = resolveSchedule(P1, { startDate: '2026-10-01', week: 1, nextDayIndex: 2 }, wed)
-    expect(s2.day?.id).toBe('p1-pull-1')
-    expect(scheduleLabel(s2)).toBe('Неделя 2 · день 3 из 5')
+    expect(s).toMatchObject({ dayIndex: 0, week: 0, sessionInWeek: 0, sessionsPerWeek: 3, completedSessions: 0 })
+    expect(scheduleLabel(s)).toBe('Неделя 1 из 12 · тренировка 1 из 3')
+    expect(todayLabel(s)).toBe('Неделя 1 из 12 · Ноги')
+
+    const s2 = resolveSchedule(P1, state(7), wed) // 7 done → week 3, session 2; rotation at day 2 (Жим 1)
+    expect(s2.day?.id).toBe('p1-push-1')
+    expect(s2.week).toBe(2)
+    expect(scheduleLabel(s2)).toBe('Неделя 3 из 12 · тренировка 2 из 3')
+    expect(todayLabel(s2)).toBe('Неделя 3 из 12 · Жим 1')
+  })
+
+  it('marks the test week and the end of the program', () => {
+    const test = resolveSchedule(P1, state(24), wed)
+    expect(test).toMatchObject({ week: 8, isTestWeek: true, isComplete: false })
+    expect(scheduleLabel(test)).toBe('Неделя 9 из 12 (тест) · тренировка 1 из 3')
+    const done = resolveSchedule(P1, state(36), wed)
+    expect(done).toMatchObject({ week: 12, prescriptionWeek: 11, isComplete: true })
+    expect(scheduleLabel(done)).toBe('Программа пройдена (12 нед.)')
+  })
+
+  it('a legacy week override counts as full weeks of sessions', () => {
+    const s = resolveSchedule(P1, { startDate: '2026-10-01', week: 2, nextDayIndex: 1 }, wed)
+    expect(s).toMatchObject({ week: 2, completedSessions: 6, dayIndex: 1 })
   })
 
   it('weekday programs keep the weekday behaviour', () => {
-    expect(resolveSchedule(davidLaidDup, undefined, mon).day?.id).toBe('legs-1')
-    expect(resolveSchedule(davidLaidDup, undefined, mon).week).toBeUndefined()
-    expect(scheduleLabel(resolveSchedule(davidLaidDup, undefined, mon))).toBeUndefined()
+    expect(resolveSchedule(weekdayProgram, undefined, mon).day?.id).toBe('legs-1')
+    expect(resolveSchedule(weekdayProgram, undefined, mon).week).toBeUndefined()
+    expect(scheduleLabel(resolveSchedule(weekdayProgram, undefined, mon))).toBeUndefined()
+    expect(advanceCycle(weekdayProgram, undefined, 'legs-1', mon)).toBeNull()
   })
 
-  it('derives the week from startDate only when there is no explicit week', () => {
-    const s = resolveSchedule({ ...P1, schedule: 'weekday' }, { startDate: '2026-09-21' }, wed)
-    expect(s.week).toBe(2)
-  })
-
-  it('advances only on the scheduled day, wraps and increments the week', () => {
-    expect(advanceCycle(P1, undefined, 'p1-push-1', wed)).toBeNull()
-    expect(advanceCycle(P1, undefined, 'p1-legs', wed)).toMatchObject({ week: 0, nextDayIndex: 1 })
-    const last = { startDate: '2026-10-01', week: 0, nextDayIndex: 4 }
-    expect(advanceCycle(P1, last, 'p1-pull-2', wed)).toEqual({
+  it('finishing a session counts it and continues the rotation after that day', () => {
+    expect(advanceCycle(P1, undefined, 'p1-legs', wed)).toMatchObject({ completedSessions: 1, nextDayIndex: 1 })
+    expect(advanceCycle(P1, state(5), 'p1-pull-2', wed)).toEqual({
       startDate: '2026-10-01',
-      week: 1,
+      completedSessions: 6,
       nextDayIndex: 0,
     })
-    expect(advanceCycle(davidLaidDup, undefined, 'legs-1', mon)).toBeNull()
+    // an out-of-order day still counts; the rotation continues after it
+    expect(advanceCycle(P1, state(1), 'p1-push-2', wed)).toMatchObject({ completedSessions: 2, nextDayIndex: 5 })
+    expect(advanceCycle(P1, state(1), 'unknown', wed)).toBeNull()
   })
 
-  it('after week 4 it is the test week (prescriptions clamp to week 4)', () => {
-    const s = resolveSchedule(P1, { startDate: '2026-09-01', week: 4, nextDayIndex: 0 }, wed)
-    expect(s.isTestWeek).toBe(true)
-    expect(s.prescriptionWeek).toBe(3)
-    expect(scheduleLabel(s)).toBe('Тестовая неделя · день 1 из 5')
-  })
-
-  it('labels sessions of cyclic programs', () => {
-    expect(sessionCycleLabel(P1, 'p1-push-2', 1)).toBe('Неделя 2 · день 4 из 5')
-    expect(sessionCycleLabel(davidLaidDup, 'legs-1', undefined)).toBeUndefined()
+  it('labels sessions by their position in the program', () => {
+    expect(sessionCycleLabel(P1, { programWeek: 2, programSession: 7 })).toBe('Неделя 3 из 12 · тренировка 2 из 3')
+    expect(sessionCycleLabel(P1, { programWeek: 8, programSession: 25 })).toBe(
+      'Неделя 9 из 12 (тест) · тренировка 2 из 3',
+    )
+    expect(sessionCycleLabel(P1, { programWeek: 1 })).toBe('Неделя 2 из 12')
+    expect(sessionCycleLabel(weekdayProgram, { programWeek: undefined })).toBeUndefined()
   })
 })
 
@@ -76,33 +92,31 @@ beforeEach(async () => {
 })
 
 describe('schedule with the database', () => {
-  it('finishing the scheduled day moves Program 1 to the next day; 5 days = next week', async () => {
+  it('3 finished sessions = 1 program week; the 4th session in a calendar week continues the rotation', async () => {
     const program = (await database.programs.get(P1.id))!
-    for (let i = 0; i < 5; i++) {
+    const expected = ['p1-legs', 'p1-push-1', 'p1-pull-1', 'p1-legs-2']
+    for (let i = 0; i < 4; i++) {
       const s = await getScheduledDay(database, program, wed)
-      expect(s.dayIndex).toBe(i)
+      expect(s.day?.id).toBe(expected[i])
       const id = await startSession(P1.id, s.day!.id, database, wed)
+      const session = (await database.sessions.get(id))!
+      expect(session.programSession).toBe(i)
+      expect(session.programWeek).toBe(i < 3 ? 0 : 1)
       await finishSession(id, database, wed)
     }
     const after = await getScheduledDay(database, program, wed)
-    expect(after.day?.id).toBe('p1-legs')
-    expect(after.week).toBe(1)
-    expect(scheduleLabel(after)).toBe('Неделя 2 · день 1 из 5')
+    expect(after.day?.id).toBe('p1-push-2')
+    expect(scheduleLabel(after)).toBe('Неделя 2 из 12 · тренировка 2 из 3')
   })
 
-  it('finishing another day does not advance the rotation', async () => {
-    const id = await startSession(P1.id, 'p1-push-2', database, wed)
-    await finishSession(id, database, wed)
-    expect((await getScheduledDay(database, P1, wed)).day?.id).toBe('p1-legs')
-  })
-
-  it('manual week override and restart', async () => {
-    await setCycleWeek(database, P1, 2, wed)
-    expect((await getScheduledDay(database, P1, wed)).week).toBe(2)
+  it('manual week choice jumps the session counter; restart goes back to week 1, first day', async () => {
+    await setCycleWeek(database, P1, 8, wed)
+    const s = await getScheduledDay(database, P1, wed)
+    expect(s).toMatchObject({ week: 8, isTestWeek: true, completedSessions: 24 })
     await restartCycle(database, P1.id, wed)
     expect((await database.settings.get(cycleKey(P1.id)))?.value).toEqual({
       startDate: '2026-10-07',
-      week: 0,
+      completedSessions: 0,
       nextDayIndex: 0,
     })
   })
@@ -114,9 +128,6 @@ describe('schedule with the database', () => {
     await startSession(P1.id, 'p1-push-1', database, wed) // still active — not counted
     await setTargetPerWeek(database, 4)
     expect(await getWeeklyProgress(database, wed)).toEqual({ done: 1, target: 4 })
-    expect(await getWeeklyProgress(database, new Date('2026-10-12T09:00:00'))).toEqual({
-      done: 0,
-      target: 4,
-    })
+    expect(await getWeeklyProgress(database, new Date('2026-10-12T09:00:00'))).toEqual({ done: 0, target: 4 })
   })
 })

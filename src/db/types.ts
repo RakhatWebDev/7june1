@@ -110,14 +110,21 @@ export interface Program {
   description: string
   /** Attribution and caveats, markdown allowed */
   source?: string
+  /** Training days per calendar week (for rotating built-ins = `sessionsPerWeek`, the rotation length is `days.length`) */
   daysPerWeek: number
   days: ProgramDay[]
   isBuiltIn: boolean
   createdAt: ISODateTime
   /** 'weekday' — each day has a fixed weekday; 'sequential' — days rotate in order regardless of weekday */
   schedule?: 'weekday' | 'sequential'
-  /** Cycle length in weeks for programs with `weekly` prescriptions */
+  /** Total program length in weeks; every `ProgramExercise.weekly` has this length (indexed by program week) */
   weeks?: number
+  /** Sessions that make one program week: week = floor(completed sessions in the cycle / sessionsPerWeek) */
+  sessionsPerWeek?: number
+  /** Structure version of a built-in program; seeding resets the cycle state when it changes */
+  version?: number
+  /** Labelled ranges of program weeks for the week selector (0-based, inclusive), e.g. «Блок 1 · 10-8-6», «Тест» */
+  blocks?: { label: string; fromWeek: number; toWeek: number; test?: boolean }[]
   /** How to run the cycle (e.g. "run twice with a test week in between") */
   cycleNotes?: string
   /** Lifts whose 1RM the program's percentages are based on */
@@ -129,7 +136,9 @@ export interface Program {
 /** Where the user is in a cyclic program (settings key `program.cycle:<programId>`). */
 export interface ProgramCycleState {
   startDate: ISODate
-  /** 0-based week override; when absent the week is derived from startDate */
+  /** Sessions of this program finished since the cycle start (the program week is derived from it) */
+  completedSessions?: number
+  /** Legacy 0-based week override, used only when `completedSessions` is absent */
   week?: number
   /** Index of the next day to do for `sequential` programs */
   nextDayIndex?: number
@@ -162,8 +171,10 @@ export interface WorkoutSession {
   id: string
   programId?: string
   programDayId?: string
-  /** 0-based cycle week the session was started in (cyclic programs) */
+  /** 0-based program week the session was started in (cyclic programs) */
   programWeek?: number
+  /** 0-based index of the session within the program cycle (completed sessions before it) */
+  programSession?: number
   name: string
   startedAt: ISODateTime
   finishedAt?: ISODateTime

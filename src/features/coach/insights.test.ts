@@ -21,7 +21,7 @@ import {
   type Insight,
 } from './insights'
 import { adviceLabel, adviseNext, progressionAdvice } from './progression'
-import { at, coachData, freshDb, localDate, profile, program, session, set } from './testUtils'
+import { at, coachData, freshDb, localDate, profile, program, seqProgram, session, set } from './testUtils'
 import { shiftDate } from './util'
 
 const newest = (...s: WorkoutSession[]) => s.sort((a, b) => b.startedAt.localeCompare(a.startedAt))
@@ -140,6 +140,13 @@ describe('rule 5 — cardio on a cut', () => {
     expect(ins.action?.to).toBe('/cardio/new?type=walk')
     expect(ins.evidence).toContain('Дни ног: Пн')
   })
+  it('sequential program: uses the rotation instead of weekdays', () => {
+    const seq = seqProgram()
+    const legsNext = ruleCardio(coachData({ program: seq, todayDay: seq.days[2] }))[0]
+    expect(legsNext.body).toContain('в день отдыха после «Ноги 1»')
+    expect(legsNext.evidence).toContain('Следующая тренировка: Ноги 1')
+    expect(ruleCardio(coachData({ program: seq }))[0].body).toContain('сегодня, если не идёшь в зал')
+  })
   it('two sessions or a non-cut goal → nothing', () => {
     const two = [1, 2].map((i) => ({ id: `a${i}`, type: 'swim' as const, date: shiftDate('2026-10-07', -i), durationMin: 30 }))
     expect(ruleCardio(coachData({ activities: two }))).toEqual([])
@@ -178,6 +185,21 @@ describe('rule 7 — weekly frequency', () => {
     const [ins] = ruleFrequency(d)
     expect(ins.priority).toBe(1)
     expect(ins.body).toBe('До конца недели 2 дня, тренировок 1 из 3 — сегодня лучший день для «Тяга».')
+  })
+
+  it('sequential program: the next rotation day is suggested, whatever the weekday', () => {
+    const seq = seqProgram()
+    const d = coachData({
+      now: localDate('2026-10-10', 9),
+      program: seq,
+      todayDay: seq.days[1],
+      scheduleLabel: 'Неделя 3 из 12 · тренировка 2 из 3',
+      sessions: [session('a', '2026-10-06', [{ exerciseId: 'X', sets: [set(10, 10)] }], { programId: 'seq', programDayId: 'push1' })],
+    })
+    const [ins] = ruleFrequency(d)
+    expect(ins.body).toBe('До конца недели 2 дня, тренировок 1 из 3 — сегодня лучший день для «Тяга 1».')
+    expect(ins.action?.to).toBe('/workouts/start/seq/pull1')
+    expect(ins.evidence).toContain('Программа: Неделя 3 из 12 · тренировка 2 из 3')
   })
 
   it('target reached → positive insight with a week streak', () => {
@@ -286,6 +308,17 @@ describe('engine', () => {
       await setRuleEnabled(db, 'sleep_volume', false)
       const next = await generateInsights(db, NOW)
       expect(next.find((i) => i.kind === 'recovery')?.rule).toBe('stress')
+    })
+
+    it('resolves today\'s day of a sequential program from the cycle state', async () => {
+      await db.programs.put(seqProgram())
+      await db.settings.bulkPut([
+        { key: 'activeProgramId', value: 'seq' },
+        { key: 'program.cycle:seq', value: { startDate: '2026-09-01', completedSessions: 4, nextDayIndex: 4 } },
+      ])
+      const sleep = (await generateInsights(db, NOW)).find((i) => i.rule === 'sleep_volume')
+      expect(sleep?.action?.to).toBe('/workouts/start/seq/pull2')
+      expect(sleep?.evidence).toContain('Следующая тренировка: Тяга 2')
     })
 
     it('reads the weekly target from settings', async () => {
