@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router'
@@ -124,6 +124,46 @@ describe('CoachChat', () => {
     expect(screen.getByRole('button', { name: 'Повторить' })).toBeInTheDocument()
   })
 
+  it('«Повторить» re-runs the failed question without adding a second user message', async () => {
+    const { provider, requests } = scriptedProvider([
+      [{ type: 'error', message: 'Модель Gemini не найдена.' }],
+      [{ type: 'error', message: 'Модель Gemini не найдена.' }],
+      [{ type: 'text_delta', text: 'Вес стоит из-за воды.' }, { type: 'done', stopReason: 'end_turn' }],
+    ])
+    const user = userEvent.setup()
+    renderAt('/assistant', <CoachChat provider={provider} tools={[]} />)
+    const userRows = async () =>
+      (await db.chatMessages.where('threadId').equals(COACH_THREAD).toArray()).filter((m) => m.role === 'user')
+
+    await user.click(screen.getByRole('button', { name: 'Почему вес стоит?' }))
+    await user.click(await screen.findByRole('button', { name: 'Повторить' }))
+    await waitFor(() => expect(requests).toHaveLength(2))
+    await user.click(await screen.findByRole('button', { name: 'Повторить' }))
+    await waitFor(() => expect(screen.getByText('Вес стоит из-за воды.')).toBeInTheDocument())
+
+    expect((await userRows()).map((m) => m.text)).toEqual(['Почему вес стоит?'])
+    expect(screen.getAllByText('Почему вес стоит?').filter((el) => el.tagName === 'P')).toHaveLength(1)
+    expect(requests[2].messages.filter((t) => t.role === 'user')).toHaveLength(1)
+  })
+
+  it('does not duplicate the failed question when it is sent again', async () => {
+    const { provider } = scriptedProvider([
+      [{ type: 'error', message: 'Лимит' }],
+      [{ type: 'text_delta', text: 'Готово' }, { type: 'done', stopReason: 'end_turn' }],
+    ])
+    const user = userEvent.setup()
+    renderAt('/assistant', <CoachChat provider={provider} tools={[]} />)
+    await user.type(screen.getByLabelText('Сообщение тренеру'), 'Что делать сегодня?{Enter}')
+    await screen.findByRole('alert')
+    await user.click(screen.getByRole('button', { name: 'Что делать сегодня?' }))
+    await waitFor(() => expect(screen.getByText('Готово')).toBeInTheDocument())
+    const rows = await db.chatMessages.where('threadId').equals(COACH_THREAD).sortBy('createdAt')
+    expect(rows.map((r) => [r.role, r.text])).toEqual([
+      ['user', 'Что делать сегодня?'],
+      ['assistant', 'Готово'],
+    ])
+  })
+
   it('clears the conversation', async () => {
     await db.chatMessages.add({ id: 'm1', threadId: COACH_THREAD, role: 'user', text: 'Старый вопрос', createdAt: new Date().toISOString() })
     const { provider } = scriptedProvider([])
@@ -153,6 +193,75 @@ describe('AssistantSettingsPage', () => {
         claudeProxyUrl: '/api/coach',
       }),
     )
+  })
+})
+
+describe('AssistantSettingsPage — Gemini models', () => {
+  const MODELS = {
+    models: [
+      { name: 'models/gemini-2.5-pro', displayName: 'Gemini 2.5 Pro', supportedGenerationMethods: ['generateContent'] },
+      { name: 'models/gemini-2.0-flash', displayName: 'Gemini 2.0 Flash', supportedGenerationMethods: ['generateContent'] },
+      { name: 'models/embedding-001', displayName: 'Embedding', supportedGenerationMethods: ['embedContent'] },
+    ],
+  }
+
+  function stubFetch(generate: () => Response) {
+    const fn = vi.fn(async (url: string) => (url.includes(':generateContent') ? generate() : new Response(JSON.stringify(MODELS))))
+    vi.stubGlobal('fetch', fn)
+    return fn
+  }
+
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('lists models for the key, pre-selects a flash model when the default is missing, and checks via generateContent', async () => {
+    await db.settings.bulkPut([
+      { key: AI_KEYS.provider, value: 'gemini' },
+      { key: AI_KEYS.geminiKey, value: 'AIza-1' },
+    ])
+    const fetchMock = stubFetch(() => new Response(JSON.stringify({ candidates: [] })))
+    const user = userEvent.setup()
+    renderAt('/assistant/settings', <AssistantSettingsPage />)
+
+    const select = await screen.findByRole('combobox')
+    expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual([
+      'Gemini 2.5 Pro · gemini-2.5-pro',
+      'Gemini 2.0 Flash · gemini-2.0-flash',
+    ])
+    await waitFor(() => expect(select).toHaveValue('gemini-2.0-flash'))
+    expect(screen.queryByText(/Модель недоступна/)).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /Проверить подключение/ }))
+    expect(await screen.findByRole('status')).toHaveTextContent('Подключено: gemini-2.0-flash')
+    const call = fetchMock.mock.calls.find(([u]) => u.includes(':generateContent'))!
+    expect(call[0]).toContain('/models/gemini-2.0-flash:generateContent?key=AIza-1')
+    expect((await loadAiSettings()).geminiModel).toBe('gemini-2.0-flash')
+  })
+
+  it('warns when the saved model is not available and shows the API error on a failed check', async () => {
+    await db.settings.bulkPut([
+      { key: AI_KEYS.provider, value: 'gemini' },
+      { key: AI_KEYS.geminiKey, value: 'AIza-1' },
+      { key: AI_KEYS.geminiModel, value: 'gemini-1.0-pro' },
+    ])
+    stubFetch(
+      () =>
+        new Response(JSON.stringify({ error: { code: 404, message: 'models/gemini-1.0-pro is not found for API version v1beta' } }), {
+          status: 404,
+        }),
+    )
+    const user = userEvent.setup()
+    renderAt('/assistant/settings', <AssistantSettingsPage />)
+    expect(await screen.findByText(/Модель недоступна для этого ключа/)).toBeInTheDocument()
+    expect(screen.getByRole('combobox')).toHaveValue('')
+
+    await user.click(screen.getByRole('button', { name: /Проверить подключение/ }))
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'Модель Gemini не найдена: models/gemini-1.0-pro is not found for API version v1beta. Выбери модель из списка в настройках.',
+    )
+
+    await user.selectOptions(screen.getByRole('combobox'), 'gemini-2.5-pro')
+    expect(screen.queryByText(/Модель недоступна/)).not.toBeInTheDocument()
+    expect(screen.getByDisplayValue('gemini-2.5-pro')).toBeInTheDocument()
   })
 })
 
