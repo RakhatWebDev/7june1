@@ -14,10 +14,10 @@ export const weekdayProgram: Program = {
   isBuiltIn: false,
   createdAt: '2026-10-01T00:00:00.000Z',
   days: [
-    ...davidLaidDup.days.map((d, i) => ({
-      ...d,
+    ...['legs-1', 'push-1', 'pull-1', 'legs-2', 'push-2', 'pull-2'].map((id, i) => ({
+      ...davidLaidDup.days.find((d) => d.id === id)!,
       weekday: i,
-      exercises: d.exercises.map((e) => ({ ...e, weekly: undefined })),
+      exercises: davidLaidDup.days.find((d) => d.id === id)!.exercises.map((e) => ({ ...e, weekly: undefined })),
     })),
     {
       id: 'rest',

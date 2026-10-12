@@ -10,6 +10,7 @@ import {
 import { clearNextSessionNote, getNextSessionNotes } from '../coach/tools'
 import { newId } from '../../lib/id'
 import { computeNextTargets } from './autoreg'
+import { applyDayOverrides, getOverrides, REPLACED_NOTE } from './overrides'
 import { buildSessionFromDay, emptySets, isStartableDay } from './calc'
 import { advanceCycle, asCycleState, cycleKey, resolveSchedule, setCycleState } from './schedule'
 
@@ -86,9 +87,9 @@ export async function startSession(
     if (active) return active.id
     const program = await database.programs.get(programId)
     if (!program) throw new StartSessionError('Программа не найдена')
-    const day = program.days.find((d) => d.id === dayId)
-    if (!day) throw new StartSessionError('День программы не найден')
-    if (!isStartableDay(day)) throw new StartSessionError('Это день отдыха — тренировку начать нельзя')
+    const originalDay = program.days.find((d) => d.id === dayId)
+    if (!originalDay) throw new StartSessionError('День программы не найден')
+    if (!isStartableDay(originalDay)) throw new StartSessionError('Это день отдыха — тренировку начать нельзя')
 
     const [cycleSetting, maxesSetting, tmSetting, logSetting] = await Promise.all([
       database.settings.get(cycleKey(program.id)),
@@ -102,6 +103,10 @@ export async function startSession(
     const trainingMaxes = asMaxes(tmSetting?.value)
     const log = asTrainingMaxLog(logSetting?.value)
     const coachNotes = await getNextSessionNotes(database)
+    // «Заменить в программе»: per-program exercise replacements
+    const overrides = await getOverrides(database, program.id)
+    const hasMax = (id: string) => maxes[id] != null || trainingMaxes[id] != null
+    const day = applyDayOverrides(originalDay, overrides[originalDay.id], hasMax)
     let tmChanged = false
 
     const finished = (await database.sessions.filter((s) => !!s.finishedAt).toArray()).sort((a, b) =>
@@ -220,6 +225,61 @@ export function addExercise(
     sets: ex.sets ?? emptySets(targetSets),
   }
   return mutateSession(sessionId, (s) => void s.exercises.push(entry), database)
+}
+
+/**
+ * Replaces the exercise at `exIdx` for this session only: keeps sets × reps and rest, clears the logged sets,
+ * re-resolves targets (%-targets against the new exercise's own max if it has one, else reps-only double
+ * progression from its history) and notes «Замена: <оригинал>».
+ */
+export async function replaceExercise(
+  sessionId: string,
+  exIdx: number,
+  next: { exerciseId: string; name: string },
+  database: FormaDB = defaultDb,
+  library?: Map<string, Exercise>,
+): Promise<void> {
+  await database.transaction('rw', database.sessions, database.settings, async () => {
+    const s = await database.sessions.get(sessionId)
+    const ex = s?.exercises[exIdx]
+    if (!s || !ex) return
+    const [maxesSetting, tmSetting] = await Promise.all([
+      database.settings.get(MAXES_KEY),
+      database.settings.get(TRAINING_MAXES_KEY),
+    ])
+    const maxes = asMaxes(maxesSetting?.value)
+    const trainingMaxes = asMaxes(tmSetting?.value)
+    const hasMax = maxes[next.exerciseId] != null || trainingMaxes[next.exerciseId] != null
+    const keepPct = hasMax && (ex.targets ?? []).some((t) => t.pct != null)
+    const scheme = (ex.targets ?? []).map((t) =>
+      keepPct && t.pct != null ? { reps: t.reps, pct: t.pct } : { reps: t.reps },
+    )
+    const finished = (await database.sessions.filter((x) => !!x.finishedAt).toArray()).sort((a, b) =>
+      b.startedAt.localeCompare(a.startedAt),
+    )
+    const history = recentPerformances(finished, next.exerciseId, { dayId: s.programDayId, preferSameDay: !keepPct })
+    const r = computeNextTargets({
+      programExercise: { exerciseId: next.exerciseId, name: next.name },
+      prescription: { sets: ex.targetSets, reps: ex.targetReps, scheme: scheme.length ? scheme : undefined },
+      history: history.map((h) => h.exercise),
+      maxes,
+      trainingMaxes,
+      library: library?.get(next.exerciseId),
+    })
+    const prevNote = ex.notes?.startsWith(REPLACED_NOTE) ? ex.notes.split(' · ')[0] : `${REPLACED_NOTE} ${ex.name}`
+    s.exercises[exIdx] = {
+      exerciseId: next.exerciseId,
+      name: next.name,
+      targetSets: ex.targetSets,
+      targetReps: ex.targetReps,
+      ...(ex.restSec != null ? { restSec: ex.restSec } : {}),
+      sets: emptySets(ex.sets.length || ex.targetSets),
+      targets: r.targets,
+      ...(r.hint ? { hint: r.hint } : {}),
+      notes: prevNote,
+    }
+    await database.sessions.put(s)
+  })
 }
 
 export function removeExercise(sessionId: string, exIdx: number, database?: FormaDB) {

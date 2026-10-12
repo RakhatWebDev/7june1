@@ -11,6 +11,7 @@ import { ConfirmSheet } from './ConfirmSheet'
 import { ExercisePickerSheet } from './ExercisePickerSheet'
 import { useExerciseMap, useHideMedia, useNow, useSession, useSessions } from './hooks'
 import { formatSessionDateTime } from './labels'
+import { ReplaceExerciseSheet } from './ReplaceExerciseSheet'
 import { RestTimer } from './RestTimer'
 import { sessionCycleLabel } from './schedule'
 import { SessionExerciseCard } from './SessionExerciseCard'
@@ -48,6 +49,7 @@ function SessionView({ session, allSessions }: { session: WorkoutSession; allSes
   const [rest, setRest] = useState<{ sec: number; key: number } | null>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [removeIdx, setRemoveIdx] = useState<number | null>(null)
+  const [replaceIdx, setReplaceIdx] = useState<number | null>(null)
   const [confirmFinish, setConfirmFinish] = useState(false)
   const [summaryOpen, setSummaryOpen] = useState(false)
   const [prCount, setPrCount] = useState(0)
@@ -139,6 +141,7 @@ function SessionView({ session, allSessions }: { session: WorkoutSession; allSes
             hideMedia={hideMedia}
             onSetDone={onSetDone}
             onRemove={() => setRemoveIdx(i)}
+            onReplace={() => setReplaceIdx(i)}
           />
         ))}
       </div>
@@ -159,6 +162,9 @@ function SessionView({ session, allSessions }: { session: WorkoutSession; allSes
         onClose={() => setPickerOpen(false)}
         onPick={(ex, name) => void addExercise(session.id, { exerciseId: ex.id, name })}
       />
+      {replaceIdx !== null && (
+        <ReplaceExerciseSheet open session={session} exIdx={replaceIdx} onClose={() => setReplaceIdx(null)} />
+      )}
       <ConfirmSheet
         open={removeIdx !== null}
         title="Удалить упражнение?"

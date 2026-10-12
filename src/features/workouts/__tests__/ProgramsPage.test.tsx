@@ -26,13 +26,13 @@ describe('ProgramsPage (/workouts)', () => {
   it('shows the next session of the DUP rotation with its program week', async () => {
     await activate('david-laid-dup')
     renderRoute('/workouts')
-    expect(await screen.findByRole('heading', { name: 'Ноги 1 — сила' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Жим 1 — сила' })).toBeInTheDocument()
     expect(screen.getByText(/Неделя 1 из 12 · тренировка 1 из 3/)).toBeInTheDocument()
     expect(screen.getAllByText(/David Laid — DUP/).length).toBeGreaterThan(0)
     expect(screen.getAllByText(/3 трен\./).length).toBeGreaterThan(0)
     expect(screen.getByRole('link', { name: 'Начать тренировку' })).toHaveAttribute(
       'href',
-      '/workouts/start/david-laid-dup/legs-1',
+      '/workouts/start/david-laid-dup/push-1',
     )
   })
 

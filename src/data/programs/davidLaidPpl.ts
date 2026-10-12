@@ -15,7 +15,7 @@ import {
 /*
  * David Laid — "Push_Pull_Legs_Split" (the user's Word document, see docs/source/david-laid-programs.txt).
  * The document has 6 sessions per week × 4 weeks; laid out as 12 program weeks of 3 sessions with a rotation of
- * 6 sessions (= 2 program weeks): weeks 1–8 = document weeks 1–4 (each twice), week 9 = test week,
+ * 6 sessions (= 2 program weeks, order Push → Pull → Legs): weeks 1–8 = document weeks 1–4 (each twice), week 9 = test week,
  * weeks 10–12 = document weeks 1–3. Main lifts progress 4×10 → 5×8 → 6×5 → 7×3 (% of max from the
  * Program 1 table); variations (pause/Spoto bench, block/deficit/pause deadlift, behind-the-neck press)
  * have no % — weight is picked by feel and auto-regulated from the previous session.
@@ -55,7 +55,7 @@ export const davidLaidPpl: Program = {
   id: 'david-laid-ppl',
   name: 'David Laid — Push/Pull/Legs (12 недель, 3×/нед)',
   description:
-    '3 тренировки в неделю, 12 недель. По кругу из 6 тренировок: Ноги 1 → Жим 1 → Тяга 1 → Ноги 2 → Жим 2 → Тяга 2. ' +
+    '3 тренировки в неделю, 12 недель. По кругу из 6 тренировок: Жим 1 → Тяга 1 → Ноги 1 → Жим 2 → Тяга 2 → Ноги 2. ' +
     'Основные упражнения блоками по 2 недели: 4×10 → 5×8 → 6×5 → 7×3, тяжёлые синглы в первом блоке, ' +
     'статические удержания приседа на 120 %; затем тестовая неделя и повтор первых трёх блоков.',
   source:
@@ -65,7 +65,7 @@ export const davidLaidPpl: Program = {
   sessionsPerWeek: SESSIONS_PER_WEEK,
   schedule: 'sequential',
   weeks: PROGRAM_WEEKS,
-  version: 2,
+  version: 3,
   blocks: davidLaidBlocks(['4×10', '5×8', '6×5', '7×3']),
   cycleNotes:
     'Неделя программы = 3 тренировки. Недели 1–8 = недели документа 1–4 (каждая по 2 недели), неделя 9 — тест ' +
@@ -83,23 +83,6 @@ export const davidLaidPpl: Program = {
   isBuiltIn: true,
   createdAt: '2026-10-08T00:00:00.000Z',
   days: [
-    {
-      id: 'ppl-legs-1',
-      name: 'Ноги 1',
-      type: 'legs',
-      notes: ACCESSORY_NOTE,
-      exercises: [
-        cyc(SQUAT, 'Присед', [singlePlus(4, 10), core(5, 8), core(6, 5), core(7, 3)], {
-          restSec: CORE_REST,
-        }),
-        cyc(SQUAT, 'Статическое удержание приседа (120 %)', times(staticHold()), {
-          restSec: CORE_REST,
-          maxLiftId: SQUAT,
-          notes: 'Сними штангу со стоек и держи наверху 45–60 с. Только в раме со страховкой. В «повторы» — секунды.',
-        }),
-        ...legAccessories(),
-      ],
-    },
     {
       id: 'ppl-push-1',
       name: 'Жим 1',
@@ -139,18 +122,18 @@ export const davidLaidPpl: Program = {
       ],
     },
     {
-      id: 'ppl-legs-2',
-      name: 'Ноги 2',
+      id: 'ppl-legs-1',
+      name: 'Ноги 1',
       type: 'legs',
       notes: ACCESSORY_NOTE,
       exercises: [
-        cyc(SQUAT, 'Присед с паузой', [singlePlus(2, 6), core(3, 4), core(4, 3), core(5, 2)], {
+        cyc(SQUAT, 'Присед', [singlePlus(4, 10), core(5, 8), core(6, 5), core(7, 3)], {
+          restSec: CORE_REST,
+        }),
+        cyc(SQUAT, 'Статическое удержание приседа (120 %)', times(staticHold()), {
           restSec: CORE_REST,
           maxLiftId: SQUAT,
-          notes: 'Пауза 1–2 с внизу. Проценты — от максимума в приседе.',
-        }),
-        cyc('Front_Barbell_Squat', 'Фронтальный присед', [core(4, 10), core(5, 8), core(6, 5), core(7, 3)], {
-          restSec: CORE_REST,
+          notes: 'Сними штангу со стоек и держи наверху 45–60 с. Только в раме со страховкой. В «повторы» — секунды.',
         }),
         ...legAccessories(),
       ],
@@ -193,6 +176,23 @@ export const davidLaidPpl: Program = {
         cyc('Barbell_Shrug', 'Шраги', times(s(3, 10))),
         cyc('Bent_Over_Barbell_Row', 'Тяга штанги в наклоне', times(s(3, 10)), { restSec: 120 }),
         cyc('Pullups', 'Подтягивания', times(s(3, '10-15')), { restSec: 120 }),
+      ],
+    },
+    {
+      id: 'ppl-legs-2',
+      name: 'Ноги 2',
+      type: 'legs',
+      notes: ACCESSORY_NOTE,
+      exercises: [
+        cyc(SQUAT, 'Присед с паузой', [singlePlus(2, 6), core(3, 4), core(4, 3), core(5, 2)], {
+          restSec: CORE_REST,
+          maxLiftId: SQUAT,
+          notes: 'Пауза 1–2 с внизу. Проценты — от максимума в приседе.',
+        }),
+        cyc('Front_Barbell_Squat', 'Фронтальный присед', [core(4, 10), core(5, 8), core(6, 5), core(7, 3)], {
+          restSec: CORE_REST,
+        }),
+        ...legAccessories(),
       ],
     },
   ],

@@ -84,7 +84,7 @@ describe('read tools', () => {
       { key: 'program.cycle:seq', value: { startDate: '2026-09-01', completedSessions: 7, nextDayIndex: 1 } },
     ])
     const s = await summarizeProfile(db, NOW)
-    expect(s).toMatchObject({ sequential: true, scheduleLabel: 'Неделя 3 из 12 · тренировка 2 из 3', todayLabel: 'Неделя 3 из 12 · Тяга 1' })
+    expect(s).toMatchObject({ sequential: true, scheduleLabel: 'Неделя 3 из 12 · тренировка 2 из 3', todayLabel: 'Неделя 3 из 12 · тренировка 2 из 3 · Тяга 1' })
     expect(s.todayDay?.id).toBe('pull1')
     const plan = await run('get_todays_plan')
     expect(plan.programLabel).toBe('Неделя 3 из 12 · тренировка 2 из 3')

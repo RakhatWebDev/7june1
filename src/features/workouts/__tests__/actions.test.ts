@@ -3,6 +3,7 @@ import { FormaDB } from '../../../db'
 import { ensureSeeded } from '../../../db/seed'
 import { davidLaidDup } from '../../../data/programs/davidLaidDup'
 import { weekdayProgram } from './fixtures'
+import { setOverride } from '../overrides'
 import {
   addExercise,
   addSet,
@@ -12,6 +13,7 @@ import {
   finishSession,
   removeExercise,
   removeSet,
+  replaceExercise,
   startSession,
   updateSet,
 } from '../actions'
@@ -184,5 +186,52 @@ describe('startSession — test week', () => {
     expect(s.exercises[0].targets).toEqual([{ reps: '1', pct: 1, weightKg: 60 }])
     expect(s.exercises[0].notes).toContain('тестовая неделя')
     expect(s.exercises[1]).toMatchObject({ exerciseId: 'Leg_Press', targetSets: 2, targetReps: '10' })
+  })
+})
+
+describe('replacing exercises', () => {
+  const P1 = 'david-laid-program-1'
+
+  it('replaces for this session: keeps sets × reps and rest, clears sets, notes the original', async () => {
+    const id = await startSession(P1, 'p1-legs', database)
+    await updateSet(id, 0, 0, { weightKg: 35, reps: 10, done: true }, database)
+    const before = (await database.sessions.get(id))!.exercises[0]
+    // Sumo has its own max → the %-targets are kept against it
+    await database.settings.put({ key: 'lifts.maxes', value: { Barbell_Squat: 60, Sumo_Deadlift: 100 } })
+    await replaceExercise(id, 0, { exerciseId: 'Sumo_Deadlift', name: 'Тяга сумо' }, database)
+    let ex = (await database.sessions.get(id))!.exercises[0]
+    expect(ex).toMatchObject({
+      exerciseId: 'Sumo_Deadlift',
+      name: 'Тяга сумо',
+      targetSets: before.targetSets,
+      targetReps: before.targetReps,
+      restSec: before.restSec,
+      notes: 'Замена: Присед',
+    })
+    expect(ex.sets.every((s) => !s.done && s.weightKg === null && s.reps === null)).toBe(true)
+    expect(ex.targets).toEqual([
+      { reps: '10', pct: 0.6, weightKg: 60 },
+      { reps: '8', pct: 0.7, weightKg: 70 },
+      { reps: '6', pct: 0.8, weightKg: 80 },
+    ])
+    // Front squat has no max → reps-only targets; the note keeps the very first original
+    await replaceExercise(id, 0, { exerciseId: 'Front_Barbell_Squat', name: 'Фронтальный присед' }, database)
+    ex = (await database.sessions.get(id))!.exercises[0]
+    expect(ex.targets).toEqual([{ reps: '10' }, { reps: '8' }, { reps: '6' }])
+    expect(ex.notes).toBe('Замена: Присед')
+  })
+
+  it('applies a program override when the session starts', async () => {
+    await setOverride(database, P1, 'p1-push-1', 2, { exerciseId: 'Push_Press', name: 'Жимовой швунг' })
+    await setOverride(database, P1, 'p1-legs', 0, { exerciseId: 'Leg_Press', name: 'Жим ногами' })
+    const id = await startSession(P1, 'p1-legs', database)
+    const s = (await database.sessions.get(id))!
+    expect(s.exercises[0]).toMatchObject({ exerciseId: 'Leg_Press', name: 'Жим ногами', targetReps: '10-8-6' })
+    expect(s.exercises[0].notes).toContain('Замена: Присед')
+    expect(s.exercises[0].targets).toEqual([{ reps: '10' }, { reps: '8' }, { reps: '6' }]) // no leg press max
+    await setOverride(database, P1, 'p1-legs', 0, null)
+    expect((await database.settings.get('program.overrides:david-laid-program-1'))?.value).toEqual({
+      'p1-push-1': { '2': { exerciseId: 'Push_Press', name: 'Жимовой швунг' } },
+    })
   })
 })

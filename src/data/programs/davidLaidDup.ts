@@ -27,7 +27,7 @@ const ex = (
  * This is a community reconstruction (Routines Club / Lift Vault / fan spreadsheets),
  * not the paid official program. Day 1–3 are heavy (3–6 reps, ~85%+ 1RM on the main lift),
  * day 4–6 repeat the split with moderate hypertrophy work (8–15 reps).
- * Restructured for 3 sessions a week: the 6 days rotate in order (one rotation = 2 program weeks),
+ * Restructured for 3 sessions a week: the 6 days rotate in order Push → Pull → Legs (one rotation = 2 program weeks),
  * 12 weeks with deloads in weeks 6 and 12. The former Sunday rest day is not part of the rotation.
  */
 export const davidLaidDup: Program = {
@@ -45,7 +45,7 @@ export const davidLaidDup: Program = {
   sessionsPerWeek: SESSIONS_PER_WEEK,
   schedule: 'sequential',
   weeks: PROGRAM_WEEKS,
-  version: 2,
+  version: 3,
   blocks: [
     { label: 'Объём · недели 1–5', fromWeek: 0, toWeek: 4 },
     { label: 'Разгрузка', fromWeek: 5, toWeek: 5 },
@@ -53,25 +53,12 @@ export const davidLaidDup: Program = {
     { label: 'Разгрузка', fromWeek: 11, toWeek: 11 },
   ],
   cycleNotes:
-    'Неделя программы = 3 тренировки; 6 тренировок идут по кругу (Ноги 1 → Жим 1 → Тяга 1 → Ноги 2 → Жим 2 → ' +
-    'Тяга 2). Отдельного дня отдыха в круге нет: между тренировками 1–2 дня отдыха (прогулка, бассейн, растяжка). ' +
+    'Неделя программы = 3 тренировки; 6 тренировок идут по кругу (Жим 1 → Тяга 1 → Ноги 1 → Жим 2 → Тяга 2 → ' +
+    'Ноги 2). Отдельного дня отдыха в круге нет: между тренировками 1–2 дня отдыха (прогулка, бассейн, растяжка). ' +
     'Разгрузка на 6-й и 12-й неделе: на треть меньше подходов.',
   isBuiltIn: true,
   createdAt: '2026-10-07T00:00:00.000Z',
   days: [
-    {
-      id: 'legs-1',
-      name: 'Ноги 1 — сила',
-      type: 'legs',
-      exercises: [
-        ex('Barbell_Squat', 'Присед со штангой (тяжёлый)', 5, '3-5', 180, '85-90% 1RM'),
-        ex('Barbell_Squat', 'Присед со штангой (объём)', 4, '6-8', 150, '70-75% 1RM'),
-        ex('Romanian_Deadlift', 'Румынская тяга', 3, '8-10', 120),
-        ex('Barbell_Lunge', 'Выпады со штангой', 3, '10', 90, undefined, 'На каждую ногу'),
-        ex('Glute_Ham_Raise', 'Glute-ham raise / сгибание ног', 3, '10-12', 90),
-        ex('Rocking_Standing_Calf_Raise', 'Подъём на носки стоя', 4, '12-15', 60),
-      ],
-    },
     {
       id: 'push-1',
       name: 'Жим 1 — сила',
@@ -102,17 +89,16 @@ export const davidLaidDup: Program = {
       ],
     },
     {
-      id: 'legs-2',
-      name: 'Ноги 2 — гипертрофия',
+      id: 'legs-1',
+      name: 'Ноги 1 — сила',
       type: 'legs',
       exercises: [
-        ex('Barbell_Squat', 'Присед со штангой', 4, '10-12', 120, '65-70% 1RM'),
-        ex('Leg_Press', 'Жим ногами', 4, '12-15', 90),
-        ex('Romanian_Deadlift', 'Румынская тяга', 3, '10-12', 120),
-        ex('Leg_Extensions', 'Разгибание ног', 4, '12-15', 60),
-        ex('Lying_Leg_Curls', 'Сгибание ног лёжа', 4, '10-12', 60),
-        ex('Dumbbell_Lunges', 'Шагающие выпады', 3, '12', 90, undefined, 'На каждую ногу'),
-        ex('Seated_Calf_Raise', 'Подъём на носки сидя', 4, '15-20', 45),
+        ex('Barbell_Squat', 'Присед со штангой (тяжёлый)', 5, '3-5', 180, '85-90% 1RM'),
+        ex('Barbell_Squat', 'Присед со штангой (объём)', 4, '6-8', 150, '70-75% 1RM'),
+        ex('Romanian_Deadlift', 'Румынская тяга', 3, '8-10', 120),
+        ex('Barbell_Lunge', 'Выпады со штангой', 3, '10', 90, undefined, 'На каждую ногу'),
+        ex('Glute_Ham_Raise', 'Glute-ham raise / сгибание ног', 3, '10-12', 90),
+        ex('Rocking_Standing_Calf_Raise', 'Подъём на носки стоя', 4, '12-15', 60),
       ],
     },
     {
@@ -140,6 +126,20 @@ export const davidLaidDup: Program = {
         ex('Barbell_Shrug', 'Шраги', 3, '10', 60),
         ex('Barbell_Curl', 'Сгибание рук со штангой', 3, '10', 60),
         ex('Hammer_Curls', 'Молотки', 3, '10', 60),
+      ],
+    },
+    {
+      id: 'legs-2',
+      name: 'Ноги 2 — гипертрофия',
+      type: 'legs',
+      exercises: [
+        ex('Barbell_Squat', 'Присед со штангой', 4, '10-12', 120, '65-70% 1RM'),
+        ex('Leg_Press', 'Жим ногами', 4, '12-15', 90),
+        ex('Romanian_Deadlift', 'Румынская тяга', 3, '10-12', 120),
+        ex('Leg_Extensions', 'Разгибание ног', 4, '12-15', 60),
+        ex('Lying_Leg_Curls', 'Сгибание ног лёжа', 4, '10-12', 60),
+        ex('Dumbbell_Lunges', 'Шагающие выпады', 3, '12', 90, undefined, 'На каждую ногу'),
+        ex('Seated_Calf_Raise', 'Подъём на носки сидя', 4, '15-20', 45),
       ],
     },
   ],
