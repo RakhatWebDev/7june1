@@ -58,12 +58,12 @@ describe('TodayPage', () => {
   it('offers the next day of the default program (David Laid — Program 1) with its cycle week', async () => {
     await ensureSeeded(db)
     renderPage()
-    expect(await screen.findByText('Ноги')).toBeInTheDocument()
-    expect(screen.getByText('Неделя 1 из 12 · Ноги')).toBeInTheDocument()
+    expect(await screen.findByText('Жим 1')).toBeInTheDocument()
+    expect(screen.getByText('Неделя 1 из 12 · тренировка 1 из 3 · Жим 1')).toBeInTheDocument()
     expect(screen.getByText('На этой неделе 0 из 3')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Начать' })).toHaveAttribute(
       'href',
-      '/workouts/start/david-laid-program-1/p1-legs',
+      '/workouts/start/david-laid-program-1/p1-push-1',
     )
   })
 
@@ -94,10 +94,10 @@ describe('TodayPage', () => {
       value: { startDate: today(), completedSessions: 4, nextDayIndex: 4 },
     })
     renderPage()
-    expect(await screen.findByText('Неделя 2 из 12 · Жим 2 — гипертрофия')).toBeInTheDocument()
+    expect(await screen.findByText('Неделя 2 из 12 · тренировка 2 из 3 · Тяга 2 — гипертрофия')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Начать' })).toHaveAttribute(
       'href',
-      '/workouts/start/david-laid-dup/push-2',
+      '/workouts/start/david-laid-dup/pull-2',
     )
   })
 

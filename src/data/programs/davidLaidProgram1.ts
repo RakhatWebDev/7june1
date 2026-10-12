@@ -20,7 +20,7 @@ import {
  * David Laid — "Workout_Program_1" (the user's Word document, see docs/source/david-laid-programs.txt).
  * The document has 5 sessions per week × 4 weeks; the owner trains 3×/week for ~3 months, so it is laid out
  * as 12 program weeks of 3 sessions. Rotation of 6 sessions (= 2 program weeks):
- * Ноги → Жим 1 → Тяга 1 → Ноги → Жим 2 → Тяга 2. Weeks 1–8 = document weeks 1–4 (each twice), week 9 = test
+ * Жим 1 → Тяга 1 → Ноги → Жим 2 → Тяга 2 → Ноги. Weeks 1–8 = document weeks 1–4 (each twice), week 9 = test
  * week, weeks 10–12 = document weeks 1–3 again. Each exercise lists the 4 document weeks; `twelveWeeks` expands.
  * Russian names follow the user's personalised copy ("David_Laid.docx") where it is correct.
  */
@@ -47,7 +47,7 @@ const CALF_NOTE =
   'Последние 10 повторений каждого подхода — пауза в верхней точке 2–3 с, последнее повторение — 5–10 с. ' +
   'Держи икры в напряжении весь подход.'
 
-/** The legs day comes twice per rotation (sessions 1 and 4). */
+/** The legs day comes twice per rotation (sessions 3 and 6). */
 const legsDay = (id: string): ProgramDay => ({
   id,
   name: 'Ноги',
@@ -81,7 +81,7 @@ export const davidLaidProgram1: Program = {
   id: 'david-laid-program-1',
   name: 'David Laid — Программа 1 (12 недель, 3×/нед)',
   description:
-    '3 тренировки в неделю, 12 недель. По кругу из 6 тренировок: Ноги → Жим 1 → Тяга 1 → Ноги → Жим 2 → Тяга 2. ' +
+    '3 тренировки в неделю, 12 недель. По кругу из 6 тренировок: Жим 1 → Тяга 1 → Ноги → Жим 2 → Тяга 2 → Ноги. ' +
     'Блоки по 2 недели: 10-8-6, 4-4-2, 5-3-1, MAX, затем тестовая неделя и повтор первых трёх блоков. ' +
     'Веса базовых упражнений — % от твоего максимума, аксессуары — по самочувствию.',
   source:
@@ -91,7 +91,7 @@ export const davidLaidProgram1: Program = {
   sessionsPerWeek: SESSIONS_PER_WEEK,
   schedule: 'sequential',
   weeks: PROGRAM_WEEKS,
-  version: 2,
+  version: 3,
   blocks: davidLaidBlocks(['10-8-6', '4-4-2', '5-3-1', 'MAX']),
   cycleNotes:
     'Неделя программы = 3 тренировки (считаются завершённые тренировки, не календарь). Документ: 5 тренировок × 4 ' +
@@ -113,7 +113,6 @@ export const davidLaidProgram1: Program = {
   isBuiltIn: true,
   createdAt: '2026-10-08T00:00:00.000Z',
   days: [
-    legsDay('p1-legs'),
     {
       id: 'p1-push-1',
       name: 'Жим 1',
@@ -172,7 +171,7 @@ export const davidLaidProgram1: Program = {
         cyc('Pullups', 'Подтягивания', times(toFailure(2)), { restSec: 120, notes: 'До отказа.' }),
       ],
     },
-    legsDay('p1-legs-2'),
+    legsDay('p1-legs'),
     {
       id: 'p1-push-2',
       name: 'Жим 2',
@@ -225,5 +224,6 @@ export const davidLaidProgram1: Program = {
         cyc('Pullups', 'Подтягивания', times(toFailure(2)), { restSec: 120, notes: 'До отказа.' }),
       ],
     },
+    legsDay('p1-legs-2'),
   ],
 }

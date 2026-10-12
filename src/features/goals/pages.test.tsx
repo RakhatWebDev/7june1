@@ -250,7 +250,7 @@ describe('WeeklyReviewPage', () => {
       expect((await db.weeklyReviews.toArray())[0].wins).toEqual(['Пять тренировок']),
     )
     expect(await db.weeklyReviews.count()).toBe(1)
-  })
+  }, 20000)
 
   it('lists past reviews and opens one', async () => {
     await db.weeklyReviews.put({

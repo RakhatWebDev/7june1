@@ -11,6 +11,7 @@ import { setActiveProgram } from './actions'
 import { prescriptionSets } from './autoreg'
 import { fmtKg, isStartableDay, weekPrescription } from './calc'
 import { ConfirmSheet } from './ConfirmSheet'
+import { getOverrides, overrideExercise, setOverride, type ProgramOverrides } from './overrides'
 import { useActiveProgram } from './hooks'
 import { DAY_TYPE_RU, programSubtitle, restLabel } from './labels'
 import { primaryLink } from './linkStyles'
@@ -23,6 +24,8 @@ import {
   setCycleWeek,
   setTargetPerWeek,
   TARGET_PER_WEEK_KEY,
+  weekSessions,
+  type PlannedSession,
   type ScheduledDay,
 } from './schedule'
 
@@ -33,6 +36,7 @@ export function ProgramDetailPage() {
   const { program: activeProgram } = useActiveProgram()
   const schedule = useLiveQuery(async () => (program ? await getScheduledDay(db, program) : null), [program])
   const trainingMaxes = useLiveQuery(() => getTrainingMaxes(db), [])
+  const overrides = useLiveQuery(() => getOverrides(db, id), [id])
 
   if (program === undefined) return <PageHeader title="Программа" back="/workouts" />
   if (program === null)
@@ -46,7 +50,6 @@ export function ProgramDetailPage() {
   const isActive = activeProgram?.id === program.id
   const sequential = program.schedule === 'sequential'
   const todayIdx = weekdayIndex()
-  const viewWeek = schedule?.prescriptionWeek
   const subtitle = programSubtitle(program)
   return (
     <>
@@ -70,23 +73,32 @@ export function ProgramDetailPage() {
       {program.weeks && schedule && <CycleCard program={program} schedule={schedule} />}
       {program.maxLifts && program.maxLifts.length > 0 && <MaxesCard program={program} />}
 
-      <ul className="mt-4 space-y-3">
-        {program.days.map((day, i) => {
-          const marked = sequential ? schedule?.dayIndex === i : day.weekday === todayIdx
-          return (
-            <li key={day.id}>
-              <DayCard
-                program={program}
-                day={day}
-                marked={marked}
-                markLabel={sequential ? 'следующая' : 'сегодня'}
-                week={viewWeek}
-                trainingMaxes={trainingMaxes ?? {}}
-              />
-            </li>
-          )
-        })}
-      </ul>
+      {program.weeks && sequential && schedule ? (
+        <WeekPlan
+          program={program}
+          schedule={schedule}
+          trainingMaxes={trainingMaxes ?? {}}
+          overrides={overrides ?? {}}
+        />
+      ) : (
+        <ul className="mt-4 space-y-3">
+          {program.days.map((day, i) => {
+            const marked = sequential ? schedule?.dayIndex === i : day.weekday === todayIdx
+            return (
+              <li key={day.id}>
+                <DayCard
+                  program={program}
+                  day={day}
+                  marked={marked}
+                  markLabel={sequential ? 'следующая' : 'сегодня'}
+                  trainingMaxes={trainingMaxes ?? {}}
+                  overrides={overrides ?? {}}
+                />
+              </li>
+            )
+          })}
+        </ul>
+      )}
     </>
   )
 }
@@ -140,9 +152,16 @@ function CycleCard({ program, schedule }: { program: Program; schedule: Schedule
         </p>
       )}
       {schedule.isComplete && (
-        <p className="mt-2 rounded-2xl border border-accent/30 bg-accent/10 p-3 text-sm" data-testid="program-complete">
-          Все {weeks} недель пройдены. По желанию — неделя MAX (проверь максимумы), затем «Начать цикл заново».
-        </p>
+        <div
+          className="mt-2 rounded-2xl border border-accent/30 bg-accent/10 p-3 text-sm"
+          data-testid="program-complete"
+        >
+          Все {weeks} недель пройдены. По желанию — неделя MAX (проверь максимумы), затем продли программу: те же
+          {` ${weeks} `}недель заново от твоих новых максимумов.
+          <Button className="mt-2 w-full" size="sm" icon="play" onClick={() => void restartCycle(db, program.id)}>
+            Продлить ещё на {weeks} недель
+          </Button>
+        </div>
       )}
       <div className="mt-3">
         <p className="mb-1.5 text-xs text-muted">Неделя (можно выбрать вручную)</p>
@@ -271,20 +290,225 @@ function MaxesCard({ program }: { program: Program }) {
   )
 }
 
+/**
+ * 12-week plan: one card per program week «Неделя N · <блок>» with exactly its 3 sessions (Пн / Ср / Пт are
+ * suggested labels only — sessions follow the rotation). The current week is highlighted and expanded.
+ */
+function WeekPlan({
+  program,
+  schedule,
+  trainingMaxes,
+  overrides,
+}: {
+  program: Program
+  schedule: ScheduledDay
+  trainingMaxes: Record<string, number>
+  overrides: ProgramOverrides
+}) {
+  const weeks = program.weeks ?? 0
+  const current = schedule.isComplete ? -1 : (schedule.week ?? 0)
+  const [toggled, setToggled] = useState<Record<number, boolean>>({})
+  return (
+    <ol className="mt-4 space-y-3" aria-label="План по неделям">
+      {Array.from({ length: weeks }, (_, w) => {
+        const open = toggled[w] ?? w === current
+        const block = blockFor(program, w)
+        const isCurrent = w === current
+        const sessions = weekSessions(schedule, w)
+        return (
+          <li key={w}>
+            <Card
+              as="section"
+              className={`p-0 ${isCurrent ? 'border-accent/50' : ''}`}
+              data-testid={`week-card-${w + 1}`}
+            >
+              <button
+                type="button"
+                aria-expanded={open}
+                onClick={() => setToggled((t) => ({ ...t, [w]: !open }))}
+                className="flex w-full items-center gap-3 px-4 py-3 text-left"
+              >
+                <span className="min-w-0 flex-1">
+                  <span className={`block font-semibold tracking-tight ${block?.test ? 'text-warn' : ''}`}>
+                    Неделя {w + 1}
+                    {block ? ` · ${block.label}` : ''}
+                  </span>
+                  <span className="block truncate text-xs text-muted">
+                    {isCurrent && <span className="text-accent">текущая · </span>}
+                    {sessions.map((s) => `${s.label} ${s.day.name}`).join(' · ')}
+                  </span>
+                </span>
+                <Icon
+                  name="chevron-down"
+                  size={18}
+                  className={`shrink-0 text-muted transition-transform ${open ? 'rotate-180' : ''}`}
+                />
+              </button>
+              {open && (
+                <ul className="divide-y divide-border border-t border-border px-4">
+                  {sessions.map((s) => (
+                    <SessionRow
+                      key={s.index}
+                      program={program}
+                      session={s}
+                      week={w}
+                      trainingMaxes={trainingMaxes}
+                      overrides={overrides}
+                      defaultOpen={isCurrent && s.status === 'next'}
+                    />
+                  ))}
+                </ul>
+              )}
+            </Card>
+          </li>
+        )
+      })}
+    </ol>
+  )
+}
+
+const STATUS_RU: Record<PlannedSession['status'], string | null> = {
+  done: 'выполнено',
+  next: 'следующая',
+  planned: null,
+}
+
+/** One session of a week: «Пн · Жим 1», expandable to the exercises with that week's prescription. */
+function SessionRow({
+  program,
+  session,
+  week,
+  trainingMaxes,
+  overrides,
+  defaultOpen,
+}: {
+  program: Program
+  session: PlannedSession
+  week: number
+  trainingMaxes: Record<string, number>
+  overrides: ProgramOverrides
+  defaultOpen: boolean
+}) {
+  const [open, setOpen] = useState(defaultOpen)
+  const { day } = session
+  const status = STATUS_RU[session.status]
+  return (
+    <li className="py-2.5" data-testid="week-session">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center gap-3 text-left"
+      >
+        <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-surface-2 text-xs font-semibold">
+          {session.label}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-medium">{day.name}</span>
+          <span className="block text-xs text-muted">
+            {DAY_TYPE_RU[day.type]} · {day.exercises.length} упр.
+            {status && <span className={session.status === 'next' ? 'text-accent' : ''}> · {status}</span>}
+          </span>
+        </span>
+        <Icon
+          name="chevron-down"
+          size={16}
+          className={`shrink-0 text-muted transition-transform ${open ? 'rotate-180' : ''}`}
+        />
+      </button>
+      {open && (
+        <div className="mt-2">
+          {day.notes && <p className="mb-1 text-xs text-muted">{day.notes}</p>}
+          <ExerciseList program={program} day={day} week={week} trainingMaxes={trainingMaxes} overrides={overrides} />
+          {isStartableDay(day) && (
+            <Link to={`/workouts/start/${program.id}/${day.id}`} className={`${primaryLink} mt-2 w-full`}>
+              Начать этот день
+            </Link>
+          )}
+        </div>
+      )}
+    </li>
+  )
+}
+
+/** Exercises of a day with the prescription of `week`: sets × reps, % and kg from the training maxes. */
+function ExerciseList({
+  program,
+  day,
+  week,
+  trainingMaxes,
+  overrides,
+}: {
+  program: Program
+  day: ProgramDay
+  week?: number
+  trainingMaxes: Record<string, number>
+  overrides?: ProgramOverrides
+}) {
+  if (day.exercises.length === 0) return null
+  const dayOverrides = overrides?.[day.id] ?? {}
+  return (
+    <ul className="divide-y divide-border">
+      {day.exercises.map((original, i) => {
+        const o = dayOverrides[String(i)]
+        const e = o ? overrideExercise(original, o, (id) => trainingMaxes[id] != null) : original
+        const w = weekPrescription(e, program.weeks ? week : undefined)
+        const off = w.sets <= 0
+        const perSet = prescriptionSets(w)
+        const uniform = perSet.every((t) => t.reps === perSet[0]?.reps)
+        const plan = off ? '—' : uniform ? `${w.sets} × ${w.reps}` : w.reps
+        const max = trainingMaxes[e.maxLiftId ?? e.exerciseId]
+        const kgs = off ? [] : perSet.map((t) => suggestedKg(t.pct, max))
+        const kgLine = kgs.some((k) => k != null) ? `${groupKg(uniform ? kgs.slice(0, 1) : kgs)} кг` : undefined
+        return (
+          <li key={`${e.exerciseId}-${i}`}>
+            <Link
+              to={`/workouts/exercises/${encodeURIComponent(e.exerciseId)}`}
+              className={`flex items-start justify-between gap-3 py-2 hover:text-accent ${off ? 'opacity-50' : ''}`}
+            >
+              <span className="min-w-0">
+                <span className="block text-sm">{e.name}</span>
+                <span className="block text-xs text-muted">
+                  {[w.intensity, restLabel(e.restSec), off ? w.notes : e.notes].filter(Boolean).join(' · ')}
+                </span>
+              </span>
+              <span className="shrink-0 text-right">
+                <span className="block text-sm font-medium tabular-nums">{plan}</span>
+                {kgLine && <span className="block text-xs text-accent tabular-nums">{kgLine}</span>}
+              </span>
+            </Link>
+            {o && (
+              <button
+                type="button"
+                className="mb-2 inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-accent hover:bg-accent/10"
+                onClick={() => void setOverride(db, program.id, day.id, i, null)}
+              >
+                <Icon name="history" size={13} />
+                Вернуть оригинал: {original.name}
+              </button>
+            )}
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
+/** Flat day list for programs without a week cycle (custom / weekday programs). */
 function DayCard({
   program,
   day,
   marked,
   markLabel,
-  week,
   trainingMaxes,
+  overrides,
 }: {
   program: Program
   day: ProgramDay
   marked: boolean
   markLabel: string
-  week?: number
   trainingMaxes: Record<string, number>
+  overrides: ProgramOverrides
 }) {
   const sequential = program.schedule === 'sequential'
   const dayIdx = program.days.indexOf(day)
@@ -301,39 +525,9 @@ function DayCard({
         </div>
       </div>
       {day.notes && <p className="mt-2 text-sm text-muted">{day.notes}</p>}
-      {day.exercises.length > 0 && (
-        <ul className="mt-3 divide-y divide-border">
-          {day.exercises.map((e, i) => {
-            const w = weekPrescription(e, program.weeks ? week : undefined)
-            const off = w.sets <= 0
-            const perSet = prescriptionSets(w)
-            const uniform = perSet.every((t) => t.reps === perSet[0]?.reps)
-            const plan = off ? '—' : uniform ? `${w.sets} × ${w.reps}` : w.reps
-            const max = trainingMaxes[e.maxLiftId ?? e.exerciseId]
-            const kgs = off ? [] : perSet.map((t) => suggestedKg(t.pct, max))
-            const kgLine = kgs.some((k) => k != null) ? `${groupKg(uniform ? kgs.slice(0, 1) : kgs)} кг` : undefined
-            return (
-              <li key={`${e.exerciseId}-${i}`}>
-                <Link
-                  to={`/workouts/exercises/${encodeURIComponent(e.exerciseId)}`}
-                  className={`flex items-start justify-between gap-3 py-2 hover:text-accent ${off ? 'opacity-50' : ''}`}
-                >
-                  <span className="min-w-0">
-                    <span className="block text-sm">{e.name}</span>
-                    <span className="block text-xs text-muted">
-                      {[w.intensity, restLabel(e.restSec), off ? w.notes : e.notes].filter(Boolean).join(' · ')}
-                    </span>
-                  </span>
-                  <span className="shrink-0 text-right">
-                    <span className="block text-sm font-medium tabular-nums">{plan}</span>
-                    {kgLine && <span className="block text-xs text-accent tabular-nums">{kgLine}</span>}
-                  </span>
-                </Link>
-              </li>
-            )
-          })}
-        </ul>
-      )}
+      <div className="mt-3">
+        <ExerciseList program={program} day={day} trainingMaxes={trainingMaxes} overrides={overrides} />
+      </div>
       {isStartableDay(day) && (
         <Link to={`/workouts/start/${program.id}/${day.id}`} className={`${primaryLink} mt-3 w-full`}>
           Начать этот день

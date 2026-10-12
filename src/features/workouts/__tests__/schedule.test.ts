@@ -15,6 +15,7 @@ import {
   setCycleWeek,
   setTargetPerWeek,
   todayLabel,
+  weekSessions,
 } from '../schedule'
 import { weekdayProgram } from './fixtures'
 
@@ -32,13 +33,14 @@ describe('resolveSchedule (pure)', () => {
     const s = resolveSchedule(P1, undefined, wed)
     expect(s).toMatchObject({ dayIndex: 0, week: 0, sessionInWeek: 0, sessionsPerWeek: 3, completedSessions: 0 })
     expect(scheduleLabel(s)).toBe('Неделя 1 из 12 · тренировка 1 из 3')
-    expect(todayLabel(s)).toBe('Неделя 1 из 12 · Ноги')
+    expect(s.day?.id).toBe('p1-push-1') // the first scheduled session is Жим 1
+    expect(todayLabel(s)).toBe('Неделя 1 из 12 · тренировка 1 из 3 · Жим 1')
 
-    const s2 = resolveSchedule(P1, state(7), wed) // 7 done → week 3, session 2; rotation at day 2 (Жим 1)
-    expect(s2.day?.id).toBe('p1-push-1')
+    const s2 = resolveSchedule(P1, state(7), wed) // 7 done → week 3, session 2; rotation at day 2 (Тяга 1)
+    expect(s2.day?.id).toBe('p1-pull-1')
     expect(s2.week).toBe(2)
     expect(scheduleLabel(s2)).toBe('Неделя 3 из 12 · тренировка 2 из 3')
-    expect(todayLabel(s2)).toBe('Неделя 3 из 12 · Жим 1')
+    expect(todayLabel(s2)).toBe('Неделя 3 из 12 · тренировка 2 из 3 · Тяга 1')
   })
 
   it('marks the test week and the end of the program', () => {
@@ -63,15 +65,35 @@ describe('resolveSchedule (pure)', () => {
   })
 
   it('finishing a session counts it and continues the rotation after that day', () => {
-    expect(advanceCycle(P1, undefined, 'p1-legs', wed)).toMatchObject({ completedSessions: 1, nextDayIndex: 1 })
-    expect(advanceCycle(P1, state(5), 'p1-pull-2', wed)).toEqual({
+    expect(advanceCycle(P1, undefined, 'p1-push-1', wed)).toMatchObject({ completedSessions: 1, nextDayIndex: 1 })
+    expect(advanceCycle(P1, state(5), 'p1-legs-2', wed)).toEqual({
       startDate: '2026-10-01',
       completedSessions: 6,
       nextDayIndex: 0,
     })
     // an out-of-order day still counts; the rotation continues after it
-    expect(advanceCycle(P1, state(1), 'p1-push-2', wed)).toMatchObject({ completedSessions: 2, nextDayIndex: 5 })
+    expect(advanceCycle(P1, state(1), 'p1-push-2', wed)).toMatchObject({ completedSessions: 2, nextDayIndex: 4 })
     expect(advanceCycle(P1, state(1), 'unknown', wed)).toBeNull()
+  })
+
+  it('lists exactly 3 sessions per program week following the rotation (Пн / Ср / Пт labels)', () => {
+    const fresh = resolveSchedule(P1, undefined, wed)
+    const w1 = weekSessions(fresh, 0)
+    expect(w1.map((x) => `${x.label} ${x.day.name} ${x.status}`)).toEqual([
+      'Пн Жим 1 next',
+      'Ср Тяга 1 planned',
+      'Пт Ноги planned',
+    ])
+    expect(weekSessions(fresh, 1).map((x) => x.day.id)).toEqual(['p1-push-2', 'p1-pull-2', 'p1-legs-2'])
+    expect(weekSessions(fresh, 2).map((x) => x.day.id)).toEqual(['p1-push-1', 'p1-pull-1', 'p1-legs'])
+    // mid-week: one session done, an extra session earlier shifted the rotation by one
+    const mid = resolveSchedule(P1, { startDate: '2026-10-01', completedSessions: 4, nextDayIndex: 5 }, wed)
+    expect(weekSessions(mid, 1).map((x) => `${x.day.id} ${x.status}`)).toEqual([
+      'p1-pull-2 done',
+      'p1-legs-2 next',
+      'p1-push-1 planned',
+    ])
+    expect(weekSessions(mid, 0).every((x) => x.status === 'done')).toBe(true)
   })
 
   it('labels sessions by their position in the program', () => {
@@ -94,7 +116,7 @@ beforeEach(async () => {
 describe('schedule with the database', () => {
   it('3 finished sessions = 1 program week; the 4th session in a calendar week continues the rotation', async () => {
     const program = (await database.programs.get(P1.id))!
-    const expected = ['p1-legs', 'p1-push-1', 'p1-pull-1', 'p1-legs-2']
+    const expected = ['p1-push-1', 'p1-pull-1', 'p1-legs', 'p1-push-2']
     for (let i = 0; i < 4; i++) {
       const s = await getScheduledDay(database, program, wed)
       expect(s.day?.id).toBe(expected[i])
@@ -105,7 +127,7 @@ describe('schedule with the database', () => {
       await finishSession(id, database, wed)
     }
     const after = await getScheduledDay(database, program, wed)
-    expect(after.day?.id).toBe('p1-push-2')
+    expect(after.day?.id).toBe('p1-pull-2')
     expect(scheduleLabel(after)).toBe('Неделя 2 из 12 · тренировка 2 из 3')
   })
 

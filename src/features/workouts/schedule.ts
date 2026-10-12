@@ -157,10 +157,46 @@ export function scheduleLabel(s: LabelInput): string | undefined {
   return `${w} · тренировка ${s.sessionInWeek + 1} из ${s.sessionsPerWeek}`
 }
 
-/** «Неделя 3 из 12 · Жим 1» for the Today card. */
+/** «Неделя 3 из 12 · тренировка 2 из 3 · Жим 1» for the Today card. */
 export function todayLabel(s: ScheduledDay): string | undefined {
-  const w = weekLabel(s)
-  return w && s.day ? `${w} · ${s.day.name}` : w
+  const label = scheduleLabel(s)
+  return label && s.day && !s.isComplete ? `${label} · ${s.day.name}` : label
+}
+
+/** Suggested weekday labels for the sessions of a program week (just labels — scheduling is by rotation). */
+export const SESSION_DAY_LABELS = ['Пн', 'Ср', 'Пт', 'Сб', 'Вс', 'Вт', 'Чт']
+
+export interface PlannedSession {
+  /** 0-based position within the program week */
+  index: number
+  /** Suggested weekday label: Пн / Ср / Пт */
+  label: string
+  dayIndex: number
+  day: ProgramDay
+  status: 'done' | 'next' | 'planned'
+}
+
+/**
+ * The 3 sessions of a program week, following the actual rotation: the current week starts where the
+ * rotation stood at its first session; other weeks are projected from there (past weeks approximate).
+ */
+export function weekSessions(s: ScheduledDay, week: number): PlannedSession[] {
+  const n = s.program.days.length
+  if (!s.sequential || n === 0) return []
+  const spw = s.sessionsPerWeek
+  const currentWeek = s.week ?? 0
+  const startOfCurrent = (s.state.nextDayIndex ?? 0) - s.sessionInWeek
+  const offset = (week - currentWeek) * spw
+  return Array.from({ length: spw }, (_, k) => {
+    const dayIndex = (((startOfCurrent + offset + k) % n) + n) % n
+    const status: PlannedSession['status'] =
+      week < currentWeek || (week === currentWeek && k < s.sessionInWeek)
+        ? 'done'
+        : week === currentWeek && k === s.sessionInWeek && !s.isComplete
+          ? 'next'
+          : 'planned'
+    return { index: k, label: SESSION_DAY_LABELS[k] ?? `#${k + 1}`, dayIndex, day: s.program.days[dayIndex], status }
+  })
 }
 
 /** Label of a session started from a cyclic program: «Неделя 3 из 12 · тренировка 2 из 3». */

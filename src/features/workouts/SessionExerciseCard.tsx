@@ -22,6 +22,7 @@ export function SessionExerciseCard({
   hideMedia = false,
   onSetDone,
   onRemove,
+  onReplace,
 }: {
   sessionId: string
   exIdx: number
@@ -32,6 +33,8 @@ export function SessionExerciseCard({
   hideMedia?: boolean
   onSetDone: (restSec: number | undefined) => void
   onRemove: () => void
+  /** Opens «Альтернативы» to replace this exercise */
+  onReplace?: () => void
 }) {
   const [techniqueOpen, setTechniqueOpen] = useState(false)
   const [showAllSteps, setShowAllSteps] = useState(false)
@@ -86,6 +89,17 @@ export function SessionExerciseCard({
           {exercise.hint && <ExerciseHint hint={exercise.hint} />}
           {exercise.notes && <p className="mt-0.5 text-xs text-muted">{exercise.notes}</p>}
         </div>
+        {onReplace && (
+          <button
+            type="button"
+            aria-label={`Заменить: ${exercise.name}`}
+            title="Заменить"
+            onClick={onReplace}
+            className="-mt-1 grid size-9 shrink-0 place-items-center rounded-full text-muted transition-colors hover:bg-surface-2 hover:text-accent"
+          >
+            <Icon name="edit" size={18} />
+          </button>
+        )}
         <Link
           to={`/workouts/exercises/${encodeURIComponent(exercise.exerciseId)}`}
           aria-label={`Подробнее: ${exercise.name}`}

@@ -72,7 +72,7 @@ describe('program days', () => {
   })
 
   it('uses the program-week prescription of a 12-week program (DUP deload in week 6)', () => {
-    const day = davidLaidDup.days[0]
+    const day = davidLaidDup.days.find((d) => d.id === 'legs-1')!
     const normal = buildSessionFromDay(davidLaidDup, day, 'a', new Date(), { week: 0, programSession: 2 })
     const deload = buildSessionFromDay(davidLaidDup, day, 'b', new Date(), { week: 5 })
     expect(normal).toMatchObject({ programWeek: 0, programSession: 2 })
