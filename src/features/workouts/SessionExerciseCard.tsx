@@ -8,7 +8,7 @@ import type { Exercise, SessionExercise, SetLog } from '../../db/types'
 import { addSet, applyPreviousWeights, removeSet, updateSet } from './actions'
 import { hintTrend } from './autoreg'
 import { formatPerformance, type PastPerformance } from './calc'
-import { restLabel } from './labels'
+import { planLine } from './labels'
 import { ExerciseTechniqueSheet } from './ExerciseTechniqueSheet'
 import { SetRow } from './SetRow'
 
@@ -43,28 +43,11 @@ export function SessionExerciseCard({
   const doneCount = exercise.sets.filter((s) => s.done).length
   const allDone = exercise.sets.length > 0 && doneCount === exercise.sets.length
 
-  const changeSet = (setIdx: number, patch: Partial<SetLog>) => {
-    if (patch.done === true && !exercise.sets[setIdx]?.done) onSetDone(exercise.restSec)
-    return updateSet(sessionId, exIdx, setIdx, patch)
-  }
-
   return (
     <Card as="article" className={`p-3 transition-[border-color] duration-300 ${allDone ? 'border-accent/30' : ''}`}>
       <div className="flex items-start gap-3">
         {hideMedia && libraryExercise?.images[0] ? (
-          <button
-            type="button"
-            aria-label={`Техника: ${exercise.name}`}
-            className="size-14 shrink-0 overflow-hidden rounded-xl bg-white ring-1 ring-white/10"
-            onClick={() => setTechniqueOpen(true)}
-          >
-            <img
-              src={exerciseImageUrl(libraryExercise.images[0])}
-              alt=""
-              loading="lazy"
-              className="h-full w-full object-contain"
-            />
-          </button>
+          <TechniqueThumb name={exercise.name} libraryExercise={libraryExercise} onOpen={() => setTechniqueOpen(true)} />
         ) : (
           <span
             aria-hidden
@@ -78,10 +61,7 @@ export function SessionExerciseCard({
         <div className="min-w-0 flex-1">
           <h2 className="leading-snug font-semibold tracking-tight">{exercise.name}</h2>
           <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs text-muted tabular-nums">
-            <span>
-              План: {exercise.targetSets} × {exercise.targetReps}
-              {exercise.restSec ? ` · ${restLabel(exercise.restSec)}` : ''}
-            </span>
+            <span>{planLine(exercise)}</span>
             <span className={allDone ? 'text-accent' : ''}>
               · выполнено {doneCount}/{exercise.sets.length}
             </span>
@@ -110,16 +90,7 @@ export function SessionExerciseCard({
       </div>
 
       {libraryExercise && !hideMedia && (
-        <div className="relative mx-auto mt-3 w-full max-w-[260px]" data-testid="session-media">
-          <ExerciseMedia exercise={libraryExercise} className="max-h-[180px]" />
-          {/* Overlay (sibling, not nested — ExerciseMedia is itself a button) opens the big view */}
-          <button
-            type="button"
-            aria-label={`Техника: ${exercise.name}`}
-            className="absolute inset-0 rounded-2xl"
-            onClick={() => setTechniqueOpen(true)}
-          />
-        </div>
+        <TechniqueMedia name={exercise.name} libraryExercise={libraryExercise} onOpen={() => setTechniqueOpen(true)} />
       )}
 
       {visibleSteps.length > 0 && (
@@ -141,52 +112,14 @@ export function SessionExerciseCard({
         </div>
       )}
 
-      {last && (
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 rounded-2xl bg-surface-2 py-2 pr-1.5 pl-3">
-          <p className="flex min-w-0 items-center gap-1.5 text-sm tabular-nums">
-            <Icon name="history" size={15} className="shrink-0 text-muted" />
-            <span>
-              <span className="text-muted">Прошлый раз: </span>
-              {formatPerformance(last.sets)}
-            </span>
-          </p>
-          <Button
-            size="sm"
-            variant="ghost"
-            className="text-accent hover:text-accent"
-            onClick={() =>
-              void applyPreviousWeights(
-                sessionId,
-                exIdx,
-                last.sets.map((s) => s.weightKg),
-              )
-            }
-          >
-            Повторить прошлый вес
-          </Button>
-        </div>
-      )}
+      {last && <LastTimeRow sessionId={sessionId} exIdx={exIdx} last={last} />}
 
-      <div
-        aria-hidden
-        className="mt-3 flex gap-2 px-0 text-[11px] font-medium tracking-wide text-muted uppercase sm:gap-3"
-      >
-        <span className="hidden w-7 text-center sm:block">№</span>
-        <span className="w-[138px] sm:w-[146px]">Вес, кг</span>
-        <span className="w-[138px] sm:w-[146px]">Повторы</span>
-      </div>
-      <ul className="mt-1 divide-y divide-white/[0.06]">
-        {exercise.sets.map((set, i) => (
-          <SetRow
-            key={i}
-            index={i}
-            set={set}
-            target={exercise.targets?.[i]}
-            onChange={(patch) => changeSet(i, patch)}
-            onDelete={() => void removeSet(sessionId, exIdx, i)}
-          />
-        ))}
-      </ul>
+      <SetList
+        sessionId={sessionId}
+        exIdx={exIdx}
+        exercise={exercise}
+        onSetDone={() => onSetDone(exercise.restSec)}
+      />
       <div className="mt-2 flex flex-wrap justify-between gap-2">
         <Button size="sm" variant="secondary" icon="plus" onClick={() => void addSet(sessionId, exIdx)}>
           Подход
@@ -207,8 +140,137 @@ export function SessionExerciseCard({
   )
 }
 
+/** Small square thumbnail (media hidden) that opens the technique sheet. */
+export function TechniqueThumb({
+  name,
+  libraryExercise,
+  onOpen,
+  className = 'size-14',
+}: {
+  name: string
+  libraryExercise: Exercise
+  onOpen: () => void
+  className?: string
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={`Техника: ${name}`}
+      className={`shrink-0 overflow-hidden rounded-xl bg-white ring-1 ring-white/10 ${className}`}
+      onClick={onOpen}
+    >
+      <img
+        src={exerciseImageUrl(libraryExercise.images[0])}
+        alt=""
+        loading="lazy"
+        className="h-full w-full object-contain"
+      />
+    </button>
+  )
+}
+
+/** Inline technique animation; tapping it opens the big technique sheet. */
+export function TechniqueMedia({
+  name,
+  libraryExercise,
+  onOpen,
+  className = 'mt-3 max-w-[260px]',
+  mediaClassName = 'max-h-[180px]',
+}: {
+  name: string
+  libraryExercise: Exercise
+  onOpen: () => void
+  className?: string
+  mediaClassName?: string
+}) {
+  return (
+    <div className={`relative mx-auto w-full ${className}`} data-testid="session-media">
+      <ExerciseMedia exercise={libraryExercise} className={mediaClassName} />
+      {/* Overlay (sibling, not nested — ExerciseMedia is itself a button) opens the big view */}
+      <button type="button" aria-label={`Техника: ${name}`} className="absolute inset-0 rounded-2xl" onClick={onOpen} />
+    </div>
+  )
+}
+
+/** «Прошлый раз: 80 кг × 5, 5, 5» with «Повторить прошлый вес». */
+export function LastTimeRow({ sessionId, exIdx, last }: { sessionId: string; exIdx: number; last: PastPerformance }) {
+  return (
+    <div className="mt-3 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 rounded-2xl bg-surface-2 py-2 pr-1.5 pl-3">
+      <p className="flex min-w-0 items-center gap-1.5 text-sm tabular-nums">
+        <Icon name="history" size={15} className="shrink-0 text-muted" />
+        <span>
+          <span className="text-muted">Прошлый раз: </span>
+          {formatPerformance(last.sets)}
+        </span>
+      </p>
+      <Button
+        size="sm"
+        variant="ghost"
+        className="text-accent hover:text-accent"
+        onClick={() =>
+          void applyPreviousWeights(
+            sessionId,
+            exIdx,
+            last.sets.map((s) => s.weightKg),
+          )
+        }
+      >
+        Повторить прошлый вес
+      </Button>
+    </div>
+  )
+}
+
+/**
+ * Column header + set rows of one exercise. `onSetDone(setIdx)` fires when a set becomes done;
+ * `highlightIdx` rings the next set to do (guided mode).
+ */
+export function SetList({
+  sessionId,
+  exIdx,
+  exercise,
+  onSetDone,
+  highlightIdx,
+}: {
+  sessionId: string
+  exIdx: number
+  exercise: SessionExercise
+  onSetDone: (setIdx: number) => void
+  highlightIdx?: number
+}) {
+  const changeSet = (setIdx: number, patch: Partial<SetLog>) => {
+    if (patch.done === true && !exercise.sets[setIdx]?.done) onSetDone(setIdx)
+    return updateSet(sessionId, exIdx, setIdx, patch)
+  }
+  return (
+    <>
+      <div
+        aria-hidden
+        className="mt-3 flex gap-2 px-0 text-[11px] font-medium tracking-wide text-muted uppercase sm:gap-3"
+      >
+        <span className="hidden w-7 text-center sm:block">№</span>
+        <span className="w-[138px] sm:w-[146px]">Вес, кг</span>
+        <span className="w-[138px] sm:w-[146px]">Повторы</span>
+      </div>
+      <ul className="mt-1 divide-y divide-white/[0.06]">
+        {exercise.sets.map((set, i) => (
+          <SetRow
+            key={i}
+            index={i}
+            set={set}
+            target={exercise.targets?.[i]}
+            highlight={i === highlightIdx}
+            onChange={(patch) => changeSet(i, patch)}
+            onDelete={() => void removeSet(sessionId, exIdx, i)}
+          />
+        ))}
+      </ul>
+    </>
+  )
+}
+
 /** Auto-regulation explanation under the exercise title: accent for ↑, warn for ↓. */
-function ExerciseHint({ hint }: { hint: string }) {
+export function ExerciseHint({ hint }: { hint: string }) {
   const trend = hintTrend(hint)
   const text = trend === 'none' ? hint : hint.slice(1).trimStart()
   const tone = trend === 'up' ? 'text-accent' : trend === 'down' ? 'text-warn' : 'text-muted'

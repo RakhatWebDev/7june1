@@ -4,9 +4,10 @@ import { Input, SegmentedControl, Sheet, Skeleton } from '../../components/ui'
 import { Icon } from '../../components/icons'
 import { db } from '../../db'
 import type { Exercise, WorkoutSession } from '../../db/types'
-import { EQUIPMENT_RU, exerciseImageUrl } from '../../data/exercises'
 import { replaceExercise } from './actions'
 import { rankAlternatives } from './alternatives'
+import { MUSCLE_GROUPS, muscleGroupOf, type MuscleGroupId } from './categories'
+import { CategoryBrowser, ExerciseListItem } from './ExerciseBrowser'
 import { filterExercises, occurrenceIndex } from './calc'
 import { useExerciseAliases, useExerciseMap } from './hooks'
 import { applyDayOverrides, getOverrides, setOverride } from './overrides'
@@ -14,8 +15,10 @@ import { applyDayOverrides, getOverrides, setOverride } from './overrides'
 const MAX_SEARCH = 30
 
 /**
- * «Альтернативы для <name>»: ranked suggestions (curated for main lifts, then by muscles / force / mechanic /
- * equipment) plus a search over the whole library. Replaces only today, or in the program as well.
+ * «Альтернативы для <name>»: «Похожие» — ranked suggestions (curated for main lifts, then by muscles / force /
+ * mechanic / equipment) plus a search over the whole library; «По категориям» — browse by muscle group
+ * (preselected from the replaced exercise) and equipment, the search narrowing within the group.
+ * Replaces only today, or in the program as well.
  */
 export function ReplaceExerciseSheet({
   open,
@@ -33,6 +36,9 @@ export function ReplaceExerciseSheet({
   const aliases = useExerciseAliases()
   const [query, setQuery] = useState('')
   const [scope, setScope] = useState<'today' | 'program'>('today')
+  const [mode, setMode] = useState<'similar' | 'categories'>('similar')
+  /** `undefined` until the user picks a chip: the replaced exercise's own group is used */
+  const [pickedGroup, setPickedGroup] = useState<MuscleGroupId | null | undefined>(undefined)
 
   // Index of this exercise in the program day (with existing overrides), for «Заменить в программе».
   const programIndex = useLiveQuery(async () => {
@@ -56,6 +62,8 @@ export function ReplaceExerciseSheet({
     [exercises, query, aliases],
   )
   if (!exercise) return null
+  const group = pickedGroup === undefined ? (current ? muscleGroupOf(current) : null) : pickedGroup
+  const groupLabel = MUSCLE_GROUPS.find((g) => g.id === group)?.label
 
   const pick = async (e: Exercise) => {
     const name = aliases.get(e.id)?.[0] ?? e.name
@@ -90,58 +98,59 @@ export function ReplaceExerciseSheet({
         />
         <Input
           type="search"
-          placeholder="Поиск по всей библиотеке"
+          placeholder={
+            mode === 'categories' && groupLabel ? `Поиск в группе «${groupLabel}»` : 'Поиск по всей библиотеке'
+          }
           aria-label="Поиск замены"
           className="pl-10"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
       </div>
-      <p className="mt-3 text-xs font-medium tracking-wide text-muted uppercase">
-        {query.trim() ? 'Результаты поиска' : 'Похожие упражнения'}
-      </p>
-      {loading && (
-        <div className="mt-2 space-y-2">
-          {[0, 1, 2].map((i) => (
-            <Skeleton key={i} className="h-12" />
-          ))}
+      <SegmentedControl
+        aria-label="Как искать"
+        size="sm"
+        className="mt-3"
+        value={mode}
+        onChange={setMode}
+        options={[
+          { value: 'similar', label: 'Похожие' },
+          { value: 'categories', label: 'По категориям' },
+        ]}
+      />
+      {mode === 'categories' ? (
+        <div className="mt-3">
+          <CategoryBrowser
+            exercises={exercises}
+            aliases={aliases}
+            query={query}
+            group={group}
+            onGroup={setPickedGroup}
+            onPick={(e) => void pick(e)}
+            excludeId={exercise.exerciseId}
+            loading={loading}
+          />
         </div>
+      ) : (
+        <>
+          <p className="mt-3 text-xs font-medium tracking-wide text-muted uppercase">
+            {query.trim() ? 'Результаты поиска' : 'Похожие упражнения'}
+          </p>
+          {loading && (
+            <div className="mt-2 space-y-2">
+              {[0, 1, 2].map((i) => (
+                <Skeleton key={i} className="h-12" />
+              ))}
+            </div>
+          )}
+          {!loading && list.length === 0 && <p className="mt-3 text-center text-sm text-muted">Ничего не найдено</p>}
+          <ul className="mt-1 divide-y divide-white/[0.06]" data-testid="alternatives">
+            {list.map((e) => (
+              <ExerciseListItem key={e.id} exercise={e} alias={aliases.get(e.id)?.[0]} onPick={() => void pick(e)} />
+            ))}
+          </ul>
+        </>
       )}
-      {!loading && list.length === 0 && <p className="mt-3 text-center text-sm text-muted">Ничего не найдено</p>}
-      <ul className="mt-1 divide-y divide-white/[0.06]" data-testid="alternatives">
-        {list.map((e) => {
-          const ru = aliases.get(e.id)?.[0]
-          return (
-            <li key={e.id}>
-              <button
-                type="button"
-                className="flex w-full items-center gap-3 py-2 text-left transition-colors hover:text-accent"
-                onClick={() => void pick(e)}
-              >
-                {e.images[0] ? (
-                  <img
-                    src={exerciseImageUrl(e.images[0])}
-                    alt=""
-                    loading="lazy"
-                    className="h-10 w-12 shrink-0 rounded-lg bg-white object-contain"
-                  />
-                ) : (
-                  <span aria-hidden className="h-10 w-12 shrink-0 rounded-lg bg-surface-3" />
-                )}
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium">{ru ?? e.name}</span>
-                  <span className="block truncate text-xs text-muted">
-                    {[ru ? e.name : null, e.equipment ? (EQUIPMENT_RU[e.equipment] ?? e.equipment) : null]
-                      .filter(Boolean)
-                      .join(' · ')}
-                  </span>
-                </span>
-                <Icon name="chevron-right" size={18} className="text-muted" />
-              </button>
-            </li>
-          )
-        })}
-      </ul>
     </Sheet>
   )
 }

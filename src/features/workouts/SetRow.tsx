@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAnimate } from 'motion/react'
 import { Stepper } from '../../components/ui'
 import { Icon } from '../../components/icons'
@@ -30,12 +30,15 @@ export function SetRow({
   index,
   set,
   target,
+  highlight = false,
   onChange,
   onDelete,
 }: {
   index: number
   set: SetLog
   target?: SetTargetResolved
+  /** Rings the row as «the next set to do» (guided mode) */
+  highlight?: boolean
   onChange: (patch: Partial<SetLog>) => Promise<unknown>
   onDelete: () => void
 }) {
@@ -52,11 +55,17 @@ export function SetRow({
     if (pending === 0) setLocal(set)
   }
 
-  const change = (patch: Partial<SetLog>) => {
-    if (patch.done === true && !local.done && !reduce && scope.current) {
+  // Flash whenever the set becomes done — by its own checkbox or from outside («Завершить подход»).
+  const wasDone = useRef(local.done)
+  useEffect(() => {
+    if (local.done && !wasDone.current && !reduce && scope.current) {
       void animate(scope.current, { scale: [1, 0.98, 1] }, { duration: 0.28, ease: 'easeOut' })
       void animate('[data-flash]', { opacity: [0, 1, 0] }, { duration: 0.65, ease: 'easeOut' })
     }
+    wasDone.current = local.done
+  }, [local.done, reduce, animate, scope])
+
+  const change = (patch: Partial<SetLog>) => {
     setLocal((l) => ({ ...l, ...patch }))
     setPending((p) => p + 1)
     void onChange(patch).finally(() => setPending((p) => p - 1))
@@ -75,7 +84,10 @@ export function SetRow({
   return (
     <li
       ref={scope}
-      className={`relative -mx-1.5 rounded-2xl px-1.5 py-2.5 transition-colors duration-300 ${local.done ? 'bg-accent/[0.08]' : ''}`}
+      aria-current={highlight ? 'step' : undefined}
+      className={`relative -mx-1.5 rounded-2xl px-1.5 py-2.5 transition-[background-color,box-shadow] duration-300 ${
+        local.done ? 'bg-accent/[0.08]' : highlight ? 'bg-surface-2/70 ring-2 ring-accent/50' : ''
+      }`}
     >
       <span
         aria-hidden
