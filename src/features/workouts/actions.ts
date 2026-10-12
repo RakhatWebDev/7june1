@@ -21,6 +21,9 @@ import { advanceCycle, asCycleState, cycleKey, resolveSchedule, setCycleState } 
 
 export const ACTIVE_PROGRAM_KEY = 'activeProgramId'
 export const HIDE_MEDIA_KEY = 'session.hideMedia'
+/** How an active session is shown: one exercise at a time ('guided', default) or all at once ('list'). */
+export const VIEW_MODE_KEY = 'session.viewMode'
+export type SessionViewMode = 'guided' | 'list'
 
 /** The unfinished session (no `finishedAt`), newest first. At most one should exist. */
 export async function findActiveSession(database: FormaDB = defaultDb): Promise<WorkoutSession | undefined> {
@@ -336,4 +339,8 @@ export function setActiveProgram(programId: string, database: FormaDB = defaultD
 
 export function setHideMedia(hidden: boolean, database: FormaDB = defaultDb) {
   return database.settings.put({ key: HIDE_MEDIA_KEY, value: hidden })
+}
+
+export function setViewMode(mode: SessionViewMode, database: FormaDB = defaultDb) {
+  return database.settings.put({ key: VIEW_MODE_KEY, value: mode })
 }

@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
 import { Button } from '../../components/ui'
 import { Icon } from '../../components/icons'
 import { useReduceMotion } from '../../components/ui/helpers'
 import { formatClock } from './calc'
+import { useRestCountdown } from './useRestCountdown'
 
 const RING = 60
 const STROKE = 5
@@ -17,36 +17,7 @@ const C = 2 * Math.PI * R
  */
 export function RestTimer({ durationSec, onClose }: { durationSec: number; onClose: () => void }) {
   const reduce = useReduceMotion()
-  const [startedAt] = useState(() => Date.now())
-  const [endsAt, setEndsAt] = useState(() => Date.now() + durationSec * 1000)
-  const [now, setNow] = useState(() => Date.now())
-  const remaining = Math.max(0, Math.ceil((endsAt - now) / 1000))
-  const finished = remaining === 0
-  const warning = !finished && remaining <= 5
-  const vibrated = useRef(false)
-  const fraction = finished ? 0 : Math.max(0, Math.min(1, (endsAt - now) / Math.max(1, endsAt - startedAt)))
-
-  useEffect(() => {
-    if (finished) return
-    const t = setInterval(() => setNow(Date.now()), 250)
-    return () => clearInterval(t)
-  }, [finished])
-
-  useEffect(() => {
-    if (!finished) {
-      vibrated.current = false
-      return
-    }
-    if (vibrated.current) return
-    vibrated.current = true
-    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') navigator.vibrate([300, 150, 300])
-  }, [finished])
-
-  const addTime = () => {
-    const t = Date.now()
-    setEndsAt((e) => Math.max(e, t) + 30_000)
-    setNow(t)
-  }
+  const { remaining, finished, warning, fraction, addTime } = useRestCountdown(durationSec)
 
   return (
     <div

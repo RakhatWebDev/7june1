@@ -1,15 +1,27 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { useParams } from 'react-router'
-import { Button, Card, Chip, EmptyState, LinkButton, PageHeader, Sheet, Skeleton, Toast } from '../../components/ui'
+import {
+  Button,
+  Card,
+  Chip,
+  EmptyState,
+  LinkButton,
+  PageHeader,
+  SegmentedControl,
+  Sheet,
+  Skeleton,
+  Toast,
+} from '../../components/ui'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../../db'
 import type { WorkoutSession } from '../../db/types'
 import { int, plural } from '../../lib/format'
-import { addExercise, finishSession, removeExercise, setHideMedia } from './actions'
+import { addExercise, finishSession, removeExercise, setHideMedia, setViewMode } from './actions'
 import { formatClock, lastPerformance, newRecords, occurrenceIndex, sessionVolume } from './calc'
 import { ConfirmSheet } from './ConfirmSheet'
 import { ExercisePickerSheet } from './ExercisePickerSheet'
-import { useExerciseMap, useHideMedia, useNow, useSession, useSessions } from './hooks'
+import { GuidedSession } from './GuidedSession'
+import { useExerciseMap, useHideMedia, useNow, useSession, useSessions, useViewMode } from './hooks'
 import { formatSessionDateTime } from './labels'
 import { ReplaceExerciseSheet } from './ReplaceExerciseSheet'
 import { RestTimer } from './RestTimer'
@@ -46,6 +58,7 @@ export function SessionPage() {
 function SessionView({ session, allSessions }: { session: WorkoutSession; allSessions: WorkoutSession[] }) {
   const { map } = useExerciseMap()
   const hideMedia = useHideMedia() ?? false
+  const viewMode = useViewMode()
   const [rest, setRest] = useState<{ sec: number; key: number } | null>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [removeIdx, setRemoveIdx] = useState<number | null>(null)
@@ -86,6 +99,8 @@ function SessionView({ session, allSessions }: { session: WorkoutSession; allSes
   }
 
   const exCount = session.exercises.length
+  // Finished sessions are always reviewed as a list; active ones default to the guided flow.
+  const guided = isActive && viewMode === 'guided'
 
   return (
     <>
@@ -118,44 +133,82 @@ function SessionView({ session, allSessions }: { session: WorkoutSession; allSes
       )}
 
       <div className="mb-3 flex items-center justify-between gap-2 px-0.5">
-        <p className="text-sm text-muted tabular-nums">
-          {exCount} {plural(exCount, ['упражнение', 'упражнения', 'упражнений'])}
-        </p>
-        <Chip active={hideMedia} icon={hideMedia ? 'check' : undefined} onClick={() => void setHideMedia(!hideMedia)}>
+        {isActive ? (
+          <SegmentedControl
+            aria-label="Режим тренировки"
+            size="sm"
+            className="min-w-0 shrink"
+            value={viewMode ?? 'guided'}
+            onChange={(v) => {
+              setRest(null)
+              void setViewMode(v)
+            }}
+            options={[
+              { value: 'guided', label: 'По шагам' },
+              { value: 'list', label: 'Список' },
+            ]}
+          />
+        ) : (
+          <p className="text-sm text-muted tabular-nums">
+            {exCount} {plural(exCount, ['упражнение', 'упражнения', 'упражнений'])}
+          </p>
+        )}
+        <Chip
+          active={hideMedia}
+          icon={hideMedia ? 'check' : undefined}
+          onClick={() => void setHideMedia(!hideMedia)}
+          className="shrink-0"
+        >
           Скрывать технику
         </Chip>
       </div>
 
-      {session.exercises.length === 0 && (
-        <EmptyState icon="dumbbell" title="В тренировке нет упражнений" hint="Добавьте упражнение из библиотеки." />
-      )}
-      <div className="space-y-3">
-        {session.exercises.map((e, i) => (
-          <SessionExerciseCard
-            key={`${e.exerciseId}-${i}`}
-            sessionId={session.id}
-            exIdx={i}
-            exercise={e}
-            libraryExercise={map.get(e.exerciseId)}
-            last={lasts[i]}
-            hideMedia={hideMedia}
-            onSetDone={onSetDone}
-            onRemove={() => setRemoveIdx(i)}
-            onReplace={() => setReplaceIdx(i)}
-          />
-        ))}
-      </div>
+      {isActive && viewMode === undefined ? (
+        <Skeleton className="h-72" rounded="rounded-3xl" />
+      ) : guided ? (
+        <GuidedSession
+          session={session}
+          lasts={lasts}
+          library={map}
+          hideMedia={hideMedia}
+          onReplace={setReplaceIdx}
+          onAddExercise={() => setPickerOpen(true)}
+          onFinish={() => setConfirmFinish(true)}
+        />
+      ) : (
+        <>
+          {session.exercises.length === 0 && (
+            <EmptyState icon="dumbbell" title="В тренировке нет упражнений" hint="Добавьте упражнение из библиотеки." />
+          )}
+          <div className="space-y-3">
+            {session.exercises.map((e, i) => (
+              <SessionExerciseCard
+                key={`${e.exerciseId}-${i}`}
+                sessionId={session.id}
+                exIdx={i}
+                exercise={e}
+                libraryExercise={map.get(e.exerciseId)}
+                last={lasts[i]}
+                hideMedia={hideMedia}
+                onSetDone={onSetDone}
+                onRemove={() => setRemoveIdx(i)}
+                onReplace={() => setReplaceIdx(i)}
+              />
+            ))}
+          </div>
 
-      <div className="mt-4 grid gap-2">
-        <Button variant="secondary" icon="plus" onClick={() => setPickerOpen(true)}>
-          Добавить упражнение
-        </Button>
-        {isActive && (
-          <Button size="lg" icon="check" onClick={() => setConfirmFinish(true)}>
-            Завершить тренировку
-          </Button>
-        )}
-      </div>
+          <div className="mt-4 grid gap-2">
+            <Button variant="secondary" icon="plus" onClick={() => setPickerOpen(true)}>
+              Добавить упражнение
+            </Button>
+            {isActive && (
+              <Button size="lg" icon="check" onClick={() => setConfirmFinish(true)}>
+                Завершить тренировку
+              </Button>
+            )}
+          </div>
+        </>
+      )}
 
       <ExercisePickerSheet
         open={pickerOpen}
@@ -195,7 +248,7 @@ function SessionView({ session, allSessions }: { session: WorkoutSession; allSes
         Новый рекорд{prCount > 1 ? ` ×${prCount}` : ''}
       </Toast>
 
-      {rest && (
+      {rest && !guided && (
         <>
           {/* keeps the last set reachable above the fixed timer */}
           <div className="h-24" aria-hidden />

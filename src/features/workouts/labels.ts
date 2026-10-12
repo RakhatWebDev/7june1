@@ -1,6 +1,6 @@
 import { format, parseISO } from 'date-fns'
 import { ru } from 'date-fns/locale'
-import type { DayType, Exercise, Program } from '../../db/types'
+import type { DayType, Exercise, Program, SessionExercise } from '../../db/types'
 import { formatClock } from './calc'
 
 export const DAY_TYPE_RU: Record<DayType, string> = {
@@ -53,4 +53,10 @@ export function programSubtitle(program: Program): string {
   if (program.weeks) parts.push(`${program.weeks} нед.`)
   parts.push(`круг из ${program.days.length} тренировок`)
   return parts.join(' · ')
+}
+
+/** «План: 3 × 5 · отдых 2 мин» */
+export function planLine(exercise: Pick<SessionExercise, 'targetSets' | 'targetReps' | 'restSec'>): string {
+  const rest = restLabel(exercise.restSec)
+  return `План: ${exercise.targetSets} × ${exercise.targetReps}${exercise.restSec && rest ? ` · ${rest}` : ''}`
 }

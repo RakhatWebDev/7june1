@@ -44,7 +44,8 @@ describe('replace an exercise', () => {
     const s = (await db.sessions.get(id))!
     const pushups = s.exercises.findIndex((e) => e.exerciseId === 'Pushups')
     expect(pushups).toBeGreaterThan(0)
-    // search the whole library from the sheet
+    // search the whole library from the sheet (list mode: the exercise is not the first one)
+    await db.settings.put({ key: 'session.viewMode', value: 'list' })
     const view = renderRoute(`/workouts/session/${id}`)
     fireEvent.click(await screen.findByRole('button', { name: 'Заменить: Отжимания' }))
     const sheet = await screen.findByRole('dialog', { name: 'Альтернативы для Отжимания' })
@@ -67,5 +68,35 @@ describe('replace an exercise', () => {
       expect((await db.settings.get('program.overrides:david-laid-program-1'))?.value).toEqual({}),
     )
     expect(await within(week1).findByRole('link', { name: /^Отжимания/ })).toBeInTheDocument()
+  })
+
+  it('browses replacements by muscle group and equipment; search narrows within the group', async () => {
+    const id = await startSession('david-laid-program-1', 'p1-legs', db)
+    renderRoute(`/workouts/session/${id}`)
+    fireEvent.click(await screen.findByRole('button', { name: 'Заменить: Присед' }))
+    const sheet = await screen.findByRole('dialog', { name: 'Альтернативы для Присед' })
+    fireEvent.click(within(sheet).getByRole('radio', { name: 'По категориям' }))
+    const groups = within(sheet).getByRole('group', { name: 'Группа мышц' })
+    // preselected from the replaced exercise
+    expect(within(groups).getByRole('button', { name: 'Ноги' })).toHaveAttribute('aria-pressed', 'true')
+    const results = within(sheet).getByTestId('category-results')
+    expect(within(results).getByText('Жим ногами')).toBeInTheDocument()
+    expect(within(results).queryByText(/Barbell Curl/)).not.toBeInTheDocument()
+    // the exercise being replaced is not offered
+    expect(within(results).queryByText('Barbell Squat')).not.toBeInTheDocument()
+
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Тренажёр' }))
+    expect(within(results).getAllByRole('button')).toHaveLength(1)
+    expect(within(results).getByText('Жим ногами')).toBeInTheDocument()
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Тренажёр' }))
+
+    fireEvent.change(within(sheet).getByLabelText('Поиск замены'), { target: { value: 'goblet' } })
+    expect(within(results).getAllByRole('button')).toHaveLength(1)
+    expect(within(results).getByText('Goblet Squat')).toBeInTheDocument()
+    fireEvent.click(within(groups).getByRole('button', { name: 'Бицепс' }))
+    expect(within(sheet).getByText('Ничего не найдено')).toBeInTheDocument()
+    fireEvent.change(within(sheet).getByLabelText('Поиск замены'), { target: { value: '' } })
+    fireEvent.click(await within(results).findByRole('button', { name: /Barbell Curl/ }))
+    await waitFor(async () => expect((await db.sessions.get(id))?.exercises[0].exerciseId).toBe('Barbell_Curl'))
   })
 })

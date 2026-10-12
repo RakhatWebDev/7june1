@@ -42,7 +42,8 @@ beforeEach(async () => {
 })
 
 describe('SessionPage', () => {
-  it('shows plan, short instructions and last time; repeats last weight', async () => {
+  it('shows plan, short instructions and last time; repeats last weight (list mode)', async () => {
+    await db.settings.put({ key: 'session.viewMode', value: 'list' })
     renderRoute('/workouts/session/cur')
     expect((await screen.findByText('80 кг × 5, 5, 5')).closest('p')).toHaveTextContent('Прошлый раз: 80 кг × 5, 5, 5')
     expect(screen.getByText(/План: 3 × 5/)).toBeInTheDocument()
@@ -57,7 +58,8 @@ describe('SessionPage', () => {
     expect(s?.exercises[0].sets.map((x) => x.weightKg)).toEqual([80, 80, 80])
   })
 
-  it('logs a set, starts the rest timer, adds/removes sets and finishes with a summary', async () => {
+  it.each(['list', 'guided'] as const)('logs a set, starts the rest timer, adds/removes sets and finishes with a summary (%s mode)', async (mode) => {
+    await db.settings.put({ key: 'session.viewMode', value: mode })
     renderRoute('/workouts/session/cur')
     await screen.findByLabelText('Вес, подход 1')
     // weight stepper step 2.5
@@ -89,7 +91,8 @@ describe('SessionPage', () => {
     expect(screen.queryByRole('timer')).not.toBeInTheDocument()
   })
 
-  it('adds an exercise from the library and removes one with confirmation', async () => {
+  it('adds an exercise from the library and removes one with confirmation (list mode)', async () => {
+    await db.settings.put({ key: 'session.viewMode', value: 'list' })
     renderRoute('/workouts/session/cur')
     fireEvent.click(await screen.findByRole('button', { name: 'Добавить упражнение' }))
     const sheet = await screen.findByRole('dialog', { name: 'Добавить упражнение' })
