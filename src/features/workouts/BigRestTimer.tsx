@@ -27,8 +27,14 @@ export function BigRestTimer({
   onDone,
   onElapsed,
   onPreset,
+  initialEndsAt,
+  onEndsAtChange,
 }: {
   durationSec: number
+  /** Resume a rest that is already running (hands-free mode, restore after reload) */
+  initialEndsAt?: number
+  /** Reports the wall-clock end on mount and after «+30 с» */
+  onEndsAtChange?: (endsAt: number) => void
   /** «следующий: подход 3 из 4» */
   label: string
   doneLabel?: string
@@ -40,11 +46,16 @@ export function BigRestTimer({
   onPreset?: (sec: number) => void
 }) {
   const reduce = useReduceMotion()
-  const { remaining, finished, warning, fraction, addTime } = useRestCountdown(durationSec)
+  const { remaining, finished, warning, fraction, addTime, endsAt } = useRestCountdown(durationSec, { initialEndsAt })
   const elapsedRef = useRef(onElapsed)
+  const endsAtRef = useRef(onEndsAtChange)
   useEffect(() => {
     elapsedRef.current = onElapsed
+    endsAtRef.current = onEndsAtChange
   })
+  useEffect(() => {
+    endsAtRef.current?.(endsAt)
+  }, [endsAt])
   useEffect(() => {
     if (finished) elapsedRef.current?.()
   }, [finished])

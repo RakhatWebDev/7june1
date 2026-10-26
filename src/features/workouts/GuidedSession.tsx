@@ -4,20 +4,38 @@ import { AnimatePresence, motion } from 'motion/react'
 import { Button, Card, Confetti, EmptyState, IconBadge } from '../../components/ui'
 import { Icon } from '../../components/icons'
 import { useReduceMotion } from '../../components/ui/helpers'
-import type { Exercise, SessionExercise, WorkoutSession } from '../../db/types'
+import { db } from '../../db'
+import type { Exercise, SessionExercise, SetLog, WorkoutSession } from '../../db/types'
+import { audioReady, cancelSpeech, playTone, primeAudio, speak, warmSpeech } from '../../lib/device'
 import { int, plural } from '../../lib/format'
-import { addSet, removeExercise, updateSet } from './actions'
+import { ACTIVE_REST_KEY, addSet, removeExercise, updateSet } from './actions'
+import { accessoryIncrement } from './autoreg'
+import { BenchView, type BenchNext } from './BenchView'
 import { BigRestTimer } from './BigRestTimer'
-import { doneSetCount, sessionVolume, type PastPerformance } from './calc'
+import { doneSetCount, fmtKg, sessionVolume, type PastPerformance } from './calc'
 import { ConfirmSheet } from './ConfirmSheet'
+import { tapPhrase, type NextSetCue } from './cues'
 import { ExerciseTechniqueSheet } from './ExerciseTechniqueSheet'
 import { finishSetPatch, firstPending, isPending, nextPending, nextUndoneSet } from './guided'
+import {
+  cueForTarget,
+  nextAfter,
+  tapTarget,
+  useRestCues,
+  useSessionWakeLock,
+  type HandsFreeMode,
+  type SetRef,
+} from './handsFree'
 import { planLine } from './labels'
 import { ExerciseHint, LastTimeRow, SetList, TechniqueMedia, TechniqueThumb } from './SessionExerciseCard'
 
 const DEFAULT_REST_SEC = 90
 /** Pause on the «time is up» state before moving on to the next exercise */
 const AUTO_ADVANCE_MS = 1500
+/** Bench view: taps this soon after a set are treated as a double tap and ignored */
+const EARLY_TAP_GUARD_MS = 5000
+/** A stored rest older than this (past its end) is not restored */
+const RESTORE_WINDOW_MS = 60_000
 const EASE_OUT = [0.22, 1, 0.36, 1] as const
 
 interface Rest {
@@ -25,6 +43,42 @@ interface Rest {
   sec: number
   /** Exercise whose set started the rest */
   exIdx: number
+  startedAt: number
+  /** Wall-clock end, reported by the countdown (or restored after a reload) */
+  endsAt?: number
+}
+
+/** The last bench tap: what undo restores and what the corrections edit. */
+interface LastTap extends SetRef {
+  prev: Pick<SetLog, 'done' | 'weightKg' | 'reps'>
+  after: { weightKg: number | null; reps: number | null }
+  prevRest: Rest | null
+  prevFocus: number | null
+}
+
+interface StoredRest {
+  sessionId: string
+  exIdx: number
+  sec: number
+  endsAt: number
+}
+
+function isStoredRest(v: unknown): v is StoredRest {
+  const r = v as Partial<StoredRest> | null
+  return (
+    !!r &&
+    typeof r.sessionId === 'string' &&
+    typeof r.exIdx === 'number' &&
+    typeof r.sec === 'number' &&
+    typeof r.endsAt === 'number'
+  )
+}
+
+/** «82,5 × 6», «12 повт.», «до отказа» */
+function loadText(cue: NextSetCue): string {
+  const reps = cue.reps?.trim().toUpperCase() === 'AMRAP' ? 'до отказа' : cue.reps
+  if (cue.weightKg != null) return reps ? `${fmtKg(cue.weightKg)} × ${reps}` : `${fmtKg(cue.weightKg)} кг`
+  return reps ? (reps === 'до отказа' ? reps : `${reps} повт.`) : ''
 }
 
 /**
@@ -40,6 +94,7 @@ export function GuidedSession({
   onReplace,
   onAddExercise,
   onFinish,
+  mode = 'off',
 }: {
   session: WorkoutSession
   /** Last performance per exercise index */
@@ -49,6 +104,8 @@ export function GuidedSession({
   onReplace: (exIdx: number) => void
   onAddExercise: () => void
   onFinish: () => void
+  /** Hands-free («скамья») mode; 'off' keeps the classic card */
+  mode?: HandsFreeMode
 }) {
   const reduce = useReduceMotion()
   const exs = session.exercises
@@ -62,6 +119,58 @@ export function GuidedSession({
   const [celebrate, setCelebrate] = useState<{ exIdx: number; key: number } | null>(null)
   const [elapsed, setElapsed] = useState(false)
   const [removeIdx, setRemoveIdx] = useState<number | null>(null)
+  /** «Карточка» pressed in this hands-free mode → classic card until the mode changes */
+  const [cardViewFor, setCardViewFor] = useState<HandsFreeMode | null>(null)
+  const [lastTap, setLastTap] = useState<LastTap | null>(null)
+  /** Rest tones already played, `${restKey}:${cue}` */
+  const [playedCues] = useState(() => new Set<string>())
+  const [restored, setRestored] = useState(false)
+  const bench = mode !== 'off' && cardViewFor !== mode
+  const wake = useSessionWakeLock(mode !== 'off')
+  useRestCues({
+    restKey: rest?.key ?? null,
+    endsAt: rest?.endsAt ?? null,
+    totalSec: rest?.sec ?? 0,
+    mode,
+    played: playedCues,
+  })
+
+  // A rest survives a reload, a list ↔ guided switch or a trip to «Подробнее».
+  useEffect(() => {
+    let alive = true
+    void db.settings.get(ACTIVE_REST_KEY).then((row) => {
+      if (!alive) return
+      const v = row?.value
+      if (
+        isStoredRest(v) &&
+        v.sessionId === session.id &&
+        v.exIdx < session.exercises.length &&
+        Date.now() <= v.endsAt + RESTORE_WINDOW_MS
+      ) {
+        setFocus(v.exIdx)
+        setRest((r) => r ?? { key: Date.now(), sec: v.sec, exIdx: v.exIdx, startedAt: v.endsAt - v.sec * 1000, endsAt: v.endsAt })
+      }
+      setRestored(true)
+    })
+    return () => {
+      alive = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per mounted session
+  }, [session.id])
+
+  // Single writer of the stored rest: mirrors `rest` (and deletes it when there is no rest).
+  useEffect(() => {
+    if (!restored) return
+    if (rest?.endsAt != null)
+      void db.settings.put({
+        key: ACTIVE_REST_KEY,
+        value: { sessionId: session.id, exIdx: rest.exIdx, sec: rest.sec, endsAt: rest.endsAt } satisfies StoredRest,
+      })
+    else if (!rest) void db.settings.delete(ACTIVE_REST_KEY)
+  }, [restored, rest, session.id])
+
+  const reportEndsAt = (key: number, endsAt: number) =>
+    setRest((r) => (r && r.key === key && r.endsAt !== endsAt ? { ...r, endsAt } : r))
 
   const pending = firstPending(exs)
   const cur: number | 'done' = focus != null && focus < exs.length ? focus : pending >= 0 ? pending : 'done'
@@ -111,7 +220,64 @@ export function GuidedSession({
     const last = !ex.sets.some((s, i) => i !== setIdx && !s.done)
     if (last) setCelebrate({ exIdx, key: Date.now() })
     setElapsed(false)
-    setRest({ key: Date.now(), sec: restChoice ?? ex.restSec ?? DEFAULT_REST_SEC, exIdx })
+    const now = Date.now()
+    setRest({ key: now, sec: restChoice ?? ex.restSec ?? DEFAULT_REST_SEC, exIdx, startedAt: now })
+  }
+
+  /** Bench tap: the next set by plan, a confirmation tone and (voice) the phrase — all inside the gesture. */
+  const benchTap = () => {
+    if (rest && Date.now() - rest.startedAt < EARLY_TAP_GUARD_MS) return
+    const from = cur === 'done' ? 0 : cur
+    const target = tapTarget(exs, from)
+    if (!target) return
+    const ex = exs[target.exIdx]
+    const set = ex.sets[target.setIdx]
+    const patch = finishSetPatch(ex, target.setIdx, lasts[target.exIdx] ?? null)
+    setLastTap({
+      ...target,
+      prev: { done: set.done, weightKg: set.weightKg, reps: set.reps },
+      after: { weightKg: patch.weightKg ?? set.weightKg ?? null, reps: patch.reps ?? set.reps ?? null },
+      prevRest: rest,
+      prevFocus: focus,
+    })
+    playTone('confirm')
+    if (mode === 'voice') {
+      const next = cueForTarget(exs, nextAfter(exs, target.exIdx, target.setIdx), lasts, target.exIdx)
+      speak(tapPhrase({ restSec: restChoice ?? ex.restSec ?? DEFAULT_REST_SEC, next }))
+    }
+    if (target.exIdx !== from) setDir(1)
+    onSetDone(target.exIdx, target.setIdx)
+    void updateSet(session.id, target.exIdx, target.setIdx, patch)
+  }
+
+  /** Undo the last bench tap: the set as it was and the previous rest (if the tap was early). */
+  const undoLastTap = () => {
+    if (!lastTap) return
+    cancelSpeech()
+    void updateSet(session.id, lastTap.exIdx, lastTap.setIdx, lastTap.prev)
+    setCelebrate(null)
+    setElapsed(false)
+    setRest(lastTap.prevRest)
+    setFocus(lastTap.prevFocus)
+    setLastTap(null)
+  }
+
+  /** ±1 rep / ± one weight step on the just-finished set. */
+  const adjustLastTap = (kind: 'reps' | 'weight', delta: 1 | -1) => {
+    if (!lastTap) return
+    const ex = exs[lastTap.exIdx]
+    if (!ex) return
+    if (kind === 'reps') {
+      const reps = Math.max(0, (lastTap.after.reps ?? 0) + delta)
+      setLastTap({ ...lastTap, after: { ...lastTap.after, reps } })
+      void updateSet(session.id, lastTap.exIdx, lastTap.setIdx, { reps })
+      return
+    }
+    if (lastTap.after.weightKg == null) return
+    const step = accessoryIncrement(ex.exerciseId, library.get(ex.exerciseId))
+    const weightKg = Math.max(0, lastTap.after.weightKg + delta * step)
+    setLastTap({ ...lastTap, after: { ...lastTap.after, weightKg } })
+    void updateSet(session.id, lastTap.exIdx, lastTap.setIdx, { weightKg })
   }
 
   const finishSet = (exIdx: number) => {
@@ -186,8 +352,11 @@ export function GuidedSession({
               onPreset={(sec) => {
                 setRestChoice(sec)
                 setElapsed(false)
-                setRest({ ...rest, sec, key: Date.now() })
+                const now = Date.now()
+                setRest({ ...rest, sec, key: now, startedAt: now, endsAt: undefined })
               }}
+              initialEndsAt={rest.endsAt}
+              onEndsAtChange={(endsAt) => reportEndsAt(rest.key, endsAt)}
             />
           ) : null
         }
@@ -196,8 +365,51 @@ export function GuidedSession({
 
   const bodyKey = cur === 'done' ? 'done' : `${cur}-${curEx?.exerciseId}`
 
+  if (bench) {
+    const from = cur === 'done' ? -1 : cur
+    const nextRef = from >= 0 ? tapTarget(exs, from) : null
+    const cue = cueForTarget(exs, nextRef, lasts, from)
+    const benchNext: BenchNext | null =
+      nextRef && cue
+        ? {
+            exerciseName: cue.exerciseName,
+            setLabel: `Подход ${nextRef.setIdx + 1} из ${exs[nextRef.exIdx].sets.length}`,
+            load: loadText(cue),
+          }
+        : null
+    return (
+      <BenchView
+        position={cur === 'done' ? 'Все упражнения выполнены' : `Упражнение ${cur + 1} из ${exs.length}`}
+        next={benchNext}
+        rest={rest}
+        mode={mode}
+        wake={wake}
+        audioOff={!audioReady()}
+        undoLabel={rest && lastTap ? `Отменить подход ${lastTap.setIdx + 1}` : null}
+        adjust={rest && lastTap ? { canWeight: lastTap.after.weightKg != null } : null}
+        onTap={benchTap}
+        onUndo={undoLastTap}
+        onAdjust={adjustLastTap}
+        onSkipRest={endRest}
+        onElapsed={() => setElapsed(true)}
+        onEndsAtChange={reportEndsAt}
+        onCard={() => setCardViewFor(mode)}
+        onFinishSession={onFinish}
+        onPrime={() => {
+          primeAudio()
+          warmSpeech()
+        }}
+      />
+    )
+  }
+
   return (
     <>
+      {mode !== 'off' && (
+        <Button variant="secondary" size="sm" className="mb-3 w-full" onClick={() => setCardViewFor(null)}>
+          Вид скамьи
+        </Button>
+      )}
       <ProgressStrip exercises={exs} current={cur} onGo={(i) => goTo(i, cur === 'done' || i > cur ? 1 : -1)} />
       {reduce ? (
         <div key={bodyKey}>{body}</div>

@@ -16,12 +16,12 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../../db'
 import type { WorkoutSession } from '../../db/types'
 import { int, plural } from '../../lib/format'
-import { addExercise, finishSession, removeExercise, setHideMedia, setViewMode } from './actions'
+import { addExercise, finishSession, removeExercise, setHandsFree, setHideMedia, setViewMode } from './actions'
 import { formatClock, lastPerformance, newRecords, occurrenceIndex, sessionVolume } from './calc'
 import { ConfirmSheet } from './ConfirmSheet'
 import { ExercisePickerSheet } from './ExercisePickerSheet'
 import { GuidedSession } from './GuidedSession'
-import { useExerciseMap, useHideMedia, useNow, useSession, useSessions, useViewMode } from './hooks'
+import { useExerciseMap, useHandsFree, useHideMedia, useNow, useSession, useSessions, useViewMode } from './hooks'
 import { formatSessionDateTime } from './labels'
 import { ReplaceExerciseSheet } from './ReplaceExerciseSheet'
 import { RestTimer } from './RestTimer'
@@ -59,6 +59,7 @@ function SessionView({ session, allSessions }: { session: WorkoutSession; allSes
   const { map } = useExerciseMap()
   const hideMedia = useHideMedia() ?? false
   const viewMode = useViewMode()
+  const handsFree = useHandsFree()
   const [rest, setRest] = useState<{ sec: number; key: number } | null>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [removeIdx, setRemoveIdx] = useState<number | null>(null)
@@ -162,8 +163,26 @@ function SessionView({ session, allSessions }: { session: WorkoutSession; allSes
           Скрывать технику
         </Chip>
       </div>
+      {guided && (
+        <div className="mb-3 flex items-center gap-2 px-0.5">
+          <span className="shrink-0 text-xs text-muted">Без рук</span>
+          <SegmentedControl
+            aria-label="Режим без рук"
+            size="sm"
+            className="min-w-0 shrink"
+            value={handsFree ?? 'voice'}
+            onChange={(v) => void setHandsFree(v)}
+            options={[
+              { value: 'voice', label: 'Голос' },
+              { value: 'tone', label: 'Тон' },
+              { value: 'screen', label: 'Экран' },
+              { value: 'off', label: 'Выкл' },
+            ]}
+          />
+        </div>
+      )}
 
-      {isActive && viewMode === undefined ? (
+      {isActive && (viewMode === undefined || (guided && handsFree === undefined)) ? (
         <Skeleton className="h-72" rounded="rounded-3xl" />
       ) : guided ? (
         <GuidedSession
@@ -174,6 +193,7 @@ function SessionView({ session, allSessions }: { session: WorkoutSession; allSes
           onReplace={setReplaceIdx}
           onAddExercise={() => setPickerOpen(true)}
           onFinish={() => setConfirmFinish(true)}
+          mode={handsFree ?? 'off'}
         />
       ) : (
         <>

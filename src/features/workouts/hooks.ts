@@ -4,7 +4,15 @@ import { db } from '../../db'
 import type { Exercise, Program } from '../../db/types'
 import { builtInPrograms } from '../../data/programs'
 import { useExercises } from '../../data/exercises'
-import { ACTIVE_PROGRAM_KEY, HIDE_MEDIA_KEY, VIEW_MODE_KEY, findActiveSession, type SessionViewMode } from './actions'
+import {
+  ACTIVE_PROGRAM_KEY,
+  HANDS_FREE_KEY,
+  HIDE_MEDIA_KEY,
+  VIEW_MODE_KEY,
+  findActiveSession,
+  type HandsFreeSetting,
+  type SessionViewMode,
+} from './actions'
 import { buildAliasMap } from './calc'
 
 /** `undefined` while loading, `null` when there is no active session. */
@@ -75,6 +83,16 @@ export function useNow(intervalMs = 1000): Date {
 /** Per-user "hide technique media in sessions" flag; `undefined` while loading. */
 export function useHideMedia(): boolean | undefined {
   return useLiveQuery(async () => (await db.settings.get(HIDE_MEDIA_KEY))?.value === true, [])
+}
+
+const HANDS_FREE_MODES: HandsFreeSetting[] = ['voice', 'tone', 'screen', 'off']
+
+/** Hands-free mode (`session.handsFree`), 'voice' unless set; `undefined` while loading. */
+export function useHandsFree(): HandsFreeSetting | undefined {
+  return useLiveQuery<HandsFreeSetting>(async () => {
+    const v = (await db.settings.get(HANDS_FREE_KEY))?.value
+    return HANDS_FREE_MODES.includes(v as HandsFreeSetting) ? (v as HandsFreeSetting) : 'voice'
+  }, [])
 }
 
 /** Active-session view mode (`session.viewMode`), 'guided' unless set to 'list'; `undefined` while loading. */

@@ -676,6 +676,8 @@ Critical gaps (no test AND no handling AND silent): 0.
 Lane A: device helpers → spike page → timer + hooks → BenchView (shared `workouts/`, sequential). Lane B: spoken phrases (`cues.ts`, pure, independent). Execution: launch A and B; merge B before the BenchView step. Conflict flag: both lanes touch `src/features/workouts/` — B owns only `cues.ts` and its test.
 
 ## Implementation Tasks
+
+> 2026-10-26: owner chose to ship without the on-device spike (decision a50d0c11); default mode `voice`, `AUDIO_SESSION_TYPE = transient`. If voice pauses music, switch «Без рук» to «Тон» in the session toolbar.
 Synthesized from this review's findings. Each task derives from a specific finding above. Run with Claude Code or Codex; checkbox as you ship.
 
 - [x] **T1 (P1, human: ~2h / CC: ~10min)** — device — Move `mind/device.ts` to `src/lib/device.ts` with `speak`/`cancelSpeech`/`warmSpeech`, `playTone`, `audioReady` (running only), wake lock status; migrate mind; add `mind/useCountdown.test.ts`
@@ -690,19 +692,19 @@ Synthesized from this review's findings. Each task derives from a specific findi
   - Surfaced by: R1 (D2), R16
   - Files: src/features/workouts/cues.ts, src/features/workouts/__tests__/cues.test.ts
   - Verify: `npx vitest run src/features/workouts/__tests__/cues.test.ts`
-- [ ] **T4 (P1, human: ~2h / CC: ~10min)** — timer — `useRestCountdown(durationSec, { initialEndsAt? })` + `endsAt`; `handsFree.ts` (`useRestCues` tones by `remaining`, `useSessionWakeLock`)
+- [x] **T4 (P1, human: ~2h / CC: ~10min)** — timer — `useRestCountdown(durationSec, { initialEndsAt? })` + `endsAt`; `handsFree.ts` (`useRestCues` tones by `remaining`, `useSessionWakeLock`)
   - Surfaced by: D1, R2 (D3), R11
   - Files: src/features/workouts/useRestCountdown.ts, src/features/workouts/handsFree.ts, src/features/workouts/__tests__/handsFree.test.ts
   - Verify: RestTimer.test.tsx unchanged and green; new tone/catch-up tests
-- [ ] **T5 (P1, human: ~4h / CC: ~20min)** — bench — BenchView overlay (z 30–50, static), tap via `click` + confirmation tone, early tap D4, undo R9, controls with `accessoryIncrement`, banners
+- [x] **T5 (P1, human: ~4h / CC: ~20min)** — bench — BenchView overlay (z 30–50, static), tap via `click` + confirmation tone, early tap D4, undo R9, controls with `accessoryIncrement`, banners
   - Surfaced by: R3 (D4), R5 (D6), R9, R10, R13, R16
   - Files: src/features/workouts/BenchView.tsx, src/features/workouts/__tests__/BenchView.test.tsx
   - Verify: BenchView render tests per the Test Plan Artifact
-- [ ] **T6 (P1, human: ~2h / CC: ~15min)** — guided — GuidedSession: `timer={null}` under the overlay, BenchView `onElapsed` → auto-advance, `session.activeRest` mirror effect + restore; BigRestTimer optional `initialEndsAt`/`onEndsAtChange`
+- [x] **T6 (P1, human: ~2h / CC: ~15min)** — guided — GuidedSession: `timer={null}` under the overlay, BenchView `onElapsed` → auto-advance, `session.activeRest` mirror effect + restore; BigRestTimer optional `initialEndsAt`/`onEndsAtChange`
   - Surfaced by: R2 (D3), R6, R12
   - Files: src/features/workouts/GuidedSession.tsx, src/features/workouts/BigRestTimer.tsx
   - Verify: GuidedSession.test.tsx green with `session.handsFree='off'`; new restore and «Карточка» tests
-- [ ] **T7 (P1, human: ~1h / CC: ~5min)** — session — `session.handsFree` setting hook + SessionPage toggle + skeleton; seed `'off'` in existing GuidedSession/SessionPage tests
+- [x] **T7 (P1, human: ~1h / CC: ~5min)** — session — `session.handsFree` setting hook + SessionPage toggle + skeleton; seed `'off'` in existing GuidedSession/SessionPage tests
   - Surfaced by: R4 (D5), R16, settings-key correction
   - Files: src/features/workouts/hooks.ts, src/features/workouts/SessionPage.tsx, src/features/workouts/__tests__/GuidedSession.test.tsx, src/features/workouts/__tests__/SessionPage.test.tsx
   - Verify: `npm run check`
