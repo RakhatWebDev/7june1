@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useReducer } from 'react'
-import { requestWakeLock } from './device'
+import { requestWakeLock } from '../../lib/device'
 import { initTimer, isRunning, timerReducer } from './timer'
 
 /**
@@ -20,9 +20,9 @@ export function useCountdown(totalMs: number, intervalMs = 250) {
     if (!running) return
     let release: (() => void) | null = null
     let cancelled = false
-    void requestWakeLock().then((r) => {
-      if (cancelled) r()
-      else release = r
+    void requestWakeLock().then((lock) => {
+      if (cancelled) lock.release()
+      else release = lock.release
     })
     return () => {
       cancelled = true

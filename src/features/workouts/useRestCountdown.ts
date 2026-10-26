@@ -10,15 +10,18 @@ export interface RestCountdown {
   fraction: number
   /** Adds 30 s (from now if already finished) */
   addTime: () => void
+  /** Wall-clock end of the rest (ms), moved by `addTime` */
+  endsAt: number
 }
 
 /**
  * Shared rest-timer logic: a wall-clock based countdown (robust to throttled intervals), `+30 с`,
  * and a single vibration when it reaches zero. Remount the owner (new `key`) to restart.
+ * `initialEndsAt` resumes a stored rest (e.g. after a reload) instead of starting `durationSec` anew.
  */
-export function useRestCountdown(durationSec: number): RestCountdown {
-  const [startedAt] = useState(() => Date.now())
-  const [endsAt, setEndsAt] = useState(() => Date.now() + durationSec * 1000)
+export function useRestCountdown(durationSec: number, opts: { initialEndsAt?: number } = {}): RestCountdown {
+  const [endsAt, setEndsAt] = useState(() => opts.initialEndsAt ?? Date.now() + durationSec * 1000)
+  const [startedAt] = useState(() => Math.min(Date.now(), endsAt - durationSec * 1000))
   const [now, setNow] = useState(() => Date.now())
   const remaining = Math.max(0, Math.ceil((endsAt - now) / 1000))
   const finished = remaining === 0
@@ -48,5 +51,5 @@ export function useRestCountdown(durationSec: number): RestCountdown {
     setNow(t)
   }
 
-  return { remaining, finished, warning, fraction, addTime }
+  return { remaining, finished, warning, fraction, addTime, endsAt }
 }

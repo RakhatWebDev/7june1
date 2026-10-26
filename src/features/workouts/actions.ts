@@ -24,6 +24,11 @@ export const HIDE_MEDIA_KEY = 'session.hideMedia'
 /** How an active session is shown: one exercise at a time ('guided', default) or all at once ('list'). */
 export const VIEW_MODE_KEY = 'session.viewMode'
 export type SessionViewMode = 'guided' | 'list'
+/** Hands-free («скамья») mode of the guided session: 'voice' (default) | 'tone' | 'screen' | 'off'. */
+export const HANDS_FREE_KEY = 'session.handsFree'
+/** The running rest of the active guided session, `{ sessionId, exIdx, sec, endsAt }`, restored after a reload. */
+export const ACTIVE_REST_KEY = 'session.activeRest'
+export type HandsFreeSetting = 'voice' | 'tone' | 'screen' | 'off'
 
 /** The unfinished session (no `finishedAt`), newest first. At most one should exist. */
 export async function findActiveSession(database: FormaDB = defaultDb): Promise<WorkoutSession | undefined> {
@@ -343,4 +348,8 @@ export function setHideMedia(hidden: boolean, database: FormaDB = defaultDb) {
 
 export function setViewMode(mode: SessionViewMode, database: FormaDB = defaultDb) {
   return database.settings.put({ key: VIEW_MODE_KEY, value: mode })
+}
+
+export function setHandsFree(mode: HandsFreeSetting, database: FormaDB = defaultDb) {
+  return database.settings.put({ key: HANDS_FREE_KEY, value: mode })
 }

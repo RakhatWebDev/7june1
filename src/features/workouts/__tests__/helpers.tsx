@@ -47,6 +47,8 @@ export function renderRoute(path: string) {
   return { router, ...utils }
 }
 
+/** Empties every table. Existing tests use the classic guided card, so the hands-free mode is 'off'. */
 export async function clearDb() {
   await Promise.all(db.tables.map((t) => t.clear()))
+  await db.settings.put({ key: 'session.handsFree', value: 'off' })
 }
