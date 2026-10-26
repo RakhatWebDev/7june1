@@ -98,37 +98,48 @@ export function playGong(freq = 528, durationSec = 5): boolean {
 
 export type ToneKind = 'confirm' | 'warn' | 'go'
 
-/** [frequency Hz, start offset s, length s] per beep. */
+/** [frequency Hz, start offset s, length s] per beep. Triangle waves: they cut through music better than sines. */
 const TONES: Record<ToneKind, [number, number, number][]> = {
-  confirm: [[520, 0, 0.08]],
-  warn: [[660, 0, 0.15]],
+  confirm: [[520, 0, 0.12]],
+  warn: [[660, 0, 0.3]],
   go: [
-    [880, 0, 0.15],
-    [880, 0.25, 0.15],
+    [880, 0, 0.3],
+    [880, 0.45, 0.3],
   ],
 }
 
-/** Short beeps for the gym rest timer; false when the context is missing or not running. */
+function beep(c: AudioContext, kind: ToneKind): void {
+  const t0 = c.currentTime
+  for (const [freq, at, len] of TONES[kind]) {
+    const t = t0 + at
+    const osc = c.createOscillator()
+    const g = c.createGain()
+    osc.type = 'triangle'
+    osc.frequency.setValueAtTime(freq, t)
+    g.gain.setValueAtTime(0.0001, t)
+    g.gain.exponentialRampToValueAtTime(0.9, t + 0.01)
+    g.gain.exponentialRampToValueAtTime(0.0001, t + len)
+    osc.connect(g)
+    g.connect(c.destination)
+    osc.start(t)
+    osc.stop(t + len + 0.05)
+  }
+}
+
+/**
+ * Short beeps for the gym rest timer. iOS interrupts the context while speech plays, so a context
+ * that is not running is resumed first and the beep plays once it is. False without Web Audio.
+ */
 export function playTone(kind: ToneKind): boolean {
-  if (!audioReady()) return false
+  if (!audioCtor()) return false
   const c = getContext()
   if (!c) return false
   try {
-    const t0 = c.currentTime
-    for (const [freq, at, len] of TONES[kind]) {
-      const t = t0 + at
-      const osc = c.createOscillator()
-      const g = c.createGain()
-      osc.type = 'sine'
-      osc.frequency.setValueAtTime(freq, t)
-      g.gain.setValueAtTime(0.0001, t)
-      g.gain.exponentialRampToValueAtTime(0.5, t + 0.01)
-      g.gain.exponentialRampToValueAtTime(0.0001, t + len)
-      osc.connect(g)
-      g.connect(c.destination)
-      osc.start(t)
-      osc.stop(t + len + 0.05)
-    }
+    if (c.state === 'running') beep(c, kind)
+    else
+      c.resume()
+        .then(() => beep(c, kind))
+        .catch(() => undefined)
     return true
   } catch {
     return false

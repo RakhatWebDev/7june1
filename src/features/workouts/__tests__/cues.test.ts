@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { sayKg, sayRest, tapPhrase } from '../cues'
+import { restOverPhrase, sayKg, sayRest, tapPhrase } from '../cues'
 
 describe('sayKg', () => {
   it.each([
@@ -104,5 +104,39 @@ describe('tapPhrase', () => {
 
   it('ends the workout when nothing is left', () => {
     expect(tapPhrase({ restSec: 120, next: null })).toBe('Все упражнения выполнены.')
+  })
+
+  it('calls a warm-up set «разминка» without a set number', () => {
+    expect(
+      tapPhrase({
+        restSec: 60,
+        next: { warmup: true, setNo: 2, weightKg: 47.5, reps: '5', last: null },
+      }),
+    ).toBe('Отдых одна минута. Дальше: разминка, сорок семь с половиной на пять.')
+  })
+})
+
+describe('restOverPhrase', () => {
+  it('says the rest is over and the set to do', () => {
+    expect(restOverPhrase({ setNo: 2, weightKg: 85, reps: '5', last: null })).toBe(
+      'Отдых окончен. Подход два, восемьдесят пять на пять.',
+    )
+  })
+
+  it('names another exercise and a warm-up', () => {
+    expect(
+      restOverPhrase({
+        exerciseName: 'Присед',
+        warmup: true,
+        setNo: 1,
+        weightKg: 40,
+        reps: '8',
+        last: null,
+      }),
+    ).toBe('Отдых окончен. Присед, разминка, сорок на восемь.')
+  })
+
+  it('without a next set only says the rest is over', () => {
+    expect(restOverPhrase(null)).toBe('Отдых окончен.')
   })
 })

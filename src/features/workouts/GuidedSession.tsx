@@ -8,13 +8,14 @@ import { db } from '../../db'
 import type { Exercise, SessionExercise, SetLog, WorkoutSession } from '../../db/types'
 import { audioReady, cancelSpeech, playTone, primeAudio, speak, warmSpeech } from '../../lib/device'
 import { int, plural } from '../../lib/format'
-import { ACTIVE_REST_KEY, addSet, removeExercise, updateSet } from './actions'
+import { ACTIVE_REST_KEY, addSet, removeExercise, updateSet, updateWarmup } from './actions'
 import { accessoryIncrement } from './autoreg'
 import { BenchView, type BenchNext } from './BenchView'
 import { BigRestTimer } from './BigRestTimer'
 import { doneSetCount, fmtKg, sessionVolume, type PastPerformance } from './calc'
 import { ConfirmSheet } from './ConfirmSheet'
-import { tapPhrase, type NextSetCue } from './cues'
+import { restOverPhrase, tapPhrase, type NextSetCue } from './cues'
+import { WARMUP_REST_SEC } from './warmups'
 import { ExerciseTechniqueSheet } from './ExerciseTechniqueSheet'
 import { finishSetPatch, firstPending, isPending, nextPending, nextUndoneSet } from './guided'
 import {
@@ -27,7 +28,14 @@ import {
   type SetRef,
 } from './handsFree'
 import { planLine } from './labels'
-import { ExerciseHint, LastTimeRow, SetList, TechniqueMedia, TechniqueThumb } from './SessionExerciseCard'
+import {
+  ExerciseHint,
+  LastTimeRow,
+  SetList,
+  TechniqueMedia,
+  TechniqueThumb,
+  WarmupChips,
+} from './SessionExerciseCard'
 
 const DEFAULT_REST_SEC = 90
 /** Pause on the «time is up» state before moving on to the next exercise */
@@ -77,7 +85,8 @@ function isStoredRest(v: unknown): v is StoredRest {
 /** «82,5 × 6», «12 повт.», «до отказа» */
 function loadText(cue: NextSetCue): string {
   const reps = cue.reps?.trim().toUpperCase() === 'AMRAP' ? 'до отказа' : cue.reps
-  if (cue.weightKg != null) return reps ? `${fmtKg(cue.weightKg)} × ${reps}` : `${fmtKg(cue.weightKg)} кг`
+  if (cue.weightKg != null)
+    return reps ? `${fmtKg(cue.weightKg)} × ${reps}` : `${fmtKg(cue.weightKg)} кг`
   return reps ? (reps === 'до отказа' ? reps : `${reps} повт.`) : ''
 }
 
@@ -127,13 +136,6 @@ export function GuidedSession({
   const [restored, setRestored] = useState(false)
   const bench = mode !== 'off' && cardViewFor !== mode
   const wake = useSessionWakeLock(mode !== 'off')
-  useRestCues({
-    restKey: rest?.key ?? null,
-    endsAt: rest?.endsAt ?? null,
-    totalSec: rest?.sec ?? 0,
-    mode,
-    played: playedCues,
-  })
 
   // A rest survives a reload, a list ↔ guided switch or a trip to «Подробнее».
   useEffect(() => {
@@ -148,7 +150,16 @@ export function GuidedSession({
         Date.now() <= v.endsAt + RESTORE_WINDOW_MS
       ) {
         setFocus(v.exIdx)
-        setRest((r) => r ?? { key: Date.now(), sec: v.sec, exIdx: v.exIdx, startedAt: v.endsAt - v.sec * 1000, endsAt: v.endsAt })
+        setRest(
+          (r) =>
+            r ?? {
+              key: Date.now(),
+              sec: v.sec,
+              exIdx: v.exIdx,
+              startedAt: v.endsAt - v.sec * 1000,
+              endsAt: v.endsAt,
+            },
+        )
       }
       setRestored(true)
     })
@@ -164,7 +175,12 @@ export function GuidedSession({
     if (rest?.endsAt != null)
       void db.settings.put({
         key: ACTIVE_REST_KEY,
-        value: { sessionId: session.id, exIdx: rest.exIdx, sec: rest.sec, endsAt: rest.endsAt } satisfies StoredRest,
+        value: {
+          sessionId: session.id,
+          exIdx: rest.exIdx,
+          sec: rest.sec,
+          endsAt: rest.endsAt,
+        } satisfies StoredRest,
       })
     else if (!rest) void db.settings.delete(ACTIVE_REST_KEY)
   }, [restored, rest, session.id])
@@ -173,8 +189,21 @@ export function GuidedSession({
     setRest((r) => (r && r.key === key && r.endsAt !== endsAt ? { ...r, endsAt } : r))
 
   const pending = firstPending(exs)
-  const cur: number | 'done' = focus != null && focus < exs.length ? focus : pending >= 0 ? pending : 'done'
+  const cur: number | 'done' =
+    focus != null && focus < exs.length ? focus : pending >= 0 ? pending : 'done'
   const curEx = cur === 'done' ? undefined : exs[cur]
+  /** The set a bench tap would record now, and what the voice says about it */
+  const nextRef = cur === 'done' ? null : tapTarget(exs, cur)
+  const nextCueData = cueForTarget(exs, nextRef, lasts, cur === 'done' ? -1 : cur)
+
+  useRestCues({
+    restKey: rest?.key ?? null,
+    endsAt: rest?.endsAt ?? null,
+    totalSec: rest?.sec ?? 0,
+    mode,
+    played: playedCues,
+    goPhrase: restOverPhrase(nextCueData),
+  })
 
   const goTo = (i: number | null, direction: number) => {
     setRest(null)
@@ -228,33 +257,66 @@ export function GuidedSession({
   const benchTap = () => {
     if (rest && Date.now() - rest.startedAt < EARLY_TAP_GUARD_MS) return
     const from = cur === 'done' ? 0 : cur
-    const target = tapTarget(exs, from)
+    const found = tapTarget(exs, from)
+    // The previous tap's write may not be back from IndexedDB yet: never record the same set twice.
+    const stale =
+      found &&
+      lastTap &&
+      found.exIdx === lastTap.exIdx &&
+      found.setIdx === lastTap.setIdx &&
+      !!found.warmup === !!lastTap.warmup
+    const target =
+      stale && lastTap ? nextAfter(exs, lastTap.exIdx, lastTap.setIdx, lastTap.warmup) : found
     if (!target) return
     const ex = exs[target.exIdx]
-    const set = ex.sets[target.setIdx]
-    const patch = finishSetPatch(ex, target.setIdx, lasts[target.exIdx] ?? null)
+    const set = target.warmup ? ex.warmups?.[target.setIdx] : ex.sets[target.setIdx]
+    if (!set) return
+    const patch = target.warmup
+      ? { done: true }
+      : finishSetPatch(ex, target.setIdx, lasts[target.exIdx] ?? null)
+    const restSec = target.warmup ? WARMUP_REST_SEC : (restChoice ?? ex.restSec ?? DEFAULT_REST_SEC)
     setLastTap({
       ...target,
       prev: { done: set.done, weightKg: set.weightKg, reps: set.reps },
-      after: { weightKg: patch.weightKg ?? set.weightKg ?? null, reps: patch.reps ?? set.reps ?? null },
+      after: {
+        weightKg: patch.weightKg ?? set.weightKg ?? null,
+        reps: patch.reps ?? set.reps ?? null,
+      },
       prevRest: rest,
       prevFocus: focus,
     })
     playTone('confirm')
     if (mode === 'voice') {
-      const next = cueForTarget(exs, nextAfter(exs, target.exIdx, target.setIdx), lasts, target.exIdx)
-      speak(tapPhrase({ restSec: restChoice ?? ex.restSec ?? DEFAULT_REST_SEC, next }))
+      const next = cueForTarget(
+        exs,
+        nextAfter(exs, target.exIdx, target.setIdx, target.warmup),
+        lasts,
+        target.exIdx,
+      )
+      speak(tapPhrase({ restSec, next }))
     }
     if (target.exIdx !== from) setDir(1)
+    if (target.warmup) {
+      setFocus(target.exIdx)
+      setElapsed(false)
+      const now = Date.now()
+      setRest({ key: now, sec: restSec, exIdx: target.exIdx, startedAt: now })
+      void updateWarmup(session.id, target.exIdx, target.setIdx, patch)
+      return
+    }
     onSetDone(target.exIdx, target.setIdx)
     void updateSet(session.id, target.exIdx, target.setIdx, patch)
   }
+
+  /** Writes to the set `lastTap` points at (a warm-up or a working set). */
+  const writeLastTap = (tap: LastTap, patch: Partial<SetLog>) =>
+    void (tap.warmup ? updateWarmup : updateSet)(session.id, tap.exIdx, tap.setIdx, patch)
 
   /** Undo the last bench tap: the set as it was and the previous rest (if the tap was early). */
   const undoLastTap = () => {
     if (!lastTap) return
     cancelSpeech()
-    void updateSet(session.id, lastTap.exIdx, lastTap.setIdx, lastTap.prev)
+    writeLastTap(lastTap, lastTap.prev)
     setCelebrate(null)
     setElapsed(false)
     setRest(lastTap.prevRest)
@@ -270,14 +332,14 @@ export function GuidedSession({
     if (kind === 'reps') {
       const reps = Math.max(0, (lastTap.after.reps ?? 0) + delta)
       setLastTap({ ...lastTap, after: { ...lastTap.after, reps } })
-      void updateSet(session.id, lastTap.exIdx, lastTap.setIdx, { reps })
+      writeLastTap(lastTap, { reps })
       return
     }
     if (lastTap.after.weightKg == null) return
     const step = accessoryIncrement(ex.exerciseId, library.get(ex.exerciseId))
     const weightKg = Math.max(0, lastTap.after.weightKg + delta * step)
     setLastTap({ ...lastTap, after: { ...lastTap.after, weightKg } })
-    void updateSet(session.id, lastTap.exIdx, lastTap.setIdx, { weightKg })
+    writeLastTap(lastTap, { weightKg })
   }
 
   const finishSet = (exIdx: number) => {
@@ -301,7 +363,11 @@ export function GuidedSession({
   if (exs.length === 0)
     return (
       <>
-        <EmptyState icon="dumbbell" title="В тренировке нет упражнений" hint="Добавьте упражнение из библиотеки." />
+        <EmptyState
+          icon="dumbbell"
+          title="В тренировке нет упражнений"
+          hint="Добавьте упражнение из библиотеки."
+        />
         <Button variant="secondary" icon="plus" className="mt-4 w-full" onClick={onAddExercise}>
           Добавить упражнение
         </Button>
@@ -366,26 +432,31 @@ export function GuidedSession({
   const bodyKey = cur === 'done' ? 'done' : `${cur}-${curEx?.exerciseId}`
 
   if (bench) {
-    const from = cur === 'done' ? -1 : cur
-    const nextRef = from >= 0 ? tapTarget(exs, from) : null
-    const cue = cueForTarget(exs, nextRef, lasts, from)
     const benchNext: BenchNext | null =
-      nextRef && cue
+      nextRef && nextCueData
         ? {
-            exerciseName: cue.exerciseName,
-            setLabel: `Подход ${nextRef.setIdx + 1} из ${exs[nextRef.exIdx].sets.length}`,
-            load: loadText(cue),
+            exerciseName: nextCueData.exerciseName,
+            setLabel: nextRef.warmup
+              ? `Разминка ${nextRef.setIdx + 1} из ${exs[nextRef.exIdx].warmups?.length ?? 0}`
+              : `Подход ${nextRef.setIdx + 1} из ${exs[nextRef.exIdx].sets.length}`,
+            load: loadText(nextCueData),
           }
         : null
     return (
       <BenchView
-        position={cur === 'done' ? 'Все упражнения выполнены' : `Упражнение ${cur + 1} из ${exs.length}`}
+        position={
+          cur === 'done' ? 'Все упражнения выполнены' : `Упражнение ${cur + 1} из ${exs.length}`
+        }
         next={benchNext}
         rest={rest}
         mode={mode}
         wake={wake}
         audioOff={!audioReady()}
-        undoLabel={rest && lastTap ? `Отменить подход ${lastTap.setIdx + 1}` : null}
+        undoLabel={
+          rest && lastTap
+            ? `Отменить ${lastTap.warmup ? 'разминку' : 'подход'} ${lastTap.setIdx + 1}`
+            : null
+        }
         adjust={rest && lastTap ? { canWeight: lastTap.after.weightKg != null } : null}
         onTap={benchTap}
         onUndo={undoLastTap}
@@ -406,11 +477,20 @@ export function GuidedSession({
   return (
     <>
       {mode !== 'off' && (
-        <Button variant="secondary" size="sm" className="mb-3 w-full" onClick={() => setCardViewFor(null)}>
+        <Button
+          variant="secondary"
+          size="sm"
+          className="mb-3 w-full"
+          onClick={() => setCardViewFor(null)}
+        >
           Вид скамьи
         </Button>
       )}
-      <ProgressStrip exercises={exs} current={cur} onGo={(i) => goTo(i, cur === 'done' || i > cur ? 1 : -1)} />
+      <ProgressStrip
+        exercises={exs}
+        current={cur}
+        onGo={(i) => goTo(i, cur === 'done' || i > cur ? 1 : -1)}
+      />
       {reduce ? (
         <div key={bodyKey}>{body}</div>
       ) : (
@@ -421,7 +501,11 @@ export function GuidedSession({
             variants={{
               enter: (d: number) => ({ opacity: 0, x: d * 48 }),
               center: { opacity: 1, x: 0, transition: { duration: 0.26, ease: EASE_OUT } },
-              exit: (d: number) => ({ opacity: 0, x: d * -48, transition: { duration: 0.16, ease: 'easeIn' } }),
+              exit: (d: number) => ({
+                opacity: 0,
+                x: d * -48,
+                transition: { duration: 0.16, ease: 'easeIn' },
+              }),
             }}
             initial="enter"
             animate="center"
@@ -471,7 +555,10 @@ function ProgressStrip({
         >
           <Icon name="chevron-left" size={20} />
         </button>
-        <p className="flex-1 text-center text-sm font-medium tabular-nums" data-testid="guided-position">
+        <p
+          className="flex-1 text-center text-sm font-medium tabular-nums"
+          data-testid="guided-position"
+        >
           {current === 'done' ? 'Все упражнения выполнены' : `Упражнение ${current + 1} из ${n}`}
         </p>
         <button
@@ -565,7 +652,11 @@ function GuidedExerciseCard({
     >
       <div className="flex items-start gap-3">
         {hideMedia && libraryExercise?.images[0] ? (
-          <TechniqueThumb name={exercise.name} libraryExercise={libraryExercise} onOpen={() => setTechniqueOpen(true)} />
+          <TechniqueThumb
+            name={exercise.name}
+            libraryExercise={libraryExercise}
+            onOpen={() => setTechniqueOpen(true)}
+          />
         ) : (
           <span
             aria-hidden
@@ -590,7 +681,13 @@ function GuidedExerciseCard({
       </div>
 
       <div className="mt-2.5 flex flex-wrap gap-1.5">
-        <Button size="sm" variant="secondary" icon="edit" aria-label={`Заменить: ${exercise.name}`} onClick={onReplace}>
+        <Button
+          size="sm"
+          variant="secondary"
+          icon="edit"
+          aria-label={`Заменить: ${exercise.name}`}
+          onClick={onReplace}
+        >
           Заменить
         </Button>
         <Button
@@ -624,6 +721,7 @@ function GuidedExerciseCard({
 
       {last && <LastTimeRow sessionId={sessionId} exIdx={exIdx} last={last} />}
 
+      <WarmupChips sessionId={sessionId} exIdx={exIdx} exercise={exercise} />
       <SetList
         sessionId={sessionId}
         exIdx={exIdx}

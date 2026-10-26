@@ -44,6 +44,51 @@ describe('nextAfter', () => {
   })
 })
 
+describe('warm-ups', () => {
+  const warm = (done: boolean[]) => done.map((d) => set(40, 8, d, { warmup: true }))
+
+  it('a tap starts with the undone warm-ups of a fresh exercise', () => {
+    expect(tapTarget([ex([false, false], { warmups: warm([true, false]) })], 0)).toEqual({
+      exIdx: 0,
+      setIdx: 1,
+      warmup: true,
+    })
+  })
+
+  it('skips the warm-ups once a working set is done', () => {
+    expect(tapTarget([ex([true, false], { warmups: warm([false]) })], 0)).toEqual({
+      exIdx: 0,
+      setIdx: 1,
+    })
+  })
+
+  it('after the last warm-up comes the first working set', () => {
+    expect(nextAfter([ex([false, false], { warmups: warm([true, false]) })], 0, 1, true)).toEqual({
+      exIdx: 0,
+      setIdx: 0,
+    })
+  })
+
+  it('the next exercise starts with its warm-ups', () => {
+    expect(nextAfter([ex([true, false]), ex([false], { warmups: warm([false]) })], 0, 1)).toEqual({
+      exIdx: 1,
+      setIdx: 0,
+      warmup: true,
+    })
+  })
+
+  it('a warm-up cue has its own load and no history', () => {
+    const e = ex([false], { warmups: [set(40, 8, false, { warmup: true })] })
+    expect(cueForTarget([e], { exIdx: 0, setIdx: 0, warmup: true }, [null], 0)).toEqual({
+      warmup: true,
+      setNo: 1,
+      weightKg: 40,
+      reps: '8',
+      last: null,
+    })
+  })
+})
+
 describe('nextCue', () => {
   const base = { totalSec: 120, warned: false, went: false, overdueMs: 0 }
 
