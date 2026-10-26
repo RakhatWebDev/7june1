@@ -18,7 +18,7 @@ import {
   sequenceMs,
   type BreathPattern,
 } from './breath'
-import { playGong, primeAudio, vibrate } from './device'
+import { playGong, primeAudio, vibrate } from '../../lib/device'
 import { completed, formatClock, sessionMinutes, shouldSave } from './timer'
 import { useCountdown } from './useCountdown'
 
