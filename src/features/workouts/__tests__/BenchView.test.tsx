@@ -15,7 +15,11 @@ vi.mock('../../../lib/device', async (importOriginal) => {
     primeAudio: vi.fn(),
     audioReady: vi.fn(() => true),
     playTone: vi.fn(() => true),
-    requestWakeLock: vi.fn(async () => ({ status: 'on' as const, release: () => {}, onRelease: () => {} })),
+    requestWakeLock: vi.fn(async () => ({
+      status: 'on' as const,
+      release: () => {},
+      onRelease: () => {},
+    })),
   }
 })
 
@@ -28,7 +32,12 @@ beforeEach(async () => {
   vi.mocked(device.playTone).mockClear()
   __setExercisesForTests([
     makeExercise({ id: 'Bench', name: 'Barbell Bench Press' }),
-    makeExercise({ id: 'Row', name: 'Bent Over Barbell Row', primaryMuscles: ['middle back'], force: 'pull' }),
+    makeExercise({
+      id: 'Row',
+      name: 'Bent Over Barbell Row',
+      primaryMuscles: ['middle back'],
+      force: 'pull',
+    }),
   ])
   await clearDb()
   await db.settings.put({ key: 'session.handsFree', value: 'voice' })
@@ -37,7 +46,9 @@ beforeEach(async () => {
       id: 'prev',
       startedAt: '2026-10-01T10:00:00.000Z',
       finishedAt: '2026-10-01T11:00:00.000Z',
-      exercises: [{ exerciseId: 'Row', name: 'Тяга', targetSets: 1, targetReps: '8-12', sets: [set(60, 10)] }],
+      exercises: [
+        { exerciseId: 'Row', name: 'Тяга', targetSets: 1, targetReps: '8-12', sets: [set(60, 10)] },
+      ],
     }),
     makeSession({
       id: 'cur',
@@ -57,7 +68,13 @@ beforeEach(async () => {
           ],
           sets: [set(null, null, false), set(null, null, false)],
         },
-        { exerciseId: 'Row', name: 'Тяга', targetSets: 1, targetReps: '8-12', sets: [set(null, null, false)] },
+        {
+          exerciseId: 'Row',
+          name: 'Тяга',
+          targetSets: 1,
+          targetReps: '8-12',
+          sets: [set(null, null, false)],
+        },
       ],
     }),
   ])
@@ -66,7 +83,8 @@ afterEach(() => vi.useRealTimers())
 
 const current = () => db.sessions.get('cur')
 const bench = () => screen.findByTestId('bench-view')
-const tap = async () => fireEvent.click(within(await bench()).getByRole('button', { name: 'Подход сделан' }))
+const tap = async () =>
+  fireEvent.click(within(await bench()).getByRole('button', { name: 'Подход сделан' }))
 const later = (ms: number) => vi.setSystemTime(Date.now() + ms)
 
 describe('bench view', () => {
@@ -80,10 +98,16 @@ describe('bench view', () => {
 
     await tap()
     await waitFor(async () =>
-      expect((await current())?.exercises[0].sets[0]).toMatchObject({ weightKg: 80, reps: 5, done: true }),
+      expect((await current())?.exercises[0].sets[0]).toMatchObject({
+        weightKg: 80,
+        reps: 5,
+        done: true,
+      }),
     )
     expect(device.playTone).toHaveBeenCalledWith('confirm')
-    expect(device.speak).toHaveBeenCalledWith('Отдых две минуты. Дальше: подход два, восемьдесят пять на три – пять.')
+    expect(device.speak).toHaveBeenCalledWith(
+      'Отдых две минуты. Дальше: подход два, восемьдесят пять на три – пять.',
+    )
     expect(await screen.findByTestId('bench-rest')).toHaveTextContent('2:00')
     expect(screen.queryByTestId('big-rest-timer')).not.toBeInTheDocument()
   })
@@ -92,16 +116,29 @@ describe('bench view', () => {
     renderRoute('/workouts/session/cur')
     await tap()
     await screen.findByTestId('bench-rest')
+    await waitFor(async () => expect((await current())?.exercises[0].sets[0].done).toBe(true))
     await tap()
     expect((await current())?.exercises[0].sets[1].done).toBe(false)
 
     later(6_000)
     await tap()
-    await waitFor(async () => expect((await current())?.exercises[0].sets[1]).toMatchObject({ weightKg: 85, reps: 3, done: true }))
+    await waitFor(async () =>
+      expect((await current())?.exercises[0].sets[1]).toMatchObject({
+        weightKg: 85,
+        reps: 3,
+        done: true,
+      }),
+    )
 
     later(6_000)
     await tap()
-    await waitFor(async () => expect((await current())?.exercises[1].sets[0]).toMatchObject({ weightKg: 60, reps: 10, done: true }))
+    await waitFor(async () =>
+      expect((await current())?.exercises[1].sets[0]).toMatchObject({
+        weightKg: 60,
+        reps: 10,
+        done: true,
+      }),
+    )
     expect(await bench()).toHaveTextContent('Упражнение 2 из 2')
     expect(device.speak).toHaveBeenLastCalledWith('Все упражнения выполнены.')
   })
@@ -109,7 +146,13 @@ describe('bench view', () => {
   it('after the final set a tap records nothing and «Завершить тренировку» opens the confirmation', async () => {
     await db.sessions.update('cur', {
       exercises: [
-        { exerciseId: 'Row', name: 'Тяга', targetSets: 1, targetReps: '8-12', sets: [set(60, 10, true)] },
+        {
+          exerciseId: 'Row',
+          name: 'Тяга',
+          targetSets: 1,
+          targetReps: '8-12',
+          sets: [set(60, 10, true)],
+        },
       ],
     })
     renderRoute('/workouts/session/cur')
@@ -126,7 +169,11 @@ describe('bench view', () => {
     await waitFor(async () => expect((await current())?.exercises[0].sets[0].done).toBe(true))
     fireEvent.click(within(await bench()).getByRole('button', { name: 'Отменить подход 1' }))
     await waitFor(async () =>
-      expect((await current())?.exercises[0].sets[0]).toMatchObject({ weightKg: null, reps: null, done: false }),
+      expect((await current())?.exercises[0].sets[0]).toMatchObject({
+        weightKg: null,
+        reps: null,
+        done: false,
+      }),
     )
     expect(screen.queryByTestId('bench-rest')).not.toBeInTheDocument()
     expect(await bench()).toHaveTextContent('Подход 1 из 2')
@@ -139,7 +186,9 @@ describe('bench view', () => {
     await screen.findByTestId('bench-rest')
     fireEvent.click(within(await bench()).getByRole('button', { name: 'Минус повтор' }))
     fireEvent.click(within(await bench()).getByRole('button', { name: 'Плюс вес' }))
-    await waitFor(async () => expect((await current())?.exercises[0].sets[0]).toMatchObject({ weightKg: 82.5, reps: 4 }))
+    await waitFor(async () =>
+      expect((await current())?.exercises[0].sets[0]).toMatchObject({ weightKg: 82.5, reps: 4 }),
+    )
   })
 
   it('restores a running rest after a reload', async () => {
@@ -164,9 +213,75 @@ describe('bench view', () => {
   })
 
   it('warns when the screen cannot be kept on', async () => {
-    vi.mocked(device.requestWakeLock).mockResolvedValueOnce({ status: 'unsupported', release: () => {}, onRelease: () => {} })
+    vi.mocked(device.requestWakeLock).mockResolvedValueOnce({
+      status: 'unsupported',
+      release: () => {},
+      onRelease: () => {},
+    })
     renderRoute('/workouts/session/cur')
     expect(await within(await bench()).findByText(/Экран может погаснуть/)).toBeInTheDocument()
+  })
+
+  it('goes through the warm-ups first with a 60 s rest and calls them «разминка»', async () => {
+    await db.sessions.update('cur', {
+      exercises: [
+        {
+          exerciseId: 'Bench',
+          name: 'Жим лёжа',
+          targetSets: 1,
+          targetReps: '5',
+          restSec: 120,
+          targets: [{ reps: '5', weightKg: 80 }],
+          warmups: [set(40, 8, false, { warmup: true }), set(60, 5, false, { warmup: true })],
+          sets: [set(null, null, false)],
+        },
+      ],
+    })
+    renderRoute('/workouts/session/cur')
+    const view = await bench()
+    expect(view).toHaveTextContent('Разминка 1 из 2')
+    expect(view).toHaveTextContent('40 × 8')
+    await tap()
+    await waitFor(async () => expect((await current())?.exercises[0].warmups?.[0].done).toBe(true))
+    expect((await current())?.exercises[0].sets[0].done).toBe(false)
+    expect(await screen.findByTestId('bench-rest')).toHaveTextContent('1:00')
+    expect(device.speak).toHaveBeenCalledWith(
+      'Отдых одна минута. Дальше: разминка, шестьдесят на пять.',
+    )
+  })
+
+  it('at the end of a rest plays two tones and, in voice mode, says the next set', async () => {
+    renderRoute('/workouts/session/cur')
+    await tap()
+    await screen.findByTestId('bench-rest')
+    later(121_000)
+    await waitFor(() => expect(device.playTone).toHaveBeenCalledWith('go'))
+    await waitFor(
+      () =>
+        expect(device.speak).toHaveBeenLastCalledWith(
+          'Отдых окончен. Подход два, восемьдесят пять на три – пять.',
+        ),
+      { timeout: 3000 },
+    )
+  })
+
+  it('the classic card shows warm-ups as chips that can be ticked', async () => {
+    await db.settings.put({ key: 'session.handsFree', value: 'off' })
+    await db.sessions.update('cur', {
+      exercises: [
+        {
+          exerciseId: 'Bench',
+          name: 'Жим лёжа',
+          targetSets: 1,
+          targetReps: '5',
+          sets: [set(null, null, false)],
+          warmups: [set(40, 8, false, { warmup: true })],
+        },
+      ],
+    })
+    renderRoute('/workouts/session/cur')
+    fireEvent.click(await screen.findByRole('button', { name: 'Разминка 1: 40 × 8' }))
+    await waitFor(async () => expect((await current())?.exercises[0].warmups?.[0].done).toBe(true))
   })
 
   it('«Карточка» shows the classic card, and the off mode is remembered', async () => {
@@ -175,6 +290,8 @@ describe('bench view', () => {
     expect(await screen.findByRole('button', { name: 'Завершить подход 1' })).toBeInTheDocument()
     expect(screen.queryByTestId('bench-view')).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('radio', { name: 'Выкл' }))
-    await waitFor(async () => expect((await db.settings.get('session.handsFree'))?.value).toBe('off'))
+    await waitFor(async () =>
+      expect((await db.settings.get('session.handsFree'))?.value).toBe('off'),
+    )
   })
 })

@@ -102,7 +102,7 @@ export type ExerciseExtras = (
   e: ProgramExercise,
   prescription: ProgramExerciseWeek,
   index: number,
-) => Partial<Pick<SessionExercise, 'targets' | 'hint'>> | undefined
+) => Partial<Pick<SessionExercise, 'targets' | 'hint' | 'warmups'>> | undefined
 
 /**
  * Builds a new session from a program day: copies the plan (for `week` of a cyclic program) and creates
@@ -132,6 +132,7 @@ export function buildSessionFromDay(
       ...(notes ? { notes } : {}),
       ...(extra.targets ? { targets: extra.targets } : {}),
       ...(extra.hint ? { hint: extra.hint } : {}),
+      ...(extra.warmups?.length ? { warmups: extra.warmups } : {}),
     })
   })
   return {
@@ -194,7 +195,9 @@ export function formatPerformance(sets: { weightKg: number; reps: number }[]): s
     if (last && last.w === s.weightKg) last.reps.push(s.reps)
     else groups.push({ w: s.weightKg, reps: [s.reps] })
   }
-  return groups.map((g) => `${g.w > 0 ? `${fmtKg(g.w)} кг` : 'б/в'} × ${g.reps.join(', ')}`).join(' · ')
+  return groups
+    .map((g) => `${g.w > 0 ? `${fmtKg(g.w)} кг` : 'б/в'} × ${g.reps.join(', ')}`)
+    .join(' · ')
 }
 
 /** Which entry (0-based) among same-exercise entries the given index is. */
@@ -264,8 +267,10 @@ export function newRecords(session: WorkoutSession, allSessions: WorkoutSession[
       exerciseId,
       name: session.exercises.find((e) => e.exerciseId === exerciseId)?.name ?? exerciseId,
     }
-    if (best.maxWeightKg > before.maxWeightKg) rec.weightKg = { value: best.maxWeightKg, prev: before.maxWeightKg }
-    if (best.best1RM > before.best1RM + 1e-9) rec.oneRM = { value: best.best1RM, prev: before.best1RM }
+    if (best.maxWeightKg > before.maxWeightKg)
+      rec.weightKg = { value: best.maxWeightKg, prev: before.maxWeightKg }
+    if (best.best1RM > before.best1RM + 1e-9)
+      rec.oneRM = { value: best.best1RM, prev: before.best1RM }
     if (rec.weightKg || rec.oneRM) records.push(rec)
   }
   return records
@@ -279,7 +284,11 @@ export interface ExerciseHistoryItem {
 }
 
 /** Latest `limit` sessions (newest first) in which the exercise has completed working sets. */
-export function exerciseHistory(sessions: WorkoutSession[], exerciseId: string, limit = 10): ExerciseHistoryItem[] {
+export function exerciseHistory(
+  sessions: WorkoutSession[],
+  exerciseId: string,
+  limit = 10,
+): ExerciseHistoryItem[] {
   return [...sessions]
     .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
     .map((s) => ({

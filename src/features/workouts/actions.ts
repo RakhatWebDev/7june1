@@ -13,6 +13,7 @@ import { computeNextTargets } from './autoreg'
 import { applyDayOverrides, getOverrides, REPLACED_NOTE } from './overrides'
 import { buildSessionFromDay, emptySets, isStartableDay } from './calc'
 import { advanceCycle, asCycleState, cycleKey, resolveSchedule, setCycleState } from './schedule'
+import { warmupSets } from './warmups'
 
 /* ------------------------------------------------------------------ */
 /* DB writes for the workouts feature. Every change is persisted       */
@@ -31,7 +32,9 @@ export const ACTIVE_REST_KEY = 'session.activeRest'
 export type HandsFreeSetting = 'voice' | 'tone' | 'screen' | 'off'
 
 /** The unfinished session (no `finishedAt`), newest first. At most one should exist. */
-export async function findActiveSession(database: FormaDB = defaultDb): Promise<WorkoutSession | undefined> {
+export async function findActiveSession(
+  database: FormaDB = defaultDb,
+): Promise<WorkoutSession | undefined> {
   return database.sessions
     .orderBy('startedAt')
     .reverse()
@@ -90,83 +93,95 @@ export async function startSession(
   now: Date = new Date(),
   library?: Map<string, Exercise>,
 ): Promise<string> {
-  return database.transaction('rw', database.sessions, database.programs, database.settings, async () => {
-    const active = await findActiveSession(database)
-    if (active) return active.id
-    const program = await database.programs.get(programId)
-    if (!program) throw new StartSessionError('Программа не найдена')
-    const originalDay = program.days.find((d) => d.id === dayId)
-    if (!originalDay) throw new StartSessionError('День программы не найден')
-    if (!isStartableDay(originalDay)) throw new StartSessionError('Это день отдыха — тренировку начать нельзя')
+  return database.transaction(
+    'rw',
+    database.sessions,
+    database.programs,
+    database.settings,
+    async () => {
+      const active = await findActiveSession(database)
+      if (active) return active.id
+      const program = await database.programs.get(programId)
+      if (!program) throw new StartSessionError('Программа не найдена')
+      const originalDay = program.days.find((d) => d.id === dayId)
+      if (!originalDay) throw new StartSessionError('День программы не найден')
+      if (!isStartableDay(originalDay))
+        throw new StartSessionError('Это день отдыха — тренировку начать нельзя')
 
-    const [cycleSetting, maxesSetting, tmSetting, logSetting] = await Promise.all([
-      database.settings.get(cycleKey(program.id)),
-      database.settings.get(MAXES_KEY),
-      database.settings.get(TRAINING_MAXES_KEY),
-      database.settings.get(TRAINING_MAX_LOG_KEY),
-    ])
-    const schedule = resolveSchedule(program, asCycleState(cycleSetting?.value), now)
-    const week = schedule.prescriptionWeek
-    const maxes = asMaxes(maxesSetting?.value)
-    const trainingMaxes = asMaxes(tmSetting?.value)
-    const log = asTrainingMaxLog(logSetting?.value)
-    const coachNotes = await getNextSessionNotes(database)
-    // «Заменить в программе»: per-program exercise replacements
-    const overrides = await getOverrides(database, program.id)
-    const hasMax = (id: string) => maxes[id] != null || trainingMaxes[id] != null
-    const day = applyDayOverrides(originalDay, overrides[originalDay.id], hasMax)
-    let tmChanged = false
+      const [cycleSetting, maxesSetting, tmSetting, logSetting] = await Promise.all([
+        database.settings.get(cycleKey(program.id)),
+        database.settings.get(MAXES_KEY),
+        database.settings.get(TRAINING_MAXES_KEY),
+        database.settings.get(TRAINING_MAX_LOG_KEY),
+      ])
+      const schedule = resolveSchedule(program, asCycleState(cycleSetting?.value), now)
+      const week = schedule.prescriptionWeek
+      const maxes = asMaxes(maxesSetting?.value)
+      const trainingMaxes = asMaxes(tmSetting?.value)
+      const log = asTrainingMaxLog(logSetting?.value)
+      const coachNotes = await getNextSessionNotes(database)
+      // «Заменить в программе»: per-program exercise replacements
+      const overrides = await getOverrides(database, program.id)
+      const hasMax = (id: string) => maxes[id] != null || trainingMaxes[id] != null
+      const day = applyDayOverrides(originalDay, overrides[originalDay.id], hasMax)
+      let tmChanged = false
 
-    const finished = (await database.sessions.filter((s) => !!s.finishedAt).toArray()).sort((a, b) =>
-      b.startedAt.localeCompare(a.startedAt),
-    )
-    const seen = new Map<string, number>()
+      const finished = (await database.sessions.filter((s) => !!s.finishedAt).toArray()).sort(
+        (a, b) => b.startedAt.localeCompare(a.startedAt),
+      )
+      const seen = new Map<string, number>()
 
-    const session = buildSessionFromDay(program, day, newId(), now, {
-      week,
-      programSession: schedule.sequential ? schedule.completedSessions : undefined,
-      extras: (e, prescription) => {
-        const occurrence = seen.get(e.exerciseId) ?? 0
-        seen.set(e.exerciseId, occurrence + 1)
-        const percent = (prescription.scheme ?? []).some((t) => t.pct != null)
-        const history = recentPerformances(finished, e.exerciseId, {
-          dayId: day.id,
-          occurrence,
-          preferSameDay: !percent,
-        })
-        const liftId = e.maxLiftId ?? e.exerciseId
-        const lastId = history[0]?.sessionId
-        // The same previous session already moved this training max → recompute from the value before it.
-        const applied = percent && !!lastId && log[liftId]?.sessionId === lastId
-        const tmInput = applied ? { ...trainingMaxes, [liftId]: log[liftId].prevKg } : trainingMaxes
-        const r = computeNextTargets({
-          programExercise: e,
-          week,
-          prescription,
-          history: history.map((h) => h.exercise),
-          maxes,
-          trainingMaxes: tmInput,
-          library: library?.get(e.exerciseId),
-        })
-        if (r.trainingMaxUpdate && !applied) {
-          const prev = trainingMaxes[liftId] ?? maxes[liftId]
-          trainingMaxes[liftId] = r.trainingMaxUpdate.kg
-          if (lastId && r.trend !== 'none' && prev != null) log[liftId] = { sessionId: lastId, prevKg: prev }
-          tmChanged = true
-        }
-        // A coach note for this exercise («в следующий раз …») is appended to the auto-regulation hint.
-        const note = coachNotes[e.exerciseId]?.note
-        const hint = [r.hint, note ? `Тренер: ${note}` : ''].filter(Boolean).join(' · ')
-        return { targets: r.targets, hint }
-      },
-    })
-    await database.sessions.add(session)
-    if (tmChanged) {
-      await database.settings.put({ key: TRAINING_MAXES_KEY, value: trainingMaxes })
-      await database.settings.put({ key: TRAINING_MAX_LOG_KEY, value: log })
-    }
-    return session.id
-  })
+      const session = buildSessionFromDay(program, day, newId(), now, {
+        week,
+        programSession: schedule.sequential ? schedule.completedSessions : undefined,
+        extras: (e, prescription) => {
+          const occurrence = seen.get(e.exerciseId) ?? 0
+          seen.set(e.exerciseId, occurrence + 1)
+          const percent = (prescription.scheme ?? []).some((t) => t.pct != null)
+          const history = recentPerformances(finished, e.exerciseId, {
+            dayId: day.id,
+            occurrence,
+            preferSameDay: !percent,
+          })
+          const liftId = e.maxLiftId ?? e.exerciseId
+          const lastId = history[0]?.sessionId
+          // The same previous session already moved this training max → recompute from the value before it.
+          const applied = percent && !!lastId && log[liftId]?.sessionId === lastId
+          const tmInput = applied
+            ? { ...trainingMaxes, [liftId]: log[liftId].prevKg }
+            : trainingMaxes
+          const r = computeNextTargets({
+            programExercise: e,
+            week,
+            prescription,
+            history: history.map((h) => h.exercise),
+            maxes,
+            trainingMaxes: tmInput,
+            library: library?.get(e.exerciseId),
+          })
+          if (r.trainingMaxUpdate && !applied) {
+            const prev = trainingMaxes[liftId] ?? maxes[liftId]
+            trainingMaxes[liftId] = r.trainingMaxUpdate.kg
+            if (lastId && r.trend !== 'none' && prev != null)
+              log[liftId] = { sessionId: lastId, prevKg: prev }
+            tmChanged = true
+          }
+          // A coach note for this exercise («в следующий раз …») is appended to the auto-regulation hint.
+          const note = coachNotes[e.exerciseId]?.note
+          const hint = [r.hint, note ? `Тренер: ${note}` : ''].filter(Boolean).join(' · ')
+          // Core %-of-max lifts get a 40/60/80 % warm-up ramp to the first working weight.
+          const warmups = percent ? warmupSets(r.targets?.[0]?.weightKg ?? 0) : []
+          return { targets: r.targets, hint, warmups }
+        },
+      })
+      await database.sessions.add(session)
+      if (tmChanged) {
+        await database.settings.put({ key: TRAINING_MAXES_KEY, value: trainingMaxes })
+        await database.settings.put({ key: TRAINING_MAX_LOG_KEY, value: log })
+      }
+      return session.id
+    },
+  )
 }
 
 /** Read-modify-write of a session inside a transaction. */
@@ -194,6 +209,24 @@ export function updateSet(
     sessionId,
     (s) => {
       const set = s.exercises[exIdx]?.sets[setIdx]
+      if (set) Object.assign(set, patch)
+    },
+    database,
+  )
+}
+
+/** Same as `updateSet`, for the warm-up set `idx` of exercise `exIdx`. */
+export function updateWarmup(
+  sessionId: string,
+  exIdx: number,
+  idx: number,
+  patch: Partial<SetLog>,
+  database?: FormaDB,
+) {
+  return mutateSession(
+    sessionId,
+    (s) => {
+      const set = s.exercises[exIdx]?.warmups?.[idx]
       if (set) Object.assign(set, patch)
     },
     database,
@@ -262,19 +295,28 @@ export async function replaceExercise(
     const scheme = (ex.targets ?? []).map((t) =>
       keepPct && t.pct != null ? { reps: t.reps, pct: t.pct } : { reps: t.reps },
     )
-    const finished = (await database.sessions.filter((x) => !!x.finishedAt).toArray()).sort((a, b) =>
-      b.startedAt.localeCompare(a.startedAt),
+    const finished = (await database.sessions.filter((x) => !!x.finishedAt).toArray()).sort(
+      (a, b) => b.startedAt.localeCompare(a.startedAt),
     )
-    const history = recentPerformances(finished, next.exerciseId, { dayId: s.programDayId, preferSameDay: !keepPct })
+    const history = recentPerformances(finished, next.exerciseId, {
+      dayId: s.programDayId,
+      preferSameDay: !keepPct,
+    })
     const r = computeNextTargets({
       programExercise: { exerciseId: next.exerciseId, name: next.name },
-      prescription: { sets: ex.targetSets, reps: ex.targetReps, scheme: scheme.length ? scheme : undefined },
+      prescription: {
+        sets: ex.targetSets,
+        reps: ex.targetReps,
+        scheme: scheme.length ? scheme : undefined,
+      },
       history: history.map((h) => h.exercise),
       maxes,
       trainingMaxes,
       library: library?.get(next.exerciseId),
     })
-    const prevNote = ex.notes?.startsWith(REPLACED_NOTE) ? ex.notes.split(' · ')[0] : `${REPLACED_NOTE} ${ex.name}`
+    const prevNote = ex.notes?.startsWith(REPLACED_NOTE)
+      ? ex.notes.split(' · ')[0]
+      : `${REPLACED_NOTE} ${ex.name}`
     s.exercises[exIdx] = {
       exerciseId: next.exerciseId,
       name: next.name,
@@ -295,7 +337,12 @@ export function removeExercise(sessionId: string, exIdx: number, database?: Form
 }
 
 /** Fills weights of not-yet-done sets from a previous performance (by set index, else last weight). */
-export function applyPreviousWeights(sessionId: string, exIdx: number, weights: number[], database?: FormaDB) {
+export function applyPreviousWeights(
+  sessionId: string,
+  exIdx: number,
+  weights: number[],
+  database?: FormaDB,
+) {
   return mutateSession(
     sessionId,
     (s) => {
@@ -315,23 +362,30 @@ export function applyPreviousWeights(sessionId: string, exIdx: number, weights: 
  * rotation (`nextDayIndex`, and the week on wrap). Consumed coach notes are cleared.
  */
 export function finishSession(id: string, database: FormaDB = defaultDb, now: Date = new Date()) {
-  return database.transaction('rw', database.sessions, database.programs, database.settings, async () => {
-    const s = await database.sessions.get(id)
-    if (!s) return
-    const firstFinish = !s.finishedAt
-    await database.sessions.update(id, { finishedAt: now.toISOString() })
-    if (!firstFinish) return
-    // Coach notes shown in this session are consumed (notes written during the session stay for the next one).
-    const notes = await getNextSessionNotes(database)
-    for (const id of new Set(s.exercises.map((e) => e.exerciseId)))
-      if (notes[id] && notes[id].createdAt <= s.startedAt) await clearNextSessionNote(database, id)
-    if (!s.programId) return
-    const program = await database.programs.get(s.programId)
-    if (!program) return
-    const stored = asCycleState((await database.settings.get(cycleKey(program.id)))?.value)
-    const next = advanceCycle(program, stored, s.programDayId, now)
-    if (next) await setCycleState(database, program.id, next)
-  })
+  return database.transaction(
+    'rw',
+    database.sessions,
+    database.programs,
+    database.settings,
+    async () => {
+      const s = await database.sessions.get(id)
+      if (!s) return
+      const firstFinish = !s.finishedAt
+      await database.sessions.update(id, { finishedAt: now.toISOString() })
+      if (!firstFinish) return
+      // Coach notes shown in this session are consumed (notes written during the session stay for the next one).
+      const notes = await getNextSessionNotes(database)
+      for (const id of new Set(s.exercises.map((e) => e.exerciseId)))
+        if (notes[id] && notes[id].createdAt <= s.startedAt)
+          await clearNextSessionNote(database, id)
+      if (!s.programId) return
+      const program = await database.programs.get(s.programId)
+      if (!program) return
+      const stored = asCycleState((await database.settings.get(cycleKey(program.id)))?.value)
+      const next = advanceCycle(program, stored, s.programDayId, now)
+      if (next) await setCycleState(database, program.id, next)
+    },
+  )
 }
 
 export function deleteSession(id: string, database: FormaDB = defaultDb) {

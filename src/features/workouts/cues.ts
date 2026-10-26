@@ -123,6 +123,8 @@ const isAmrap = (reps: string | null) => !!reps && reps.trim().toUpperCase() ===
 export interface NextSetCue {
   /** Set only when the next set starts another exercise */
   exerciseName?: string
+  /** A warm-up set: said as «разминка» without a set number */
+  warmup?: boolean
   /** 1-based */
   setNo: number
   weightKg: number | null
@@ -152,17 +154,31 @@ function lastPart(last: NextSetCue['last']): string | null {
  * The phrase spoken at the completion tap: the rest and the next set.
  * «Отдых две минуты. Дальше: подход три, восемьдесят два с половиной на шесть. В прошлый раз …»
  */
-export function tapPhrase({ restSec, next }: { restSec: number; next: NextSetCue | null }): string {
-  if (!next) return 'Все упражнения выполнены.'
-  const head = [
+/** «Тяга, подход один, пятьдесят пять на десять» / «разминка, сорок на восемь» */
+function setHead(next: NextSetCue): string {
+  return [
     next.exerciseName,
-    `подход ${words(next.setNo)}`,
+    next.warmup ? 'разминка' : `подход ${words(next.setNo)}`,
     loadPart(next.weightKg, next.reps),
   ]
     .filter(Boolean)
     .join(', ')
-  const sentences = [`Отдых ${sayRest(restSec)}.`, `Дальше: ${head}.`]
+}
+
+export function tapPhrase({ restSec, next }: { restSec: number; next: NextSetCue | null }): string {
+  if (!next) return 'Все упражнения выполнены.'
+  const sentences = [`Отдых ${sayRest(restSec)}.`, `Дальше: ${setHead(next)}.`]
   const last = lastPart(next.last)
   if (last) sentences.push(`В прошлый раз ${last}.`)
   return sentences.join(' ')
+}
+
+/**
+ * Said when a rest runs out (voice mode). It fires from a timer, which iOS may refuse to speak —
+ * then only the tones are heard. «Отдых окончен. Подход два, восемьдесят пять на пять.»
+ */
+export function restOverPhrase(next: NextSetCue | null): string {
+  if (!next) return 'Отдых окончен.'
+  const head = setHead(next)
+  return `Отдых окончен. ${head.charAt(0).toUpperCase()}${head.slice(1)}.`
 }

@@ -165,6 +165,11 @@ export interface SessionExercise {
   targets?: { reps: string; weightKg?: number; pct?: number }[]
   /** Hint text for this exercise, e.g. "+2.5 кг" from the coach or the program notes */
   hint?: string
+  /**
+   * Warm-up sets before the first working set (core %-of-max lifts). Kept apart from `sets` so set
+   * indices, `targets`, volume, PRs and auto-regulation stay about working sets only.
+   */
+  warmups?: SetLog[]
 }
 
 export interface WorkoutSession {
@@ -184,15 +189,7 @@ export interface WorkoutSession {
   feeling?: number
 }
 
-export type ActivityType =
-  | 'run'
-  | 'bike'
-  | 'swim'
-  | 'rope'
-  | 'walk'
-  | 'stretch'
-  | 'hiit'
-  | 'other'
+export type ActivityType = 'run' | 'bike' | 'swim' | 'rope' | 'walk' | 'stretch' | 'hiit' | 'other'
 
 export interface Activity {
   id: string
@@ -463,13 +460,7 @@ export interface MindSession {
 /* ------------------------------ Goals & weekly review ------------------------------ */
 
 export type LifeArea =
-  | 'body'
-  | 'mind'
-  | 'finance'
-  | 'career'
-  | 'relationships'
-  | 'spirit'
-  | 'learning'
+  'body' | 'mind' | 'finance' | 'career' | 'relationships' | 'spirit' | 'learning'
 
 export interface KeyResult {
   id: string

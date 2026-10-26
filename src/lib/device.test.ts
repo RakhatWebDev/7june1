@@ -40,15 +40,19 @@ class FakeAudioContext {
   }
   resume() {
     resumeCalls++
+    if (resumeFails) return Promise.reject(new Error('InvalidStateError'))
     contextState = 'running'
     return Promise.resolve()
   }
 }
 
+let resumeFails = false
+
 beforeEach(() => {
   frequencies.length = 0
   contextState = 'running'
   resumeCalls = 0
+  resumeFails = false
 })
 afterEach(() => vi.unstubAllGlobals())
 
@@ -127,11 +131,25 @@ describe('audio', () => {
     expect(frequencies.filter((f) => f === 520)).toHaveLength(1)
   })
 
-  it('does not play into a context that is not running', async () => {
+  it('resumes an interrupted context before playing (iOS interrupts it while speech plays)', async () => {
     vi.stubGlobal('AudioContext', FakeAudioContext)
     const { playTone } = await load()
     contextState = 'interrupted'
-    expect(playTone('go')).toBe(false)
+    expect(playTone('go')).toBe(true)
+    expect(resumeCalls).toBe(1)
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(frequencies.filter((f) => f === 880)).toHaveLength(2)
+  })
+
+  it('stays silent when the context cannot be resumed', async () => {
+    vi.stubGlobal('AudioContext', FakeAudioContext)
+    const { playTone } = await load()
+    contextState = 'interrupted'
+    resumeFails = true
+    playTone('go')
+    await Promise.resolve()
+    await Promise.resolve()
     expect(frequencies).toHaveLength(0)
   })
 })

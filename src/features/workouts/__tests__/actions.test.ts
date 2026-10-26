@@ -37,7 +37,9 @@ describe('startSession', () => {
     expect(s.finishedAt).toBeUndefined()
     expect(s.exercises).toHaveLength(day.exercises.length)
     expect(s.exercises.map((e) => e.sets.length)).toEqual(day.exercises.map((e) => e.sets))
-    expect(s.exercises.flatMap((e) => e.sets).length).toBe(day.exercises.reduce((a, e) => a + e.sets, 0))
+    expect(s.exercises.flatMap((e) => e.sets).length).toBe(
+      day.exercises.reduce((a, e) => a + e.sets, 0),
+    )
   })
 
   it('does not create a second session while one is active', async () => {
@@ -93,7 +95,8 @@ describe('session edits', () => {
 
 describe('startSession — cyclic programs and auto-regulation', () => {
   const P1 = 'david-laid-program-1'
-  const tms = async () => ((await database.settings.get('lifts.trainingMaxes'))?.value ?? {}) as Record<string, number>
+  const tms = async () =>
+    ((await database.settings.get('lifts.trainingMaxes'))?.value ?? {}) as Record<string, number>
 
   it('resolves per-set targets from % × max and stores the program week and session index', async () => {
     const id = await startSession(P1, 'p1-legs', database)
@@ -114,6 +117,18 @@ describe('startSession — cyclic programs and auto-regulation', () => {
     expect(s.exercises[1].targets).toEqual([{ reps: '10' }, { reps: '10' }, { reps: '10' }])
     // the training max is seeded from the tested max
     expect((await tms()).Barbell_Squat).toBe(60)
+  })
+
+  it('adds a warm-up ramp to core %-of-max lifts only, apart from the working sets', async () => {
+    const id = await startSession(P1, 'p1-legs', database)
+    const s = (await database.sessions.get(id))!
+    // first working target 35 kg → 40 % → 20 kg (empty bar), 60 % → 20 (repeat, dropped), 80 % → 27.5
+    expect(s.exercises[0].warmups).toEqual([
+      { weightKg: 20, reps: 8, done: false, warmup: true },
+      { weightKg: 27.5, reps: 3, done: false, warmup: true },
+    ])
+    expect(s.exercises[0].sets).toHaveLength(3)
+    expect(s.exercises[1].warmups).toBeUndefined()
   })
 
   it('uses the program-week prescription and skips exercises that are off this week', async () => {
@@ -167,7 +182,9 @@ describe('startSession — cyclic programs and auto-regulation', () => {
     })
     const id = await startSession(P1, 'p1-legs', database, new Date('2026-10-05T09:00:00'))
     const s = (await database.sessions.get(id))!
-    expect(s.exercises.find((e) => e.exerciseId === 'Leg_Press')?.hint).toBe('Тренер: ноги ниже на платформе')
+    expect(s.exercises.find((e) => e.exerciseId === 'Leg_Press')?.hint).toBe(
+      'Тренер: ноги ниже на платформе',
+    )
     await finishSession(id, database, new Date('2026-10-05T10:00:00'))
     expect((await database.settings.get('coach.nextNotes'))?.value).toEqual({})
   })
@@ -182,10 +199,18 @@ describe('startSession — test week', () => {
     const id = await startSession('david-laid-program-1', 'p1-legs', database)
     const s = (await database.sessions.get(id))!
     expect(s.programWeek).toBe(8)
-    expect(s.exercises[0]).toMatchObject({ exerciseId: 'Barbell_Squat', targetSets: 1, targetReps: '1' })
+    expect(s.exercises[0]).toMatchObject({
+      exerciseId: 'Barbell_Squat',
+      targetSets: 1,
+      targetReps: '1',
+    })
     expect(s.exercises[0].targets).toEqual([{ reps: '1', pct: 1, weightKg: 60 }])
     expect(s.exercises[0].notes).toContain('тестовая неделя')
-    expect(s.exercises[1]).toMatchObject({ exerciseId: 'Leg_Press', targetSets: 2, targetReps: '10' })
+    expect(s.exercises[1]).toMatchObject({
+      exerciseId: 'Leg_Press',
+      targetSets: 2,
+      targetReps: '10',
+    })
   })
 })
 
@@ -197,7 +222,10 @@ describe('replacing exercises', () => {
     await updateSet(id, 0, 0, { weightKg: 35, reps: 10, done: true }, database)
     const before = (await database.sessions.get(id))!.exercises[0]
     // Sumo has its own max → the %-targets are kept against it
-    await database.settings.put({ key: 'lifts.maxes', value: { Barbell_Squat: 60, Sumo_Deadlift: 100 } })
+    await database.settings.put({
+      key: 'lifts.maxes',
+      value: { Barbell_Squat: 60, Sumo_Deadlift: 100 },
+    })
     await replaceExercise(id, 0, { exerciseId: 'Sumo_Deadlift', name: 'Тяга сумо' }, database)
     let ex = (await database.sessions.get(id))!.exercises[0]
     expect(ex).toMatchObject({
@@ -215,18 +243,30 @@ describe('replacing exercises', () => {
       { reps: '6', pct: 0.8, weightKg: 80 },
     ])
     // Front squat has no max → reps-only targets; the note keeps the very first original
-    await replaceExercise(id, 0, { exerciseId: 'Front_Barbell_Squat', name: 'Фронтальный присед' }, database)
+    await replaceExercise(
+      id,
+      0,
+      { exerciseId: 'Front_Barbell_Squat', name: 'Фронтальный присед' },
+      database,
+    )
     ex = (await database.sessions.get(id))!.exercises[0]
     expect(ex.targets).toEqual([{ reps: '10' }, { reps: '8' }, { reps: '6' }])
     expect(ex.notes).toBe('Замена: Присед')
   })
 
   it('applies a program override when the session starts', async () => {
-    await setOverride(database, P1, 'p1-push-1', 2, { exerciseId: 'Push_Press', name: 'Жимовой швунг' })
+    await setOverride(database, P1, 'p1-push-1', 2, {
+      exerciseId: 'Push_Press',
+      name: 'Жимовой швунг',
+    })
     await setOverride(database, P1, 'p1-legs', 0, { exerciseId: 'Leg_Press', name: 'Жим ногами' })
     const id = await startSession(P1, 'p1-legs', database)
     const s = (await database.sessions.get(id))!
-    expect(s.exercises[0]).toMatchObject({ exerciseId: 'Leg_Press', name: 'Жим ногами', targetReps: '10-8-6' })
+    expect(s.exercises[0]).toMatchObject({
+      exerciseId: 'Leg_Press',
+      name: 'Жим ногами',
+      targetReps: '10-8-6',
+    })
     expect(s.exercises[0].notes).toContain('Замена: Присед')
     expect(s.exercises[0].targets).toEqual([{ reps: '10' }, { reps: '8' }, { reps: '6' }]) // no leg press max
     await setOverride(database, P1, 'p1-legs', 0, null)
